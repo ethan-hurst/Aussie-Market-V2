@@ -1,0 +1,101 @@
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import { deleteFile, STORAGE_BUCKETS } from '$lib/storage';
+import { supabase } from '$lib/supabase';
+
+export const DELETE: RequestHandler = async ({ request, locals }) => {
+	try {
+		// Verify user is authenticated
+		const session = await locals.getSession();
+		if (!session) {
+			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
+
+		const { bucket, path, photoId, listingId } = await request.json();
+
+		if (!bucket || !path) {
+			return json({ error: 'Missing bucket or path' }, { status: 400 });
+		}
+
+		// Validate bucket
+		if (!Object.values(STORAGE_BUCKETS).includes(bucket)) {
+			return json({ error: 'Invalid bucket' }, { status: 400 });
+		}
+
+		// Check permissions based on bucket type
+		switch (bucket) {
+			case STORAGE_BUCKETS.LISTING_PHOTOS:
+				if (!listingId) {
+					return json({ error: 'Missing listingId for listing photo' }, { status: 400 });
+				}
+
+				// Check if user owns the listing
+				const { data: listing } = await supabase
+					.from('listings')
+					.select('seller_id')
+					.eq('id', listingId)
+					.single();
+
+				if (!listing || listing.seller_id !== session.user.id) {
+					return json({ error: 'Unauthorized' }, { status: 403 });
+				}
+
+				// Delete from database if photoId provided
+				if (photoId) {
+					const { error: dbError } = await supabase
+						.from('listing_photos')
+						.delete()
+						.eq('id', photoId)
+						.eq('listing_id', listingId);
+
+					if (dbError) {
+						console.error('Database delete error:', dbError);
+						return json({ error: 'Failed to delete from database' }, { status: 500 });
+					}
+				}
+				break;
+
+			case STORAGE_BUCKETS.EVIDENCE_UPLOADS:
+				// For evidence files, check if user is involved in the dispute
+				// Extract disputeId from path (format: disputeId/userId_filename)
+				const pathParts = path.split('/');
+				if (pathParts.length >= 2) {
+					const disputeId = pathParts[0];
+					const userId = pathParts[1].split('_')[0];
+
+					if (userId !== session.user.id) {
+						const { data: dispute } = await supabase
+							.from('disputes')
+							.select('buyer_id, seller_id')
+							.eq('id', disputeId)
+							.single();
+
+						if (!dispute || (dispute.buyer_id !== session.user.id && dispute.seller_id !== session.user.id)) {
+							return json({ error: 'Unauthorized' }, { status: 403 });
+						}
+					}
+				}
+				break;
+
+			case STORAGE_BUCKETS.PROFILE_AVATARS:
+				// Check if user owns the avatar
+				const pathUserId = path.split('/')[0];
+				if (pathUserId !== session.user.id) {
+					return json({ error: 'Unauthorized' }, { status: 403 });
+				}
+				break;
+
+			default:
+				return json({ error: 'Invalid bucket type' }, { status: 400 });
+		}
+
+		// Delete from storage
+		await deleteFile(bucket, path);
+
+		return json({ success: true });
+
+	} catch (error) {
+		console.error('Delete error:', error);
+		return json({ error: 'Delete failed' }, { status: 500 });
+	}
+};
