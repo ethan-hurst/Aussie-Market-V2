@@ -23,6 +23,7 @@
 
 	let listing: any = null;
 	let auction: any = null;
+	let auctionId: string | null = null;
 	let photos: any[] = [];
 	let currentPhotoIndex = 0;
 	let loading = true;
@@ -74,6 +75,7 @@
 				.single();
 
 			auction = auctionData;
+			auctionId = auctionData?.id || null;
 
 			// Load photos
 			const { data: photosData } = await supabase
@@ -368,10 +370,10 @@
 
 			<!-- Sidebar -->
 			<div class="lg:col-span-1 space-y-6">
-				{#if auction}
+				{#if auction && auctionId}
 					<!-- Live Auction Component -->
 					<LiveAuction
-						{auctionId}
+						auctionId={auctionId}
 						listingEndAt={listing.end_at}
 						currentPriceCents={auction.current_price_cents}
 						bidCount={auction.bid_count || 0}
@@ -381,7 +383,7 @@
 					/>
 
 					<!-- Bid History Component -->
-					<BidHistory {auctionId} />
+					<BidHistory auctionId={auctionId} />
 				{:else}
 					<!-- Auction not started -->
 					<div class="card">

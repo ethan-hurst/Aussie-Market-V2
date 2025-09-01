@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { CheckCircle, AlertCircle, Clock, Shield } from 'lucide-svelte';
+	import { CheckCircle, AlertCircle, Clock, Shield, XCircle } from 'lucide-svelte';
 
 	let loading = true;
 	let verificationStatus = '';
@@ -121,8 +121,15 @@
 		{:else}
 			<div class="bg-white shadow rounded-lg p-6">
 				<div class="text-center">
-					{@const StatusIcon = getStatusIcon(verificationStatus)}
-					<StatusIcon class="mx-auto h-12 w-12 text-gray-400 mb-4" />
+					{#if verificationStatus === 'verified'}
+						<CheckCircle class="mx-auto h-12 w-12 text-green-400 mb-4" />
+					{:else if verificationStatus === 'pending'}
+						<Clock class="mx-auto h-12 w-12 text-blue-400 mb-4" />
+					{:else if verificationStatus === 'requires_input'}
+						<AlertCircle class="mx-auto h-12 w-12 text-yellow-400 mb-4" />
+					{:else}
+						<XCircle class="mx-auto h-12 w-12 text-red-400 mb-4" />
+					{/if}
 					
 					<h2 class="text-lg font-medium text-gray-900 mb-2">
 						Verification Status

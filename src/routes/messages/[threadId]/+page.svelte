@@ -147,39 +147,11 @@
 	function renderMessageContent(message: Message) {
 		switch (message.message_type) {
 			case 'image':
-				return (
-					<div class="space-y-2">
-						<img 
-							src={message.attachment_url} 
-							alt="Image" 
-							class="max-w-xs rounded-lg"
-						/>
-						{message.content && (
-							<p class="text-sm text-gray-700">{message.content}</p>
-						)}
-					</div>
-				);
+				return 'image';
 			case 'file':
-				return (
-					<div class="space-y-2">
-						<div class="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
-							<File class="w-4 h-4 text-gray-500" />
-							<div class="flex-1 min-w-0">
-								<p class="text-sm font-medium text-gray-900 truncate">
-									{message.attachment_name}
-								</p>
-								<p class="text-xs text-gray-500">
-									{message.attachment_size ? formatFileSize(message.attachment_size) : ''}
-								</p>
-							</div>
-						</div>
-						{message.content && (
-							<p class="text-sm text-gray-700">{message.content}</p>
-						)}
-					</div>
-				);
+				return 'file';
 			default:
-				return <p class="text-sm text-gray-700 whitespace-pre-wrap">{message.content}</p>;
+				return 'text';
 		}
 	}
 </script>
@@ -264,7 +236,37 @@
 								
 								<div class="flex flex-col space-y-1">
 									<div class="bg-white border border-gray-200 rounded-lg px-4 py-2 shadow-sm">
-										{renderMessageContent(message)}
+										{#if message.message_type === 'image'}
+											<div class="space-y-2">
+												<img 
+													src={message.attachment_url} 
+													alt="Image" 
+													class="max-w-xs rounded-lg"
+												/>
+												{#if message.content}
+													<p class="text-sm text-gray-700">{message.content}</p>
+												{/if}
+											</div>
+										{:else if message.message_type === 'file'}
+											<div class="space-y-2">
+												<div class="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
+													<File class="w-4 h-4 text-gray-500" />
+													<div class="flex-1 min-w-0">
+														<p class="text-sm font-medium text-gray-900 truncate">
+															{message.attachment_name}
+														</p>
+														<p class="text-xs text-gray-500">
+															{message.attachment_size ? formatFileSize(message.attachment_size) : ''}
+														</p>
+													</div>
+												</div>
+												{#if message.content}
+													<p class="text-sm text-gray-700">{message.content}</p>
+												{/if}
+											</div>
+										{:else}
+											<p class="text-sm text-gray-700 whitespace-pre-wrap">{message.content}</p>
+										{/if}
 									</div>
 									
 									<div class="flex items-center space-x-2 text-xs text-gray-500">

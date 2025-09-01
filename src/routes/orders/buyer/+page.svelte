@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { supabase } from '$lib/supabase';
 	import { goto } from '$app/navigation';
-	import { Package, Truck, CheckCircle, Clock, AlertCircle } from 'lucide-svelte';
+	import { Package, Truck, CheckCircle, Clock, AlertCircle, Circle } from 'lucide-svelte';
 
 	let orders: any[] = [];
 	let loading = true;
@@ -175,8 +175,17 @@
 								<!-- Order Status -->
 								<div class="mt-4 flex items-center justify-between">
 									<div class="flex items-center space-x-2">
-										{@const StateIcon = getStateIcon(order.state)}
-										<StateIcon class="w-5 h-5 text-gray-400" />
+										{#if order.state === 'pending'}
+											<Clock class="w-5 h-5 text-gray-400" />
+										{:else if order.state === 'paid'}
+											<CheckCircle class="w-5 h-5 text-green-400" />
+										{:else if order.state === 'shipped'}
+											<Truck class="w-5 h-5 text-blue-400" />
+										{:else if order.state === 'delivered'}
+											<Package class="w-5 h-5 text-green-400" />
+										{:else}
+											<Circle class="w-5 h-5 text-gray-400" />
+										{/if}
 										<span class="px-2 py-1 text-sm font-medium rounded-md {getStateColor(order.state)}">
 											{order.state.replace('_', ' ').toUpperCase()}
 										</span>
