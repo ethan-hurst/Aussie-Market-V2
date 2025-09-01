@@ -8,7 +8,8 @@
 		getOrderStatusColor, 
 		getOrderStatusLabel,
 		formatPrice,
-		canPerformAction
+		canPerformAction,
+		subscribeToOrderUpdates
 	} from '$lib/orders';
 	import { 
 		Clock, 
@@ -36,6 +37,17 @@
 		user = session?.user || null;
 
 		await loadOrder();
+
+		// Set up real-time subscription for order updates
+		if (orderId) {
+			const subscription = subscribeToOrderUpdates(orderId, (updatedOrder) => {
+				order = updatedOrder;
+			});
+
+			return () => {
+				subscription.unsubscribe();
+			};
+		}
 	});
 
 	async function loadOrder() {

@@ -327,3 +327,81 @@ export function canPerformAction(order: Order, userId: string, action: string): 
 			return false;
 	}
 }
+
+// Real-time order subscriptions
+export function subscribeToOrderUpdates(orderId: string, callback: (order: OrderWithDetails) => void) {
+	return supabase
+		.channel(`order-${orderId}`)
+		.on('postgres_changes', {
+			event: 'UPDATE',
+			schema: 'public',
+			table: 'orders',
+			filter: `id=eq.${orderId}`
+		}, async (payload) => {
+			// Fetch updated order with all details
+			const updatedOrder = await getOrderDetails(orderId);
+			if (updatedOrder) {
+				callback(updatedOrder);
+			}
+		})
+		.subscribe();
+}
+
+export function subscribeToUserOrders(userId: string, callback: (orders: OrderWithDetails[]) => void) {
+	return supabase
+		.channel(`user-orders-${userId}`)
+		.on('postgres_changes', {
+			event: '*',
+			schema: 'public',
+			table: 'orders',
+			filter: `buyer_id=eq.${userId} OR seller_id=eq.${userId}`
+		}, async () => {
+			// Fetch updated orders list
+			const orders = await getUserOrders(userId);
+			callback(orders);
+		})
+		.subscribe();
+}
+
+// Enhanced order actions with real-time updates
+export async function updateOrderStateWithNotification(
+	orderId: string, 
+	newState: Order['state'], 
+	userId: string,
+	notificationType?: 'order_shipped' | 'order_delivered'
+): Promise<boolean> {
+	try {
+		const { error } = await supabase
+			.from('orders')
+			.update({
+				state: newState,
+				updated_at: new Date().toISOString()
+			})
+			.eq('id', orderId);
+
+		if (error) {
+			console.error('Error updating order state:', error);
+			return false;
+		}
+
+		// Send notification if specified
+		if (notificationType) {
+			const order = await getOrderDetails(orderId);
+			if (order) {
+				switch (notificationType) {
+					case 'order_shipped':
+						await notifyOrderShipped(orderId, order.buyer_id);
+						break;
+					case 'order_delivered':
+						await notifyOrderDelivered(orderId, order.seller_id);
+						break;
+				}
+			}
+		}
+
+		return true;
+	} catch (error) {
+		console.error('Error in updateOrderStateWithNotification:', error);
+		return false;
+	}
+}

@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { User, ShoppingCart, Plus, MessageSquare, Settings, LogOut, Menu, X } from 'lucide-svelte';
+	import NotificationBell from '$lib/components/NotificationBell.svelte';
 
 	// Get data from server-side load function
 	export let data;
@@ -90,6 +91,9 @@
 				<!-- User menu -->
 				<div class="flex items-center space-x-4">
 					{#if user}
+						<!-- Notification Bell -->
+						<NotificationBell />
+						
 						<!-- User dropdown -->
 						<div class="relative">
 							<button

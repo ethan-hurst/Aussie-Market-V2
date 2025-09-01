@@ -2,350 +2,252 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { supabase } from '$lib/supabase';
-	import { getOrderDetails, formatPrice } from '$lib/orders';
-	import { 
-		CreditCard, 
-		Lock, 
-		Shield, 
-		CheckCircle,
-		AlertCircle,
-		ArrowLeft
-	} from 'lucide-svelte';
+	import { loadStripe } from '@stripe/stripe-js';
+	import type { OrderWithDetails } from '$lib/orders';
+	import { formatPrice, getOrderStatusLabel } from '$lib/orders';
 
-	let order: any = null;
+	let order: OrderWithDetails | null = null;
 	let loading = true;
 	let processing = false;
 	let error = '';
-	let success = '';
-	let user: any = null;
-	let clientSecret = '';
-	let paymentIntentId = '';
-
-	$: orderId = $page.params.orderId;
+	let stripe: any = null;
+	let elements: any = null;
+	let cardElement: any = null;
 
 	onMount(async () => {
-		// Get user session
-		const { data: { session } } = await supabase.auth.getSession();
-		user = session?.user || null;
-
-		if (!user) {
-			goto('/login');
-			return;
-		}
-
-		await loadOrder();
-	});
-
-	async function loadOrder() {
 		try {
-			order = await getOrderDetails(orderId);
-			if (!order) {
-				error = 'Order not found';
-				loading = false;
-				return;
-			}
-
-			// Check if user is the buyer
-			if (order.buyer_id !== user.id) {
-				error = 'You are not authorized to pay for this order';
-				loading = false;
-				return;
-			}
-
-			// Check if order is in pending state
-			if (order.state !== 'pending') {
-				error = 'This order cannot be paid for';
-				loading = false;
-				return;
-			}
-
-			// Create payment intent
-			await createPaymentIntent();
+			// Load Stripe
+			stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_stripe_publishable_key_here');
+			
+			// Load order details
+			const response = await fetch(`/api/orders/${$page.params.orderId}`);
+			if (!response.ok) throw new Error('Failed to load order');
+			order = await response.json();
+			
+			// Initialize Stripe Elements
+			elements = stripe.elements();
+			cardElement = elements.create('card', {
+				style: {
+					base: {
+						fontSize: '16px',
+						color: '#424770',
+						'::placeholder': {
+							color: '#aab7c4'
+						}
+					},
+					invalid: {
+						color: '#9e2146'
+					}
+				}
+			});
+			cardElement.mount('#card-element');
+			
 		} catch (err) {
-			console.error('Error loading order:', err);
-			error = 'Failed to load order';
+			error = err instanceof Error ? err.message : 'Failed to initialize payment';
 		} finally {
 			loading = false;
 		}
-	}
+	});
 
-	async function createPaymentIntent() {
+	async function handlePayment() {
+		if (!order || !stripe || !cardElement) return;
+		
+		processing = true;
+		error = '';
+		
 		try {
-			const response = await fetch('/api/payments/create-intent', {
+			// Create payment intent
+			const intentResponse = await fetch('/api/payments/create-intent', {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					orderId: order.id,
-					amount: order.amount_cents,
+					amount: order.total_amount_cents,
 					currency: 'aud'
 				})
 			});
-
-			if (!response.ok) {
-				throw new Error('Failed to create payment intent');
+			
+			if (!intentResponse.ok) throw new Error('Failed to create payment intent');
+			const { clientSecret } = await intentResponse.json();
+			
+			// Confirm payment
+			const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+				payment_method: {
+					card: cardElement,
+					billing_details: {
+						name: order.buyer.legal_name
+					}
+				}
+			});
+			
+			if (stripeError) {
+				throw new Error(stripeError.message);
 			}
-
-			const data = await response.json();
-			clientSecret = data.clientSecret;
-			paymentIntentId = data.paymentIntentId;
+			
+			// Confirm payment on our backend
+			const confirmResponse = await fetch('/api/payments/confirm', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					orderId: order.id,
+					paymentIntentId: paymentIntent.id
+				})
+			});
+			
+			if (!confirmResponse.ok) throw new Error('Failed to confirm payment');
+			
+			// Redirect to order details
+			goto(`/orders/${order.id}`);
+			
 		} catch (err) {
-			console.error('Error creating payment intent:', err);
-			error = 'Failed to initialize payment';
-		}
-	}
-
-	async function handlePayment() {
-		if (!clientSecret) {
-			error = 'Payment not initialized';
-			return;
-		}
-
-		processing = true;
-		error = '';
-
-		try {
-			// Here you would integrate with Stripe Elements or other payment UI
-			// For now, we'll simulate a successful payment
-			await simulatePayment();
-		} catch (err) {
-			console.error('Payment error:', err);
-			error = 'Payment failed. Please try again.';
+			error = err instanceof Error ? err.message : 'Payment failed';
 		} finally {
 			processing = false;
 		}
 	}
-
-	async function simulatePayment() {
-		// Simulate payment processing
-		await new Promise(resolve => setTimeout(resolve, 2000));
-
-		// Confirm payment
-		const response = await fetch('/api/payments/confirm', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
-				orderId: order.id,
-				paymentIntentId: paymentIntentId
-			})
-		});
-
-		if (!response.ok) {
-			throw new Error('Failed to confirm payment');
-		}
-
-		success = 'Payment successful!';
-		setTimeout(() => {
-			goto(`/orders/${order.id}`);
-		}, 2000);
-	}
-
-	function getMainPhoto(photos: any[]): string {
-		if (!photos || photos.length === 0) {
-			return '/placeholder-image.jpg';
-		}
-		const sortedPhotos = photos.sort((a, b) => a.order_idx - b.order_idx);
-		return sortedPhotos[0].url;
-	}
 </script>
 
 <svelte:head>
-	<title>Pay for Order - Aussie Market</title>
+	<title>Payment - Order #{$page.params.orderId}</title>
 </svelte:head>
 
-{#if loading}
-	<div class="flex items-center justify-center h-64">
-		<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-	</div>
-{:else if error}
-	<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-		<div class="text-center">
-			<AlertCircle class="w-12 h-12 text-red-500 mx-auto mb-4" />
-			<h2 class="text-2xl font-bold text-gray-900 mb-4">Payment Error</h2>
-			<p class="text-gray-600 mb-6">{error}</p>
-			<a href="/orders/{orderId}" class="btn-primary">Back to Order</a>
+<div class="max-w-4xl mx-auto p-6">
+	{#if loading}
+		<div class="flex justify-center items-center h-64">
+			<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
 		</div>
-	</div>
-{:else if success}
-	<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-		<div class="text-center">
-			<CheckCircle class="w-12 h-12 text-green-500 mx-auto mb-4" />
-			<h2 class="text-2xl font-bold text-gray-900 mb-4">Payment Successful!</h2>
-			<p class="text-gray-600 mb-6">{success}</p>
-			<p class="text-sm text-gray-500">Redirecting to order details...</p>
+	{:else if error}
+		<div class="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+			<div class="flex">
+				<div class="flex-shrink-0">
+					<svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+						<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+					</svg>
+				</div>
+				<div class="ml-3">
+					<h3 class="text-sm font-medium text-red-800">Error</h3>
+					<div class="mt-2 text-sm text-red-700">{error}</div>
+				</div>
+			</div>
 		</div>
-	</div>
-{:else if order}
-	<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-		<!-- Header -->
-		<div class="mb-8">
-			<a href="/orders/{order.id}" class="inline-flex items-center text-sm text-primary-600 hover:text-primary-500 mb-4">
-				<ArrowLeft class="w-4 h-4 mr-1" />
-				Back to Order
-			</a>
-			<h1 class="text-3xl font-bold text-gray-900">Complete Payment</h1>
-			<p class="text-gray-600 mt-2">Secure payment for your order</p>
-		</div>
-
-		<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-			<!-- Payment Form -->
-			<div class="space-y-6">
-				<!-- Order Summary -->
-				<div class="bg-white rounded-lg shadow-sm border p-6">
-					<h3 class="text-lg font-medium text-gray-900 mb-4">Order Summary</h3>
-					<div class="flex items-start space-x-4">
-						<img
-							src={getMainPhoto(order.listings.listing_photos)}
-							alt={order.listings.title}
-							class="w-16 h-16 object-cover rounded"
-						/>
-						<div class="flex-1">
-							<h4 class="font-medium text-gray-900">{order.listings.title}</h4>
-							<p class="text-sm text-gray-500 mt-1">{order.listings.description}</p>
-						</div>
+	{:else if order}
+		<div class="bg-white shadow-lg rounded-lg overflow-hidden">
+			<!-- Header -->
+			<div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+				<div class="flex items-center justify-between">
+					<div>
+						<h1 class="text-2xl font-bold text-white">Complete Payment</h1>
+						<p class="text-blue-100">Order #{order.id.slice(0, 8)}</p>
 					</div>
-					<div class="mt-4 pt-4 border-t border-gray-200">
-						<div class="flex justify-between items-center">
-							<span class="text-lg font-medium text-gray-900">Total Amount:</span>
-							<span class="text-2xl font-bold text-gray-900">{formatPrice(order.amount_cents)}</span>
+					<div class="text-right">
+						<div class="text-3xl font-bold text-white">{formatPrice(order.total_amount_cents)}</div>
+						<div class="text-blue-100">Total Amount</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="p-6">
+				<!-- Order Summary -->
+				<div class="bg-gray-50 rounded-lg p-4 mb-6">
+					<h3 class="text-lg font-semibold text-gray-900 mb-3">Order Summary</h3>
+					<div class="space-y-2">
+						<div class="flex justify-between">
+							<span class="text-gray-600">Item:</span>
+							<span class="font-medium">{order.listing.title}</span>
+						</div>
+						<div class="flex justify-between">
+							<span class="text-gray-600">Winning Bid:</span>
+							<span class="font-medium">{formatPrice(order.winning_bid_amount_cents)}</span>
+						</div>
+						<div class="flex justify-between">
+							<span class="text-gray-600">Platform Fee:</span>
+							<span class="font-medium">{formatPrice(order.platform_fee_cents)}</span>
+						</div>
+						<div class="border-t pt-2">
+							<div class="flex justify-between text-lg font-bold">
+								<span>Total:</span>
+								<span>{formatPrice(order.total_amount_cents)}</span>
+							</div>
 						</div>
 					</div>
 				</div>
 
 				<!-- Payment Form -->
-				<div class="bg-white rounded-lg shadow-sm border p-6">
-					<h3 class="text-lg font-medium text-gray-900 mb-4">Payment Details</h3>
-					
-					{#if error}
-						<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-							<p class="text-sm text-red-700">{error}</p>
-						</div>
-					{/if}
-
-					<div class="space-y-4">
-						<!-- Card Number -->
-						<div>
-							<label class="block text-sm font-medium text-gray-700 mb-2">
-								Card Number
-							</label>
-							<div class="relative">
-								<CreditCard class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-								<input
-									type="text"
-									placeholder="1234 5678 9012 3456"
-									class="input pl-10 w-full"
-									disabled
-								/>
-							</div>
-						</div>
-
-						<div class="grid grid-cols-2 gap-4">
-							<!-- Expiry Date -->
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-2">
-									Expiry Date
-								</label>
-								<input
-									type="text"
-									placeholder="MM/YY"
-									class="input w-full"
-									disabled
-								/>
-							</div>
-
-							<!-- CVC -->
-							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-2">
-									CVC
-								</label>
-								<input
-									type="text"
-									placeholder="123"
-									class="input w-full"
-									disabled
-								/>
-							</div>
-						</div>
-
-						<!-- Payment Button -->
-						<button
-							on:click={handlePayment}
-							disabled={processing || !clientSecret}
-							class="w-full btn-primary py-3"
-						>
-							{#if processing}
-								<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div>
-								<span class="ml-2">Processing Payment...</span>
-							{:else}
-								<CreditCard class="w-5 h-5 mr-2" />
-								Pay {formatPrice(order.amount_cents)}
-							{/if}
-						</button>
-
-						<p class="text-xs text-gray-500 text-center">
-							Your payment is secured by Stripe
+				<form on:submit|preventDefault={handlePayment} class="space-y-6">
+					<!-- Card Details -->
+					<div>
+						<label for="card-element" class="block text-sm font-medium text-gray-700 mb-2">
+							Card Information
+						</label>
+						<div id="card-element" class="border border-gray-300 rounded-md p-3 bg-white"></div>
+						<p class="mt-2 text-sm text-gray-500">
+							Your payment information is secure and encrypted
 						</p>
 					</div>
-				</div>
-			</div>
 
-			<!-- Security Info -->
-			<div class="space-y-6">
-				<!-- Security Features -->
-				<div class="bg-white rounded-lg shadow-sm border p-6">
-					<h3 class="text-lg font-medium text-gray-900 mb-4">Security & Protection</h3>
-					<div class="space-y-4">
-						<div class="flex items-start space-x-3">
-							<Shield class="w-5 h-5 text-green-600 mt-0.5" />
-							<div>
-								<p class="font-medium text-gray-900">Secure Payment</p>
-								<p class="text-sm text-gray-500">All payments are encrypted and secure</p>
+					<!-- Security Notice -->
+					<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+						<div class="flex">
+							<div class="flex-shrink-0">
+								<svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+									<path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+								</svg>
 							</div>
-						</div>
-						<div class="flex items-start space-x-3">
-							<Lock class="w-5 h-5 text-green-600 mt-0.5" />
-							<div>
-								<p class="font-medium text-gray-900">Buyer Protection</p>
-								<p class="text-sm text-gray-500">Your payment is held until you receive the item</p>
-							</div>
-						</div>
-						<div class="flex items-start space-x-3">
-							<CheckCircle class="w-5 h-5 text-green-600 mt-0.5" />
-							<div>
-								<p class="font-medium text-gray-900">Verified Seller</p>
-								<p class="text-sm text-gray-500">Seller has been verified by our platform</p>
+							<div class="ml-3">
+								<h3 class="text-sm font-medium text-blue-800">Secure Payment</h3>
+								<div class="mt-2 text-sm text-blue-700">
+									<p>• Your card details are encrypted and secure</p>
+									<p>• We never store your full card information</p>
+									<p>• Protected by Stripe's industry-leading security</p>
+								</div>
 							</div>
 						</div>
 					</div>
-				</div>
 
-				<!-- Order Details -->
-				<div class="bg-white rounded-lg shadow-sm border p-6">
-					<h3 class="text-lg font-medium text-gray-900 mb-4">Order Information</h3>
-					<dl class="space-y-3">
-						<div class="flex justify-between">
-							<dt class="text-gray-600">Order ID:</dt>
-							<dd class="font-medium">{order.id.slice(0, 8)}</dd>
+					<!-- Buyer Protection -->
+					<div class="bg-green-50 border border-green-200 rounded-lg p-4">
+						<div class="flex">
+							<div class="flex-shrink-0">
+								<svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+									<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+								</svg>
+							</div>
+							<div class="ml-3">
+								<h3 class="text-sm font-medium text-green-800">Buyer Protection</h3>
+								<div class="mt-2 text-sm text-green-700">
+									<p>• Secure payment processing</p>
+									<p>• Dispute resolution support</p>
+									<p>• Money-back guarantee for eligible issues</p>
+								</div>
+							</div>
 						</div>
-						<div class="flex justify-between">
-							<dt class="text-gray-600">Seller:</dt>
-							<dd class="font-medium">{order.seller.legal_name}</dd>
-						</div>
-						<div class="flex justify-between">
-							<dt class="text-gray-600">Item:</dt>
-							<dd class="font-medium">{order.listings.title}</dd>
-						</div>
-						<div class="flex justify-between">
-							<dt class="text-gray-600">Amount:</dt>
-							<dd class="font-bold">{formatPrice(order.amount_cents)}</dd>
-						</div>
-					</dl>
+					</div>
+
+					<!-- Submit Button -->
+					<button
+						type="submit"
+						disabled={processing}
+						class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center"
+					>
+						{#if processing}
+							<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							</svg>
+							Processing Payment...
+						{:else}
+							Pay {formatPrice(order.total_amount_cents)}
+						{/if}
+					</button>
+				</form>
+
+				<!-- Cancel Link -->
+				<div class="mt-6 text-center">
+					<a href="/orders/{order.id}" class="text-blue-600 hover:text-blue-800 text-sm">
+						← Back to Order Details
+					</a>
 				</div>
 			</div>
 		</div>
-	</div>
-{/if}
+	{/if}
+</div>
