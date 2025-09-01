@@ -15,11 +15,13 @@
 	import { uploadListingPhoto } from '$lib/storage';
 	import ImageUpload from '$lib/components/ImageUpload.svelte';
 	import { Upload, X, Plus, DollarSign, Calendar, MapPin, Package, Truck, AlertCircle, Save } from 'lucide-svelte';
+	import Dialog from '$lib/components/Dialog.svelte';
 
 	let user: any = null;
 	let listing: any = null;
 	let loading = true;
 	let submitting = false;
+	let showDeleteDialog = false;
 	let error = '';
 	let permissionError = '';
 
@@ -27,13 +29,13 @@
 	let title = '';
 	let description = '';
 	let categoryId = '';
-	let condition = 'good';
+	let condition: any = 'good';
 	let startCents = '';
 	let reserveCents = '';
 	let buyNowCents = '';
 	let pickup = true;
 	let shipping = false;
-	let location = {
+	let location: any = {
 		street: '',
 		suburb: '',
 		postcode: '',
@@ -51,7 +53,7 @@
 		}
 
 		user = session.user;
-		const listingId = $page.params.listingId;
+		const listingId = $page.params.listingId as string;
 		
 		// Check if user can edit this listing
 		const permissionCheck = await canEditListing(user.id, listingId);
@@ -164,33 +166,7 @@
 	}
 
 	async function handleDelete() {
-		if (!confirm('Are you sure you want to delete this listing? This action cannot be undone.')) {
-			return;
-		}
-
-		submitting = true;
-		error = '';
-
-		try {
-			const response = await fetch(`/api/listings/${listing.id}`, {
-				method: 'DELETE'
-			});
-
-			if (!response.ok) {
-				const result = await response.json();
-				error = result.error || 'Failed to delete listing';
-				return;
-			}
-
-			// Redirect to user's listings
-			goto('/account/listings?message=deleted');
-
-		} catch (err) {
-			error = 'An error occurred while deleting your listing';
-			console.error('Delete error:', err);
-		} finally {
-			submitting = false;
-		}
+		showDeleteDialog = true;
 	}
 </script>
 
@@ -534,3 +510,41 @@
 		</form>
 	</div>
 {/if}
+
+<!-- Delete Confirmation Dialog -->
+<Dialog
+	bind:open={showDeleteDialog}
+	title="Delete Listing"
+	on:close={() => (showDeleteDialog = false)}
+>
+	<p class="text-sm text-gray-700">
+		Are you sure you want to delete this listing? This action cannot be undone.
+	</p>
+	<div slot="footer" class="flex justify-end gap-2">
+		<button class="btn btn-outline" on:click={() => (showDeleteDialog = false)}>Cancel</button>
+		<button
+			class="btn-primary"
+			on:click={async () => {
+				showDeleteDialog = false;
+				submitting = true;
+				error = '';
+				try {
+					const response = await fetch(`/api/listings/${listing.id}`, { method: 'DELETE' });
+					if (!response.ok) {
+						const result = await response.json();
+						error = result.error || 'Failed to delete listing';
+						return;
+					}
+					goto('/account/listings?message=deleted');
+				} catch (err) {
+					error = 'An error occurred while deleting your listing';
+					console.error('Delete error:', err);
+				} finally {
+					submitting = false;
+				}
+			}}
+		>
+			Delete
+		</button>
+	</div>
+</Dialog>
