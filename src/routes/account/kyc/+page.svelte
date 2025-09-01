@@ -2,25 +2,14 @@
 	import { onMount } from 'svelte';
 	import { supabase } from '$lib/supabase';
 	import { goto } from '$app/navigation';
-	import { startKYCVerification, type KYCVerificationData } from '$lib/auth';
-	import { User, Calendar, MapPin, Shield, CheckCircle, AlertCircle } from 'lucide-svelte';
+	import { Shield, CheckCircle, AlertCircle, Clock, ExternalLink } from 'lucide-svelte';
 
 	let user: any = null;
 	let userProfile: any = null;
 	let loading = true;
-	let submitting = false;
+	let startingVerification = false;
 	let error = '';
 	let success = '';
-
-	// Form data
-	let legalName = '';
-	let dob = '';
-	let address = {
-		street: '',
-		suburb: '',
-		postcode: '',
-		state: ''
-	};
 
 	onMount(async () => {
 		const { data: { session } } = await supabase.auth.getSession();
@@ -47,44 +36,56 @@
 		}
 
 		userProfile = data;
-		legalName = data.legal_name || '';
-		dob = data.dob || '';
-		address = data.address || {
-			street: '',
-			suburb: '',
-			postcode: '',
-			state: ''
-		};
 	}
 
-	async function handleSubmit() {
-		submitting = true;
+	async function startStripeVerification() {
+		startingVerification = true;
 		error = '';
 
 		try {
-			// Validate form
-			if (!legalName || !dob || !address.street || !address.suburb || !address.postcode || !address.state) {
-				error = 'Please fill in all required fields';
-				return;
-			}
-
-			const kycData: KYCVerificationData = {
-				legal_name: legalName,
-				dob,
-				address
+			// Prepare verification data
+			const verificationData = {
+				first_name: userProfile.legal_name?.split(' ')[0] || '',
+				last_name: userProfile.legal_name?.split(' ').slice(1).join(' ') || '',
+				dob: {
+					day: new Date(userProfile.dob).getDate(),
+					month: new Date(userProfile.dob).getMonth() + 1,
+					year: new Date(userProfile.dob).getFullYear()
+				},
+				address: {
+					line1: userProfile.address?.street || '',
+					city: userProfile.address?.suburb || '',
+					state: userProfile.address?.state || '',
+					postal_code: userProfile.address?.postcode || '',
+					country: 'AU'
+				}
 			};
 
-			const result = await startKYCVerification(user.id, kycData);
-			
-			if (result.success) {
-				success = 'KYC verification submitted successfully! We will review your information and update your status within 24-48 hours.';
-				await loadUserProfile(); // Refresh profile to show pending status
+			// Create verification session
+			const response = await fetch('/api/kyc', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					userId: user.id,
+					verificationData
+				})
+			});
+
+			const data = await response.json();
+
+			if (response.ok) {
+				// Redirect to Stripe Identity verification
+				window.location.href = data.verificationUrl;
+			} else {
+				error = data.error || 'Failed to start verification';
 			}
 		} catch (err) {
-			error = 'Failed to submit KYC verification. Please try again.';
-			console.error('KYC submission error:', err);
+			console.error('Verification error:', err);
+			error = 'Failed to start verification process';
 		} finally {
-			submitting = false;
+			startingVerification = false;
 		}
 	}
 
@@ -100,7 +101,7 @@
 	function getKYCStatusIcon(status: string) {
 		switch (status) {
 			case 'passed': return CheckCircle;
-			case 'pending': return AlertCircle;
+			case 'pending': return Clock;
 			case 'failed': return AlertCircle;
 			default: return Shield;
 		}
@@ -145,7 +146,7 @@
 					
 					{#if userProfile?.kyc === 'pending'}
 						<p class="text-sm text-gray-600 mt-2">
-							Your verification is being reviewed. This typically takes 24-48 hours.
+							Your verification is being reviewed. This typically takes a few minutes to process.
 						</p>
 					{:else if userProfile?.kyc === 'passed'}
 						<p class="text-sm text-success-600 mt-2">
@@ -153,7 +154,7 @@
 						</p>
 					{:else if userProfile?.kyc === 'failed'}
 						<p class="text-sm text-error-600 mt-2">
-							Your verification was not approved. Please review your information and try again.
+							Your verification was not approved. Please try again with correct information.
 						</p>
 					{/if}
 				</div>
@@ -182,148 +183,91 @@
 			</div>
 		{/if}
 
-		<!-- KYC Form -->
+		<!-- Verification Options -->
 		{#if userProfile?.kyc === 'none' || userProfile?.kyc === 'failed'}
-			<form on:submit|preventDefault={handleSubmit} class="card">
+			<div class="card">
 				<div class="card-header">
-					<h2 class="card-title">Personal Information</h2>
+					<h2 class="card-title">Start Verification</h2>
 					<p class="card-description">
-						Please provide your legal information for identity verification
+						We use Stripe Identity to securely verify your identity. This process is quick and secure.
 					</p>
 				</div>
 
 				<div class="card-content space-y-6">
-					<!-- Legal Name -->
-					<div>
-						<label for="legalName" class="block text-sm font-medium text-gray-700 mb-2">
-							Legal Name *
-						</label>
-						<div class="relative">
-							<User class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-							<input
-								id="legalName"
-								type="text"
-								bind:value={legalName}
-								required
-								class="input pl-10"
-								placeholder="Enter your full legal name"
-							/>
-						</div>
-					</div>
-
-					<!-- Date of Birth -->
-					<div>
-						<label for="dob" class="block text-sm font-medium text-gray-700 mb-2">
-							Date of Birth *
-						</label>
-						<div class="relative">
-							<Calendar class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-							<input
-								id="dob"
-								type="date"
-								bind:value={dob}
-								required
-								class="input pl-10"
-							/>
-						</div>
-					</div>
-
-					<!-- Address -->
-					<div>
-						<h3 class="text-lg font-medium text-gray-900 mb-4">Address Information</h3>
-						<div class="space-y-4">
-							<div>
-								<label for="street" class="block text-sm font-medium text-gray-700 mb-2">
-									Street Address *
-								</label>
-								<div class="relative">
-									<MapPin class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-									<input
-										id="street"
-										type="text"
-										bind:value={address.street}
-										required
-										class="input pl-10"
-										placeholder="Enter your street address"
-									/>
-								</div>
-							</div>
-
-							<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-								<div>
-									<label for="suburb" class="block text-sm font-medium text-gray-700 mb-2">
-										Suburb *
-									</label>
-									<input
-										id="suburb"
-										type="text"
-										bind:value={address.suburb}
-										required
-										class="input"
-										placeholder="Enter suburb"
-									/>
-								</div>
-
-								<div>
-									<label for="postcode" class="block text-sm font-medium text-gray-700 mb-2">
-										Postcode *
-									</label>
-									<input
-										id="postcode"
-										type="text"
-										bind:value={address.postcode}
-										required
-										class="input"
-										placeholder="Enter postcode"
-									/>
-								</div>
-
-								<div>
-									<label for="state" class="block text-sm font-medium text-gray-700 mb-2">
-										State *
-									</label>
-									<select
-										id="state"
-										bind:value={address.state}
-										required
-										class="input"
-									>
-										<option value="">Select state</option>
-										<option value="NSW">New South Wales</option>
-										<option value="VIC">Victoria</option>
-										<option value="QLD">Queensland</option>
-										<option value="WA">Western Australia</option>
-										<option value="SA">South Australia</option>
-										<option value="TAS">Tasmania</option>
-										<option value="ACT">Australian Capital Territory</option>
-										<option value="NT">Northern Territory</option>
-									</select>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					<!-- Privacy Notice -->
+					<!-- Prerequisites -->
 					<div class="bg-blue-50 border border-blue-200 rounded-md p-4">
-						<h4 class="text-sm font-medium text-blue-900 mb-2">Privacy & Security</h4>
-						<p class="text-sm text-blue-700">
-							Your personal information is encrypted and securely stored. We only use this information 
-							for identity verification purposes and to comply with legal requirements. We never share 
-							your personal data with third parties without your explicit consent.
+						<h4 class="text-sm font-medium text-blue-900 mb-2">Before You Start</h4>
+						<ul class="text-sm text-blue-700 space-y-1">
+							<li>• Ensure your profile information is up to date</li>
+							<li>• Have a valid government ID ready (driver's license, passport, or ID card)</li>
+							<li>• Be in a well-lit area for document photos</li>
+							<li>• Allow 5-10 minutes to complete the process</li>
+						</ul>
+					</div>
+
+					<!-- Profile Check -->
+					<div class="space-y-4">
+						<h3 class="text-lg font-medium text-gray-900">Profile Information</h3>
+						
+						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div>
+								<label class="block text-sm font-medium text-gray-700 mb-1">Legal Name</label>
+								<p class="text-sm text-gray-900">
+									{userProfile?.legal_name || 'Not provided'}
+								</p>
+							</div>
+							<div>
+								<label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+								<p class="text-sm text-gray-900">
+									{userProfile?.dob ? new Date(userProfile.dob).toLocaleDateString('en-AU') : 'Not provided'}
+								</p>
+							</div>
+						</div>
+
+						<div>
+							<label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+							<p class="text-sm text-gray-900">
+								{userProfile?.address?.street ? 
+									`${userProfile.address.street}, ${userProfile.address.suburb} ${userProfile.address.state} ${userProfile.address.postcode}` :
+									'Not provided'
+								}
+							</p>
+						</div>
+
+						{#if !userProfile?.legal_name || !userProfile?.dob || !userProfile?.address?.street}
+							<div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+								<div class="flex">
+									<AlertCircle class="h-5 w-5 text-yellow-400" />
+									<div class="ml-3">
+										<h4 class="text-sm font-medium text-yellow-800">
+											Profile Information Required
+										</h4>
+										<p class="text-sm text-yellow-700 mt-1">
+											Please update your profile information before starting verification.
+										</p>
+									</div>
+								</div>
+							</div>
+						{/if}
+					</div>
+
+					<!-- Start Verification -->
+					<div class="space-y-4">
+						<button
+							on:click={startStripeVerification}
+							disabled={startingVerification || !userProfile?.legal_name || !userProfile?.dob || !userProfile?.address?.street}
+							class="btn-primary w-full"
+						>
+							{startingVerification ? 'Starting Verification...' : 'Start Identity Verification'}
+							<ExternalLink class="w-4 h-4 ml-2" />
+						</button>
+
+						<p class="text-xs text-gray-500 text-center">
+							By starting verification, you agree to our verification terms and privacy policy.
 						</p>
 					</div>
-
-					<!-- Submit -->
-					<div class="flex justify-end space-x-4">
-						<a href="/account" class="btn btn-outline">
-							Cancel
-						</a>
-						<button type="submit" disabled={submitting} class="btn-primary">
-							{submitting ? 'Submitting...' : 'Submit Verification'}
-						</button>
-					</div>
 				</div>
-			</form>
+			</div>
 		{/if}
 
 		<!-- Next Steps -->
@@ -368,5 +312,37 @@
 				</div>
 			</div>
 		{/if}
+
+		<!-- Security Information -->
+		<div class="card">
+			<div class="card-header">
+				<h3 class="card-title">Security & Privacy</h3>
+			</div>
+			<div class="card-content">
+				<div class="space-y-4">
+					<div>
+						<h4 class="text-sm font-medium text-gray-900 mb-2">How It Works</h4>
+						<p class="text-sm text-gray-600">
+							We use Stripe Identity, a secure third-party service, to verify your identity. 
+							This involves uploading a photo of your government ID and taking a selfie for comparison.
+						</p>
+					</div>
+					<div>
+						<h4 class="text-sm font-medium text-gray-900 mb-2">Data Protection</h4>
+						<p class="text-sm text-gray-600">
+							Your personal information is encrypted and securely stored. We only use this information 
+							for identity verification purposes and to comply with legal requirements.
+						</p>
+					</div>
+					<div>
+						<h4 class="text-sm font-medium text-gray-900 mb-2">Verification Time</h4>
+						<p class="text-sm text-gray-600">
+							Most verifications are completed within a few minutes. In some cases, additional review 
+							may be required, which can take up to 24 hours.
+						</p>
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 {/if}
