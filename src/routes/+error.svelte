@@ -2,6 +2,7 @@
 	import { page } from '$app/stores';
 	import { dev } from '$app/environment';
 	import { AlertTriangle, RefreshCw, Home, Settings } from 'lucide-svelte';
+	import { goto } from '$app/navigation';
 
 	$: error = $page.error;
 	$: status = $page.status;
@@ -12,8 +13,8 @@
 			   error?.message?.includes('STRIPE');
 	}
 
-	function reload() {
-		window.location.reload();
+	function retry() {
+		goto($page.url.pathname + $page.url.search);
 	}
 </script>
 
@@ -67,7 +68,7 @@
 					Go Home
 				</a>
 			{:else}
-				<button on:click={reload} class="btn-primary w-full flex items-center justify-center">
+				<button on:click={retry} class="btn-primary w-full flex items-center justify-center">
 					<RefreshCw class="w-4 h-4 mr-2" />
 					Try Again
 				</button>
