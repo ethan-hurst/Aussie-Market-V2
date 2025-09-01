@@ -18,7 +18,7 @@
 		"db:diff": "supabase db diff"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-auto": "^3.0.0",
+		"@sveltejs/adapter-auto": "^3.3.1",
 		"@sveltejs/kit": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^3.0.0",
 		"@typescript-eslint/eslint-plugin": "^6.0.0",
@@ -39,7 +39,7 @@
 	},
 	"dependencies": {
 		"@stripe/stripe-js": "^7.9.0",
-		"@supabase/ssr": "^0.1.0",
+		"@supabase/ssr": "^0.7.0",
 		"@supabase/supabase-js": "^2.39.0",
 		"@tanstack/svelte-query": "^5.17.0",
 		"lucide-svelte": "^0.294.0",

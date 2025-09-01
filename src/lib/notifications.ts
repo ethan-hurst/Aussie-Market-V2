@@ -189,3 +189,23 @@ export async function notifyNewMessage(threadId: string, senderId: string, recip
 		{ threadId, senderId }
 	);
 }
+
+export async function notifyDisputeUpdated(disputeId: string, userId: string, message: string): Promise<void> {
+	await createNotification(
+		userId,
+		'dispute_created',
+		'Dispute Updated',
+		message,
+		{ disputeId }
+	);
+}
+
+export async function notifyDisputeResolved(disputeId: string, userId: string, message: string): Promise<void> {
+	await createNotification(
+		userId,
+		'dispute_created',
+		'Dispute Resolved',
+		message,
+		{ disputeId }
+	);
+}

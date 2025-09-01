@@ -481,10 +481,3 @@ export function formatFileSize(bytes: number): string {
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
 	return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
-
-export function formatPrice(cents: number): string {
-	return new Intl.NumberFormat('en-AU', {
-		style: 'currency',
-		currency: 'AUD'
-	}).format(cents / 100);
-}
