@@ -15,7 +15,8 @@
 		ChevronRight,
 		Heart,
 		Share2,
-		Flag
+		Flag,
+		MessageSquare
 	} from 'lucide-svelte';
 	import LiveAuction from '$lib/components/LiveAuction.svelte';
 	import BidHistory from '$lib/components/BidHistory.svelte';
@@ -330,23 +331,35 @@
 						<!-- Seller Information -->
 						<div class="border-t pt-6">
 							<h3 class="text-lg font-medium text-gray-900 mb-3">Seller Information</h3>
-							<div class="flex items-center space-x-4">
-								<div class="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
-									<User class="w-6 h-6 text-primary-600" />
-								</div>
-								<div>
-									<p class="font-medium text-gray-900">
-										{listing.users?.legal_name || listing.users?.email}
-									</p>
-									<div class="flex items-center space-x-2 text-sm text-gray-500">
-										<span>Member since {formatDate(listing.users?.created_at)}</span>
-										{#if listing.users?.kyc === 'passed'}
-											<span class="px-2 py-1 bg-success-100 text-success-700 rounded text-xs">
-												Verified
-											</span>
-										{/if}
+							<div class="flex items-center justify-between">
+								<div class="flex items-center space-x-4">
+									<div class="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center">
+										<User class="w-6 h-6 text-primary-600" />
+									</div>
+									<div>
+										<p class="font-medium text-gray-900">
+											{listing.users?.legal_name || listing.users?.email}
+										</p>
+										<div class="flex items-center space-x-2 text-sm text-gray-500">
+											<span>Member since {formatDate(listing.users?.created_at)}</span>
+											{#if listing.users?.kyc === 'passed'}
+												<span class="px-2 py-1 bg-success-100 text-success-700 rounded text-xs">
+													Verified
+												</span>
+											{/if}
+										</div>
 									</div>
 								</div>
+								
+								{#if user && user.id !== listing.seller_id}
+									<a
+										href="/messages/new?listing={listingId}&seller={listing.seller_id}"
+										class="btn-secondary flex items-center space-x-2"
+									>
+										<MessageSquare class="w-4 h-4" />
+										<span>Message Seller</span>
+									</a>
+								{/if}
 							</div>
 						</div>
 					</div>

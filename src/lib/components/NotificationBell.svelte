@@ -66,6 +66,8 @@
 				return '❌';
 			case 'dispute_created':
 				return '⚠️';
+			case 'new_message':
+				return '💬';
 			default:
 				return '🔔';
 		}

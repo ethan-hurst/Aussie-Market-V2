@@ -3,7 +3,7 @@ import { supabase } from './supabase';
 export interface Notification {
 	id: string;
 	user_id: string;
-	type: 'order_paid' | 'order_shipped' | 'order_delivered' | 'payment_failed' | 'dispute_created';
+	type: 'order_paid' | 'order_shipped' | 'order_delivered' | 'payment_failed' | 'dispute_created' | 'new_message';
 	title: string;
 	message: string;
 	read: boolean;
@@ -177,5 +177,15 @@ export async function notifyDisputeCreated(orderId: string, buyerId: string, sel
 		'Dispute Created',
 		'A dispute has been created for your order. Our team will review the case.',
 		{ orderId }
+	);
+}
+
+export async function notifyNewMessage(threadId: string, senderId: string, recipientId: string, senderName: string): Promise<void> {
+	await createNotification(
+		recipientId,
+		'new_message',
+		'New Message',
+		`You have a new message from ${senderName}.`,
+		{ threadId, senderId }
 	);
 }
