@@ -141,15 +141,12 @@
 					</div>
 				</div>
 
-				<button
-					type="submit"
-					name="action"
-					value="signup"
-					disabled={isSubmitting}
-					class="btn btn-outline w-full"
+				<a
+					href="/register"
+					class="btn btn-outline w-full text-center"
 				>
-					{isSubmitting ? 'Creating account...' : 'Create Account'}
-				</button>
+					Create Account
+				</a>
 			</div>
 
 			<div class="text-center">
