@@ -1,23 +1,33 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { supabase } from '$lib/supabase';
-	import { 
-		subscribeToAuction, 
-		placeBid, 
-		getMinimumBid, 
-		formatTimeRemaining, 
+	import {
+		subscribeToAuctionWithManager,
+		unsubscribeFromAuction,
+		type AuctionUpdate,
+		type BidUpdate,
+		type AuctionStatusUpdate
+	} from '$lib/subscriptionManager';
+	import {
+		placeBid,
+		getMinimumBid,
+		formatTimeRemaining,
 		formatPrice,
-		isAuctionEndingSoon,
-		type AuctionUpdate
+		isAuctionEndingSoon
 	} from '$lib/auctions';
-	import { 
-		Gavel, 
-		Clock, 
-		DollarSign, 
-		AlertTriangle, 
+	import {
+		Gavel,
+		Clock,
+		DollarSign,
+		AlertTriangle,
 		CheckCircle,
 		User,
-		TrendingUp
+		TrendingUp,
+		Wifi,
+		WifiOff,
+		RefreshCw,
+		Zap,
+		Activity
 	} from 'lucide-svelte';
 
 	export let auctionId: string;
@@ -36,8 +46,13 @@
 	let maxProxyBid = '';
 	let timeRemaining = '';
 	let isEndingSoon = false;
-	let unsubscribe: (() => void) | null = null;
+	let subscriptionId: string | null = null;
 	let minBidAmount = 0;
+	let connectionStatus: 'connected' | 'disconnected' | 'reconnecting' | 'connecting' = 'connecting';
+	let auctionStatus = 'live';
+	let lastBidTime: Date | null = null;
+	let endingSoonNotification = '';
+	let bidActivity: BidUpdate[] = [];
 
 	onMount(async () => {
 		// Get user session
@@ -51,15 +66,24 @@
 			console.error('Error getting minimum bid:', err);
 		}
 
-		// Start real-time updates
-		unsubscribe = subscribeToAuction(auctionId, handleAuctionUpdate);
+		// Start enhanced real-time updates
+		subscriptionId = subscribeToAuctionWithManager(auctionId, {
+			onUpdate: handleAuctionUpdate,
+			onBid: handleBidUpdate,
+			onStatusChange: handleStatusChange,
+			onEndingSoon: handleEndingSoon,
+			onConnectionStatus: handleConnectionStatus,
+			onError: handleSubscriptionError
+		});
 
 		// Start time countdown
 		updateTimeRemaining();
 		const interval = setInterval(updateTimeRemaining, 1000);
 
 		onDestroy(() => {
-			if (unsubscribe) unsubscribe();
+			if (subscriptionId) {
+				unsubscribeFromAuction(subscriptionId);
+			}
 			clearInterval(interval);
 		});
 	});
@@ -68,15 +92,87 @@
 		currentPriceCents = update.current_price_cents;
 		highBidderId = update.high_bidder_id;
 		bidCount = update.bid_count;
-		
+		auctionStatus = update.status || 'live';
+
 		// Update minimum bid amount
 		updateMinBidAmount();
-		
-		// Show success message for new bids
-		if (update.bid_count > bidCount) {
-			success = 'New bid placed!';
-			setTimeout(() => success = '', 3000);
+
+		// Clear ending soon notification if auction status changed
+		if (auctionStatus !== 'live') {
+			endingSoonNotification = '';
 		}
+	}
+
+	function handleBidUpdate(bid: BidUpdate) {
+		// Update auction data
+		currentPriceCents = bid.current_price_cents;
+		highBidderId = bid.high_bidder_id;
+		bidCount = bid.bid_count;
+		lastBidTime = new Date();
+
+		// Add to recent bid activity (keep last 5)
+		bidActivity = [bid, ...bidActivity.slice(0, 4)];
+
+		// Show success message if user placed the bid
+		if (user && bid.bidder_id === user.id) {
+			success = 'Your bid was placed successfully!';
+		} else {
+			success = 'New bid received!';
+		}
+		setTimeout(() => success = '', 3000);
+
+		// Update minimum bid amount
+		updateMinBidAmount();
+	}
+
+	function handleStatusChange(status: AuctionStatusUpdate) {
+		auctionStatus = status.new_status;
+
+		if (status.new_status === 'ended') {
+			endingSoonNotification = 'Auction has ended!';
+		} else if (status.new_status === 'finalized') {
+			endingSoonNotification = 'Auction finalized - winner determined!';
+		} else if (status.new_status === 'no_sale') {
+			endingSoonNotification = 'Auction ended with no sale.';
+		}
+	}
+
+	function handleEndingSoon(seconds: number) {
+		const minutes = Math.floor(seconds / 60);
+		const remainingSeconds = seconds % 60;
+
+		if (seconds <= 60) {
+			endingSoonNotification = `Auction ends in ${seconds} second${seconds !== 1 ? 's' : ''}!`;
+		} else if (minutes <= 5) {
+			endingSoonNotification = `Auction ends in ${minutes} minute${minutes !== 1 ? 's' : ''} ${remainingSeconds} second${remainingSeconds !== 1 ? 's' : ''}!`;
+		}
+
+		isEndingSoon = true;
+
+		// Clear notification after it expires
+		setTimeout(() => {
+			endingSoonNotification = '';
+			isEndingSoon = false;
+		}, seconds * 1000);
+	}
+
+	function handleConnectionStatus(status: 'connected' | 'disconnected' | 'reconnecting') {
+		connectionStatus = status;
+
+		if (status === 'disconnected') {
+			error = 'Connection lost - attempting to reconnect...';
+		} else if (status === 'reconnecting') {
+			error = 'Reconnecting to auction...';
+		} else if (status === 'connected') {
+			error = '';
+			success = 'Connected to live auction!';
+			setTimeout(() => success = '', 2000);
+		}
+	}
+
+	function handleSubscriptionError(error: Error) {
+		console.error('Auction subscription error:', error);
+		connectionStatus = 'disconnected';
 	}
 
 	async function updateMinBidAmount() {
@@ -156,13 +252,31 @@
 				</div>
 				<div>
 					<h3 class="text-lg font-semibold text-gray-900">Live Auction</h3>
-					<p class="text-sm text-gray-500">
-						{bidCount} bid{bidCount !== 1 ? 's' : ''} • 
-						{formatBidderName(highBidderId || '')} is winning
-					</p>
+					<div class="flex items-center space-x-2">
+						<p class="text-sm text-gray-500">
+							{bidCount} bid{bidCount !== 1 ? 's' : ''} •
+							{formatBidderName(highBidderId || '')} is winning
+						</p>
+						<!-- Connection Status -->
+						<div class="flex items-center space-x-1">
+							{#if connectionStatus === 'connected'}
+								<Wifi class="w-4 h-4 text-green-500" />
+								<span class="text-xs text-green-600">Live</span>
+							{:else if connectionStatus === 'reconnecting'}
+								<RefreshCw class="w-4 h-4 text-yellow-500 animate-spin" />
+								<span class="text-xs text-yellow-600">Reconnecting</span>
+							{:else if connectionStatus === 'disconnected'}
+								<WifiOff class="w-4 h-4 text-red-500" />
+								<span class="text-xs text-red-600">Offline</span>
+							{:else}
+								<RefreshCw class="w-4 h-4 text-gray-400 animate-spin" />
+								<span class="text-xs text-gray-500">Connecting</span>
+							{/if}
+						</div>
+					</div>
 				</div>
 			</div>
-			
+
 			<div class="text-right">
 				<div class="flex items-center space-x-2">
 					<Clock class="w-5 h-5 text-gray-400" />
@@ -170,7 +284,12 @@
 						{timeRemaining}
 					</span>
 				</div>
-				{#if isEndingSoon}
+				{#if endingSoonNotification}
+					<div class="flex items-center space-x-1 mt-1">
+						<Zap class="w-3 h-3 text-red-500" />
+						<p class="text-xs text-red-600">{endingSoonNotification}</p>
+					</div>
+				{:else if isEndingSoon}
 					<p class="text-xs text-red-600 mt-1">Ending soon!</p>
 				{/if}
 			</div>
@@ -290,6 +409,34 @@
 		</form>
 	</div>
 
+	<!-- Recent Bid Activity -->
+	{#if bidActivity.length > 0}
+		<div class="px-6 py-4 border-t border-gray-200">
+			<div class="flex items-center space-x-2 mb-3">
+				<Activity class="w-4 h-4 text-gray-500" />
+				<h4 class="text-sm font-medium text-gray-900">Recent Activity</h4>
+			</div>
+			<div class="space-y-2 max-h-32 overflow-y-auto">
+				{#each bidActivity as bid}
+					<div class="flex items-center justify-between text-sm">
+						<div class="flex items-center space-x-2">
+							<div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+							<span class="text-gray-600">
+								{user && bid.bidder_id === user.id ? 'You' : 'Bidder'} bid
+							</span>
+							<span class="font-medium text-gray-900">
+								{formatPrice(bid.amount_cents)}
+							</span>
+						</div>
+						<span class="text-xs text-gray-500">
+							{new Date(bid.placed_at).toLocaleTimeString()}
+						</span>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
 	<!-- Auction Info -->
 	<div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
 		<div class="grid grid-cols-2 gap-4 text-sm">
@@ -304,5 +451,21 @@
 				</p>
 			</div>
 		</div>
+		{#if auctionStatus !== 'live'}
+			<div class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+				<div class="flex items-center space-x-2">
+					<AlertTriangle class="w-4 h-4 text-yellow-600" />
+					<p class="text-sm text-yellow-800">
+						{#if auctionStatus === 'ended'}
+							Auction has ended - finalizing results...
+						{:else if auctionStatus === 'finalized'}
+							Auction finalized - winner determined!
+						{:else if auctionStatus === 'no_sale'}
+							Auction ended with no sale
+						{/if}
+					</p>
+				</div>
+			</div>
+		{/if}
 	</div>
 </div>

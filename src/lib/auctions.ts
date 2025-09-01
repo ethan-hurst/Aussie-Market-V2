@@ -449,51 +449,250 @@ export interface AuctionUpdate {
 	high_bidder_id: string | null;
 	bid_count: number;
 	time_remaining: number;
+	status?: string;
 }
 
-// Real-time auction subscription
-export function subscribeToAuction(auctionId: string, callback: (update: AuctionUpdate) => void) {
-	const channel = supabase
-		.channel(`auction-${auctionId}`)
-		.on(
-			'postgres_changes',
-			{
-				event: '*',
-				schema: 'public',
-				table: 'bids',
-				filter: `auction_id=eq.${auctionId}`
-			},
-			async (payload) => {
-				// Fetch updated auction data
+export interface BidUpdate {
+	bid_id: string;
+	auction_id: string;
+	bidder_id: string;
+	amount_cents: number;
+	placed_at: string;
+	event_type: string;
+	current_price_cents: number;
+	high_bidder_id: string | null;
+	bid_count: number;
+	time_remaining: number;
+}
+
+export interface AuctionStatusUpdate {
+	auction_id: string;
+	old_status: string;
+	new_status: string;
+	changed_at: string;
+	current_price_cents: number;
+}
+
+// Enhanced real-time auction subscription with comprehensive updates
+export function subscribeToAuction(
+	auctionId: string,
+	callbacks: {
+		onUpdate?: (update: AuctionUpdate) => void;
+		onBid?: (bid: BidUpdate) => void;
+		onStatusChange?: (status: AuctionStatusUpdate) => void;
+		onEndingSoon?: (seconds: number) => void;
+		onConnectionStatus?: (status: 'connected' | 'disconnected' | 'reconnecting') => void;
+		onError?: (error: Error) => void;
+	} = {}
+) {
+	const channel = supabase.channel(`auction-${auctionId}`, {
+		config: {
+			presence: {
+				key: `user-${Date.now()}`
+			}
+		}
+	});
+
+	let timeRemainingInterval: NodeJS.Timeout | null = null;
+	let connectionStatus = 'connecting' as 'connected' | 'disconnected' | 'reconnecting';
+	let lastAuctionData: any = null;
+
+	// Track connection status
+	channel.on('system', {}, (payload) => {
+		if (payload.event === 'CHANNEL_JOIN') {
+			connectionStatus = 'connected';
+			callbacks.onConnectionStatus?.('connected');
+		} else if (payload.event === 'CHANNEL_ERROR' || payload.event === 'CHANNEL_CLOSE') {
+			connectionStatus = 'disconnected';
+			callbacks.onConnectionStatus?.('disconnected');
+
+			// Attempt reconnection after delay
+			setTimeout(() => {
+				if (connectionStatus === 'disconnected') {
+					connectionStatus = 'reconnecting';
+					callbacks.onConnectionStatus?.('reconnecting');
+					channel.subscribe();
+				}
+			}, 3000);
+		}
+	});
+
+	// Listen for bid changes
+	channel.on(
+		'postgres_changes',
+		{
+			event: '*',
+			schema: 'public',
+			table: 'bids',
+			filter: `auction_id=eq.${auctionId}`
+		},
+		async (payload) => {
+			try {
+				// Fetch updated auction data with listing info for time calculation
 				const { data: auction } = await supabase
 					.from('auctions')
 					.select(`
 						*,
+						listings!inner (
+							end_at
+						),
 						bids (
 							id,
 							bidder_id,
 							amount_cents,
-							placed_at
+							max_proxy_cents,
+							placed_at,
+							accepted
 						)
 					`)
 					.eq('id', auctionId)
 					.single();
 
-				if (auction) {
-					const update: AuctionUpdate = {
-						auction_id: auction.id,
-						current_price_cents: auction.current_price_cents,
-						high_bidder_id: auction.high_bid_id,
-						bid_count: auction.bids?.length || 0,
-						time_remaining: 0 // Will be calculated based on listing end time
-					};
-					callback(update);
-				}
-			}
-		)
-		.subscribe();
+				if (!auction) return;
 
+				lastAuctionData = auction;
+				const now = new Date();
+				const endTime = new Date(auction.listings.end_at);
+				const timeRemaining = Math.max(0, Math.floor((endTime.getTime() - now.getTime()) / 1000));
+
+				// Create bid update
+				const bidUpdate: BidUpdate = {
+					bid_id: payload.new?.id || payload.old?.id,
+					auction_id: auctionId,
+					bidder_id: payload.new?.bidder_id,
+					amount_cents: payload.new?.amount_cents || payload.old?.amount_cents,
+					placed_at: payload.new?.placed_at,
+					event_type: payload.eventType,
+					current_price_cents: auction.current_price_cents,
+					high_bidder_id: auction.high_bid_id,
+					bid_count: auction.bids?.length || 0,
+					time_remaining: timeRemaining
+				};
+
+				callbacks.onBid?.(bidUpdate);
+
+				// Create general auction update
+				const update: AuctionUpdate = {
+					auction_id: auction.id,
+					current_price_cents: auction.current_price_cents,
+					high_bidder_id: auction.high_bid_id,
+					bid_count: auction.bids?.length || 0,
+					time_remaining: timeRemaining,
+					status: auction.status
+				};
+
+				callbacks.onUpdate?.(update);
+
+				// Check if auction is ending soon
+				if (timeRemaining <= 300 && timeRemaining > 0) { // 5 minutes or less
+					callbacks.onEndingSoon?.(timeRemaining);
+				}
+
+			} catch (error) {
+				console.error('Error processing bid update:', error);
+				callbacks.onError?.(error as Error);
+			}
+		}
+	);
+
+	// Listen for auction status changes
+	channel.on(
+		'postgres_changes',
+		{
+			event: '*',
+			schema: 'public',
+			table: 'auctions',
+			filter: `id=eq.${auctionId}`
+		},
+		async (payload) => {
+			try {
+				const statusUpdate: AuctionStatusUpdate = {
+					auction_id: auctionId,
+					old_status: payload.old?.status,
+					new_status: payload.new?.status,
+					changed_at: new Date().toISOString(),
+					current_price_cents: payload.new?.current_price_cents || payload.old?.current_price_cents
+				};
+
+				callbacks.onStatusChange?.(statusUpdate);
+
+				// If auction ended, stop the time remaining updates
+				if (payload.new?.status === 'ended' || payload.new?.status === 'finalized') {
+					if (timeRemainingInterval) {
+						clearInterval(timeRemainingInterval);
+						timeRemainingInterval = null;
+					}
+				}
+			} catch (error) {
+				console.error('Error processing auction status update:', error);
+				callbacks.onError?.(error as Error);
+			}
+		}
+	);
+
+	// Start time remaining updates (every 10 seconds)
+	const startTimeUpdates = () => {
+		timeRemainingInterval = setInterval(async () => {
+			try {
+				if (!lastAuctionData) return;
+
+				const now = new Date();
+				const endTime = new Date(lastAuctionData.listings.end_at);
+				const timeRemaining = Math.max(0, Math.floor((endTime.getTime() - now.getTime()) / 1000));
+
+				// Only send update if time has changed significantly
+				if (timeRemaining > 0 && timeRemaining % 10 === 0) { // Every 10 seconds
+					const update: AuctionUpdate = {
+						auction_id: auctionId,
+						current_price_cents: lastAuctionData.current_price_cents,
+						high_bidder_id: lastAuctionData.high_bid_id,
+						bid_count: lastAuctionData.bids?.length || 0,
+						time_remaining: timeRemaining,
+						status: lastAuctionData.status
+					};
+
+					callbacks.onUpdate?.(update);
+
+					// Check for ending soon notifications
+					if (timeRemaining <= 300 && timeRemaining > 0) {
+						callbacks.onEndingSoon?.(timeRemaining);
+					}
+				}
+
+				// Stop updates if auction has ended
+				if (timeRemaining <= 0) {
+					if (timeRemainingInterval) {
+						clearInterval(timeRemainingInterval);
+						timeRemainingInterval = null;
+					}
+				}
+
+			} catch (error) {
+				console.error('Error in time update interval:', error);
+			}
+		}, 10000); // Update every 10 seconds
+	};
+
+	// Subscribe to channel
+	channel.subscribe((status) => {
+		if (status === 'SUBSCRIBED') {
+			connectionStatus = 'connected';
+			callbacks.onConnectionStatus?.('connected');
+			startTimeUpdates();
+		} else if (status === 'CHANNEL_ERROR') {
+			connectionStatus = 'disconnected';
+			callbacks.onConnectionStatus?.('disconnected');
+		} else if (status === 'TIMED_OUT') {
+			connectionStatus = 'reconnecting';
+			callbacks.onConnectionStatus?.('reconnecting');
+		}
+	});
+
+	// Return cleanup function
 	return () => {
+		if (timeRemainingInterval) {
+			clearInterval(timeRemainingInterval);
+		}
 		supabase.removeChannel(channel);
 	};
 }
