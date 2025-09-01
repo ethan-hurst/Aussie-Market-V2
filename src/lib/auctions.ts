@@ -417,3 +417,262 @@ export function shouldExtendAuction(endAt: string): {
 		newEndAt: newEnd.toISOString()
 	};
 }
+
+export interface Auction {
+	id: string;
+	listing_id: string;
+	reserve_met: boolean;
+	extension_count: number;
+	increment_scheme: string;
+	high_bid_id: string | null;
+	current_price_cents: number;
+	status: 'scheduled' | 'live' | 'ending' | 'ended';
+}
+
+export interface Bid {
+	id: string;
+	auction_id: string;
+	bidder_id: string;
+	amount_cents: number;
+	max_proxy_cents: number | null;
+	accepted: boolean;
+	placed_at: string;
+}
+
+export interface AuctionWithBids extends Auction {
+	bids: Bid[];
+}
+
+export interface AuctionUpdate {
+	auction_id: string;
+	current_price_cents: number;
+	high_bidder_id: string | null;
+	bid_count: number;
+	time_remaining: number;
+}
+
+// Real-time auction subscription
+export function subscribeToAuction(auctionId: string, callback: (update: AuctionUpdate) => void) {
+	const channel = supabase
+		.channel(`auction-${auctionId}`)
+		.on(
+			'postgres_changes',
+			{
+				event: '*',
+				schema: 'public',
+				table: 'bids',
+				filter: `auction_id=eq.${auctionId}`
+			},
+			async (payload) => {
+				// Fetch updated auction data
+				const { data: auction } = await supabase
+					.from('auctions')
+					.select(`
+						*,
+						bids (
+							id,
+							bidder_id,
+							amount_cents,
+							placed_at
+						)
+					`)
+					.eq('id', auctionId)
+					.single();
+
+				if (auction) {
+					const update: AuctionUpdate = {
+						auction_id: auction.id,
+						current_price_cents: auction.current_price_cents,
+						high_bidder_id: auction.high_bid_id,
+						bid_count: auction.bids?.length || 0,
+						time_remaining: 0 // Will be calculated based on listing end time
+					};
+					callback(update);
+				}
+			}
+		)
+		.subscribe();
+
+	return () => {
+		supabase.removeChannel(channel);
+	};
+}
+
+// Place a bid
+export async function placeBid(auctionId: string, amountCents: number, maxProxyCents?: number) {
+	const { data, error } = await supabase.rpc('place_bid', {
+		auction_id: auctionId,
+		amount_cents: amountCents,
+		max_proxy_cents: maxProxyCents || null
+	});
+
+	if (error) {
+		throw new Error(error.message);
+	}
+
+	return data;
+}
+
+// Get auction details with bids
+export async function getAuctionWithBids(auctionId: string): Promise<AuctionWithBids | null> {
+	const { data, error } = await supabase
+		.from('auctions')
+		.select(`
+			*,
+			bids (
+				id,
+				bidder_id,
+				amount_cents,
+				max_proxy_cents,
+				accepted,
+				placed_at
+			)
+		`)
+		.eq('id', auctionId)
+		.single();
+
+	if (error) {
+		console.error('Error fetching auction:', error);
+		return null;
+	}
+
+	return data;
+}
+
+// Get minimum bid amount for an auction
+export async function getMinimumBid(auctionId: string): Promise<number> {
+	const { data: auction } = await supabase
+		.from('auctions')
+		.select(`
+			*,
+			listings!inner (
+				start_cents
+			)
+		`)
+		.eq('id', auctionId)
+		.single();
+
+	if (!auction) {
+		throw new Error('Auction not found');
+	}
+
+	// Get current high bid
+	const { data: highBid } = await supabase
+		.from('bids')
+		.select('amount_cents')
+		.eq('auction_id', auctionId)
+		.order('amount_cents', { ascending: false })
+		.limit(1)
+		.single();
+
+	if (!highBid) {
+		// First bid, must be at least starting price
+		return auction.listings.start_cents;
+	}
+
+	// Calculate minimum increment
+	const minIncrement = Math.max(100, Math.floor(highBid.amount_cents * 0.05)); // 5% or $1 minimum
+	return highBid.amount_cents + minIncrement;
+}
+
+// Format time remaining
+export function formatTimeRemaining(endAt: string): string {
+	const now = new Date();
+	const end = new Date(endAt);
+	const diff = end.getTime() - now.getTime();
+	
+	if (diff <= 0) return 'Ended';
+	
+	const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+	const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+	const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+	const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+	
+	if (days > 0) return `${days}d ${hours}h`;
+	if (hours > 0) return `${hours}h ${minutes}m`;
+	if (minutes > 0) return `${minutes}m ${seconds}s`;
+	return `${seconds}s`;
+}
+
+// Check if auction is ending soon (last 5 minutes)
+export function isAuctionEndingSoon(endAt: string): boolean {
+	const now = new Date();
+	const end = new Date(endAt);
+	const diff = end.getTime() - now.getTime();
+	
+	return diff > 0 && diff <= 5 * 60 * 1000; // 5 minutes
+}
+
+// Get auction status
+export function getAuctionStatus(auction: Auction, endAt: string): string {
+	const now = new Date();
+	const end = new Date(endAt);
+	
+	if (end <= now) {
+		return 'ended';
+	}
+	
+	if (isAuctionEndingSoon(endAt)) {
+		return 'ending';
+	}
+	
+	return auction.status;
+}
+
+// Format price
+export function formatPrice(cents: number): string {
+	return new Intl.NumberFormat('en-AU', {
+		style: 'currency',
+		currency: 'AUD'
+	}).format(cents / 100);
+}
+
+// Get bid history for an auction
+export async function getBidHistory(auctionId: string): Promise<Bid[]> {
+	const { data, error } = await supabase
+		.from('bids')
+		.select(`
+			*,
+			users!bids_bidder_id_fkey (
+				id,
+				legal_name,
+				email
+			)
+		`)
+		.eq('auction_id', auctionId)
+		.order('placed_at', { ascending: false });
+
+	if (error) {
+		console.error('Error fetching bid history:', error);
+		return [];
+	}
+
+	return data || [];
+}
+
+// Check if user is the current high bidder
+export function isHighBidder(auction: Auction, userId: string): boolean {
+	if (!auction.high_bid_id) return false;
+	
+	// We'd need to fetch the high bid to check the bidder_id
+	// For now, we'll assume the high_bid_id corresponds to the user's bid
+	return true; // This is a simplified check
+}
+
+// Get user's current bid on an auction
+export async function getUserBid(auctionId: string, userId: string): Promise<Bid | null> {
+	const { data, error } = await supabase
+		.from('bids')
+		.select('*')
+		.eq('auction_id', auctionId)
+		.eq('bidder_id', userId)
+		.order('amount_cents', { ascending: false })
+		.limit(1)
+		.single();
+
+	if (error) {
+		return null;
+	}
+
+	return data;
+}

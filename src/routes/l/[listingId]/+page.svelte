@@ -17,6 +17,8 @@
 		Share2,
 		Flag
 	} from 'lucide-svelte';
+	import LiveAuction from '$lib/components/LiveAuction.svelte';
+	import BidHistory from '$lib/components/BidHistory.svelte';
 
 	let listing: any = null;
 	let auction: any = null;
@@ -26,10 +28,7 @@
 	let error = '';
 	let user: any = null;
 
-	// Bid form
-	let bidAmount = '';
-	let maxProxyBid = '';
-	let bidding = false;
+	// Removed old bidding variables - now handled by LiveAuction component
 
 	$: listingId = $page.params.listingId;
 
@@ -108,36 +107,7 @@
 		currentPhotoIndex = index;
 	}
 
-	async function placeBid() {
-		if (!user) {
-			goto('/login');
-			return;
-		}
-
-		bidding = true;
-
-		try {
-			const { error } = await supabase.rpc('place_bid', {
-				auction_id: auction.id,
-				amount_cents: parseInt(bidAmount) * 100,
-				max_proxy_cents: maxProxyBid ? parseInt(maxProxyBid) * 100 : null
-			});
-
-			if (error) {
-				error = error.message;
-			} else {
-				// Reload auction data
-				await loadListing();
-				bidAmount = '';
-				maxProxyBid = '';
-			}
-		} catch (err) {
-			console.error('Bid error:', err);
-			error = 'Failed to place bid';
-		} finally {
-			bidding = false;
-		}
-	}
+	// Removed old placeBid function - now handled by LiveAuction component
 
 	function formatPrice(cents: number): string {
 		return new Intl.NumberFormat('en-AU', {
@@ -385,91 +355,33 @@
 
 			<!-- Sidebar -->
 			<div class="lg:col-span-1 space-y-6">
-				<!-- Auction Status -->
-				<div class="card">
-					<div class="card-content">
-						{#if auction}
-							<div class="text-center space-y-4">
-								<div class="text-2xl font-bold text-gray-900">
-									{formatPrice(auction.current_price_cents)}
-								</div>
-								
-								<div class="flex items-center justify-center text-sm text-gray-500">
-									<Clock class="w-4 h-4 mr-1" />
-									{formatTimeLeft(listing.end_at)}
-								</div>
+				{#if auction}
+					<!-- Live Auction Component -->
+					<LiveAuction
+						{auctionId}
+						listingEndAt={listing.end_at}
+						currentPriceCents={auction.current_price_cents}
+						bidCount={auction.bid_count || 0}
+						highBidderId={auction.high_bid_id}
+						reserveMet={auction.reserve_met}
+						reserveCents={listing.reserve_cents}
+					/>
 
-								{#if listing.buy_now_cents && auction.current_price_cents < listing.buy_now_cents}
-									<button class="btn-primary w-full">
-										Buy Now for {formatPrice(listing.buy_now_cents)}
-									</button>
-								{/if}
-
-								{#if user}
-									<div class="space-y-3">
-										<div>
-											<label for="bidAmount" class="block text-sm font-medium text-gray-700 mb-1">
-												Your Bid (AUD)
-											</label>
-											<div class="relative">
-												<DollarSign class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-												<input
-													id="bidAmount"
-													type="number"
-													bind:value={bidAmount}
-													min={auction.current_price_cents / 100 + 1}
-													step="0.01"
-													class="input pl-8"
-													placeholder="Enter bid amount"
-												/>
-											</div>
-										</div>
-
-										<div>
-											<label for="maxProxyBid" class="block text-sm font-medium text-gray-700 mb-1">
-												Max Proxy Bid (Optional)
-											</label>
-											<div class="relative">
-												<DollarSign class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-												<input
-													id="maxProxyBid"
-													type="number"
-													bind:value={maxProxyBid}
-													min={auction.current_price_cents / 100 + 1}
-													step="0.01"
-													class="input pl-8"
-													placeholder="Enter max bid"
-												/>
-											</div>
-											<p class="text-xs text-gray-500 mt-1">
-												We'll automatically bid up to this amount
-											</p>
-										</div>
-
-										<button
-											on:click={placeBid}
-											disabled={bidding || !bidAmount}
-											class="btn-primary w-full"
-										>
-											{bidding ? 'Placing Bid...' : 'Place Bid'}
-										</button>
-									</div>
-								{:else}
-									<a href="/login" class="btn-primary w-full">
-										Sign In to Bid
-									</a>
-								{/if}
-							</div>
-						{:else}
+					<!-- Bid History Component -->
+					<BidHistory {auctionId} />
+				{:else}
+					<!-- Auction not started -->
+					<div class="card">
+						<div class="card-content">
 							<div class="text-center">
 								<p class="text-gray-500">Auction not started yet</p>
 								<p class="text-sm text-gray-400 mt-1">
 									Starts {formatDate(listing.start_at)}
 								</p>
 							</div>
-						{/if}
+						</div>
 					</div>
-				</div>
+				{/if}
 
 				<!-- Auction Info -->
 				<div class="card">
