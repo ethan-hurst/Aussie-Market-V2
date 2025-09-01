@@ -8,10 +8,10 @@
 	import NotificationBell from '$lib/components/NotificationBell.svelte';
 
 	// Get data from server-side load function
-	export let data;
+	export let data: { session: any; user: any; userProfile: any; url: string };
 
 	let user = data.session?.user || null;
-	let userProfile = data.userProfile;
+	let userProfile: any = data.userProfile;
 	let loading = false;
 	let mobileMenuOpen = false;
 
@@ -110,6 +110,16 @@
 
 							{#if mobileMenuOpen}
 								<div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+									{#if userProfile && (userProfile.role === 'admin' || userProfile.role === 'moderator')}
+										<a
+											href="/admin"
+											on:click={closeMobileMenu}
+											class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+										>
+											<Settings class="w-4 h-4 mr-2" />
+											Admin
+										</a>
+									{/if}
 									<a
 										href="/account"
 										on:click={closeMobileMenu}
