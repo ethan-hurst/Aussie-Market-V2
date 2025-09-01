@@ -1,3 +1,6 @@
+-- Enable required extensions for full-text search
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+
 -- Create listings table
 CREATE TABLE IF NOT EXISTS public.listings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -28,7 +31,8 @@ CREATE INDEX IF NOT EXISTS idx_listings_status ON public.listings(status);
 CREATE INDEX IF NOT EXISTS idx_listings_category_id ON public.listings(category_id);
 CREATE INDEX IF NOT EXISTS idx_listings_start_at ON public.listings(start_at);
 CREATE INDEX IF NOT EXISTS idx_listings_end_at ON public.listings(end_at);
-CREATE INDEX IF NOT EXISTS idx_listings_location_state ON public.listings USING GIN ((location->>'state'));
+-- Create index on location state for filtering (using BTREE instead of GIN for simplicity)
+CREATE INDEX IF NOT EXISTS idx_listings_location_state ON public.listings ((location->>'state'));
 CREATE INDEX IF NOT EXISTS idx_listings_title_description ON public.listings USING GIN (to_tsvector('english', title || ' ' || description));
 
 -- Create updated_at trigger
