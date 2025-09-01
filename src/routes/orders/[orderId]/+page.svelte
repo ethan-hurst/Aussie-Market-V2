@@ -19,7 +19,13 @@
 		MapPin,
 		CreditCard,
 		AlertCircle,
-		ArrowRight
+		ArrowRight,
+		KeyRound,
+		QrCode,
+		Copy,
+		ArrowLeft,
+		ArrowUp,
+		ArrowDown
 	} from 'lucide-svelte';
 
 	let order: any = null;
@@ -27,6 +33,15 @@
 	let error = '';
 	let user: any = null;
 	let updating = false;
+
+	// Pickup UI state
+	let pickupCode = '';
+	let pickupToken = '';
+	let pickupLoading = false;
+	let pickupMessage = '';
+	let pickupErrorMsg = '';
+	let redeemCode = '';
+	let redeemLoading = false;
 
 	let orderId: string;
 	$: orderId = $page.params.orderId as string;
@@ -111,6 +126,50 @@
 		const action = actionForState(newState);
 		if (!action) return;
 		await performAction(action);
+	}
+
+	async function initPickup() {
+		try {
+			pickupLoading = true;
+			pickupErrorMsg = '';
+			pickupMessage = '';
+			const res = await fetch(`/api/pickup/${order.id}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'init' })
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data?.error || 'Failed to initialize pickup');
+			pickupCode = data.code6;
+			pickupToken = data.qr_token;
+			pickupMessage = 'Pickup code generated. Share this code with the buyer at handover.';
+		} catch (e) {
+			pickupErrorMsg = (e as Error).message || 'Failed to initialize pickup';
+		} finally {
+			pickupLoading = false;
+		}
+	}
+
+	async function redeemPickup() {
+		try {
+			redeemLoading = true;
+			pickupErrorMsg = '';
+			pickupMessage = '';
+			if (!redeemCode) throw new Error('Enter the 6-digit code');
+			const res = await fetch(`/api/pickup/${order.id}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'redeem', code6: redeemCode })
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data?.error || 'Failed to redeem pickup');
+			pickupMessage = 'Pickup confirmed.';
+			await loadOrder();
+		} catch (e) {
+			pickupErrorMsg = (e as Error).message || 'Failed to redeem pickup';
+		} finally {
+			redeemLoading = false;
+		}
 	}
 
 	function getMainPhoto(photos: any[]): string {
@@ -315,6 +374,25 @@
 										</button>
 									{/if}
 								</div>
+
+								<!-- Buyer Pickup Redeem -->
+								{#if isBuyer() && (order.state === 'ready_for_handover' || order.state === 'shipped')}
+									<div class="mt-6 p-4 border rounded-md bg-gray-50">
+										<h4 class="text-sm font-semibold text-gray-900 mb-3 flex items-center"><QrCode class="w-4 h-4 mr-2"/> Redeem Pickup</h4>
+										{#if pickupMessage}
+											<p class="text-sm text-green-700 mb-2">{pickupMessage}</p>
+										{/if}
+										{#if pickupErrorMsg}
+											<p class="text-sm text-red-700 mb-2">{pickupErrorMsg}</p>
+										{/if}
+										<div class="flex items-center space-x-2">
+											<input class="input" placeholder="Enter 6-digit code" bind:value={redeemCode} maxlength="6" />
+											<button class="btn btn-outline" on:click={redeemPickup} disabled={redeemLoading}>
+												{redeemLoading ? 'Confirming...' : 'Confirm Pickup'}
+											</button>
+										</div>
+									</div>
+								{/if}
 							{:else if isSeller()}
 								<!-- Seller Actions -->
 								<div class="space-y-3">
@@ -340,6 +418,30 @@
 										</button>
 									{/if}
 								</div>
+
+								<!-- Seller Pickup Management -->
+								{#if isSeller() && (order.state === 'paid' || order.state === 'ready_for_handover')}
+									<div class="mt-6 p-4 border rounded-md bg-gray-50">
+										<h4 class="text-sm font-semibold text-gray-900 mb-3 flex items-center"><KeyRound class="w-4 h-4 mr-2"/> Pickup Code</h4>
+										{#if pickupMessage}
+											<p class="text-sm text-green-700 mb-2">{pickupMessage}</p>
+										{/if}
+										{#if pickupErrorMsg}
+											<p class="text-sm text-red-700 mb-2">{pickupErrorMsg}</p>
+										{/if}
+										<div class="flex items-center space-x-2">
+											<button class="btn btn-outline" on:click={initPickup} disabled={pickupLoading}>
+												{pickupLoading ? 'Generating...' : 'Generate Code'}
+											</button>
+											{#if pickupCode}
+												<span class="ml-2 font-mono text-lg">{pickupCode}</span>
+											{/if}
+										</div>
+										{#if pickupToken}
+											<div class="mt-2 text-xs text-gray-500 break-all">Token: {pickupToken}</div>
+										{/if}
+									</div>
+								{/if}
 							{/if}
 						</div>
 					</div>
