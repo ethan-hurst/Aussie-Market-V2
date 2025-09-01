@@ -42,6 +42,7 @@
 	let pickupErrorMsg = '';
 	let redeemCode = '';
 	let redeemLoading = false;
+	let qrDataUrl = '';
 
 	let orderId: string;
 	$: orderId = $page.params.orderId as string;
@@ -143,6 +144,14 @@
 			pickupCode = data.code6;
 			pickupToken = data.qr_token;
 			pickupMessage = 'Pickup code generated. Share this code with the buyer at handover.';
+			// Build QR for token if available
+			try {
+				const mod = await import('qrcode');
+				const QRCode = mod.default || mod;
+				qrDataUrl = await QRCode.toDataURL(pickupToken);
+			} catch (e) {
+				console.warn('QR generation failed', e);
+			}
 		} catch (e) {
 			pickupErrorMsg = (e as Error).message || 'Failed to initialize pickup';
 		} finally {
@@ -439,6 +448,12 @@
 										</div>
 										{#if pickupToken}
 											<div class="mt-2 text-xs text-gray-500 break-all">Token: {pickupToken}</div>
+											{#if qrDataUrl}
+												<div class="mt-3">
+													<img src={qrDataUrl} alt="Pickup QR" class="w-32 h-32 border rounded" />
+													<a class="text-sm text-primary-600 hover:underline block mt-1" href={qrDataUrl} download={`pickup-${order.id}.png`}>Download QR</a>
+												</div>
+											{/if}
 										{/if}
 									</div>
 								{/if}
