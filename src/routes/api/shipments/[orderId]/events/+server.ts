@@ -1,0 +1,81 @@
+import { json } from '@sveltejs/kit';
+import { supabase } from '$lib/supabase';
+import type { RequestHandler } from './$types';
+
+// List shipment events for an order (buyer/seller)
+export const GET: RequestHandler = async ({ params, locals }) => {
+    try {
+        const { data: { session } } = await locals.getSession();
+        if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
+
+        const { orderId } = params;
+        if (!orderId) return json({ error: 'Order ID required' }, { status: 400 });
+
+        // Find shipment id for order
+        const { data: shipment } = await supabase
+            .from('shipments')
+            .select('id')
+            .eq('order_id', orderId)
+            .single();
+
+        if (!shipment) return json({ events: [] });
+
+        const { data: events, error } = await supabase
+            .from('shipment_events')
+            .select('*')
+            .eq('shipment_id', shipment.id)
+            .order('event_time', { ascending: false });
+
+        if (error) return json({ error: 'Failed to fetch events' }, { status: 500 });
+        return json({ events: events || [] });
+    } catch (error) {
+        console.error('List events error:', error);
+        return json({ error: 'Internal server error' }, { status: 500 });
+    }
+};
+
+// Add an event (seller only)
+export const POST: RequestHandler = async ({ params, request, locals }) => {
+    try {
+        const { data: { session } } = await locals.getSession();
+        if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
+
+        const { orderId } = params;
+        const { status, description, location, event_time } = await request.json();
+        if (!status) return json({ error: 'Status required' }, { status: 400 });
+
+        // Ensure seller owns order and has a shipment
+        const { data: shipment, error: shipErr } = await supabase
+            .from('shipments')
+            .select('id, order_id, orders!inner(seller_id)')
+            .eq('order_id', orderId)
+            .single();
+
+        if (shipErr || !shipment) return json({ error: 'Shipment not found' }, { status: 404 });
+        // RLS will protect inserts; we also pre-check
+        // @ts-ignore - typed join
+        if (shipment.orders?.seller_id && shipment.orders.seller_id !== session.user.id) {
+            return json({ error: 'Forbidden' }, { status: 403 });
+        }
+
+        const { data: event, error } = await supabase
+            .from('shipment_events')
+            .insert({
+                shipment_id: shipment.id,
+                status,
+                description,
+                location,
+                event_time: event_time || new Date().toISOString()
+            })
+            .select()
+            .single();
+
+        if (error) return json({ error: 'Failed to add event' }, { status: 500 });
+        return json({ success: true, event });
+    } catch (error) {
+        console.error('Add event error:', error);
+        return json({ error: 'Internal server error' }, { status: 500 });
+    }
+};
+
+

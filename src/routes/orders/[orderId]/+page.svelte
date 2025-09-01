@@ -52,6 +52,13 @@
 	let shipMsg = '';
 	let shipErr = '';
 
+	// Shipment events
+	let shipmentEvents: Array<{ id: string; status: string; description?: string; location?: string; event_time: string }> = [];
+	let newEventStatus = '';
+	let newEventDesc = '';
+	let newEventLocation = '';
+	let eventLoading = false;
+
 	async function copyText(text: string) {
 		try {
 			await navigator.clipboard.writeText(text);
@@ -73,6 +80,7 @@
 		user = session?.user || null;
 
 		await loadOrder();
+		await loadShipmentEvents();
 
 		// Set up real-time subscription for order updates
 		if (orderId) {
@@ -219,6 +227,39 @@
 			shipErr = (e as Error).message || 'Failed to save shipment';
 		} finally {
 			shipLoading = false;
+		}
+	}
+
+	async function loadShipmentEvents() {
+		try {
+			if (!orderId) return;
+			const res = await fetch(`/api/shipments/${orderId}/events`);
+			const data = await res.json();
+			shipmentEvents = data?.events || [];
+		} catch (e) {
+			console.warn('Failed to load events');
+		}
+	}
+
+	async function addShipmentEvent() {
+		try {
+			eventLoading = true;
+			const res = await fetch(`/api/shipments/${orderId}/events`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ status: newEventStatus, description: newEventDesc, location: newEventLocation })
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data?.error || 'Failed to add event');
+			newEventStatus = '';
+			newEventDesc = '';
+			newEventLocation = '';
+			await loadShipmentEvents();
+			await loadOrder();
+		} catch (e) {
+			console.error(e);
+		} finally {
+			eventLoading = false;
 		}
 	}
 
@@ -520,6 +561,44 @@
 										<div class="mt-3">
 											<button class="btn btn-outline" disabled={shipLoading} on:click={saveShipment}>
 												{shipLoading ? 'Saving...' : 'Save & Mark Shipped'}
+											</button>
+										</div>
+									</div>
+								{/if}
+
+								<!-- Shipping Timeline -->
+								{#if shipmentEvents.length > 0}
+									<div class="mt-6 p-4 border rounded-md bg-white">
+										<h4 class="text-sm font-semibold text-gray-900 mb-3">Shipping Timeline</h4>
+										<ul class="space-y-2">
+											{#each shipmentEvents as ev}
+												<li class="text-sm">
+													<span class="font-medium">{ev.status}</span>
+													<span class="text-gray-500 ml-2">{new Date(ev.event_time).toLocaleString()}</span>
+													{#if ev.location}
+														<span class="text-gray-500 ml-2">• {ev.location}</span>
+													{/if}
+													{#if ev.description}
+														<div class="text-gray-700">{ev.description}</div>
+													{/if}
+												</li>
+											{/each}
+										</ul>
+									</div>
+								{/if}
+
+								<!-- Seller add timeline event -->
+								{#if isSeller() && (order.state === 'shipped' || order.state === 'delivered')}
+									<div class="mt-4 p-4 border rounded-md bg-gray-50">
+										<h4 class="text-sm font-semibold text-gray-900 mb-3">Add Tracking Event</h4>
+										<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+											<input class="input" placeholder="Status (e.g. in_transit)" bind:value={newEventStatus} />
+											<input class="input" placeholder="Location (optional)" bind:value={newEventLocation} />
+											<input class="input" placeholder="Description (optional)" bind:value={newEventDesc} />
+										</div>
+										<div class="mt-3">
+											<button class="btn btn-outline" disabled={eventLoading} on:click={addShipmentEvent}>
+												{eventLoading ? 'Adding...' : 'Add Event'}
 											</button>
 										</div>
 									</div>
