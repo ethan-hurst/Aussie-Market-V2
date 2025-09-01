@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { supabase } from '$lib/supabase';
-	import { getUnreadNotificationCount, getUserNotifications, markNotificationAsRead } from '$lib/notifications';
+	import { getUnreadNotificationCount, getUserNotifications, markNotificationAsRead, markAllNotificationsAsRead } from '$lib/notifications';
 	import type { Notification } from '$lib/notifications';
 
 	let unreadCount = 0;
