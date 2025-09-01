@@ -1,5 +1,8 @@
 import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
+import sharp from 'sharp';
+import { ExifReader } from 'exifr';
+import { bmvbhash } from 'blockhash-core';
 
 // Storage bucket names
 export const STORAGE_BUCKETS = {
@@ -45,27 +48,67 @@ export interface UploadResult {
  * Generate a perceptual hash for duplicate detection
  */
 export async function generateImageHash(file: File): Promise<string> {
-	// For now, we'll use a simple hash based on file size and name
-	// In production, you'd want to use a proper perceptual hashing library
-	const arrayBuffer = await file.arrayBuffer();
-	const uint8Array = new Uint8Array(arrayBuffer);
-	
-	// Simple hash function
-	let hash = 0;
-	for (let i = 0; i < uint8Array.length; i++) {
-		hash = ((hash << 5) - hash + uint8Array[i]) & 0xffffffff;
+	try {
+		// Convert file to buffer
+		const buffer = await file.arrayBuffer();
+		
+		// Use Sharp to process the image and get a consistent format
+		const processedBuffer = await sharp(buffer)
+			.resize(256, 256, { fit: 'cover' })
+			.greyscale()
+			.raw()
+			.toBuffer();
+		
+		// Convert buffer to ImageData-like structure for blockhash
+		const imageData = {
+			data: new Uint8ClampedArray(processedBuffer),
+			width: 256,
+			height: 256
+		};
+		
+		// Generate perceptual hash using blockhash
+		const hash = bmvbhash(imageData, 16); // 16-bit hash
+		
+		return hash;
+	} catch (error) {
+		console.error('Error generating image hash:', error);
+		// Fallback to simple hash if perceptual hashing fails
+		const arrayBuffer = await file.arrayBuffer();
+		const uint8Array = new Uint8Array(arrayBuffer);
+		
+		let hash = 0;
+		for (let i = 0; i < uint8Array.length; i++) {
+			hash = ((hash << 5) - hash + uint8Array[i]) & 0xffffffff;
+		}
+		
+		return hash.toString(16);
 	}
-	
-	return hash.toString(16);
 }
 
 /**
  * Strip EXIF data from image
  */
 export async function stripExifData(file: File): Promise<Blob> {
-	// For now, we'll return the original file
-	// In production, you'd want to use a library like exifr to strip EXIF
-	return file;
+	try {
+		// Convert file to buffer
+		const buffer = await file.arrayBuffer();
+		
+		// Use Sharp to process the image and strip EXIF data
+		const processedBuffer = await sharp(buffer)
+			.rotate() // Auto-rotate based on EXIF orientation, then strip EXIF
+			.jpeg({ 
+				quality: 95, // High quality to preserve image
+				mozjpeg: true // Use mozjpeg for better compression
+			})
+			.toBuffer();
+		
+		// Return as Blob with correct MIME type
+		return new Blob([processedBuffer], { type: 'image/jpeg' });
+	} catch (error) {
+		console.error('Error stripping EXIF data:', error);
+		// Fallback to original file if EXIF stripping fails
+		return file;
+	}
 }
 
 /**
@@ -77,36 +120,59 @@ export async function resizeImage(
 	maxHeight: number = 1080,
 	quality: number = 0.8
 ): Promise<Blob> {
-	return new Promise((resolve) => {
-		const canvas = document.createElement('canvas');
-		const ctx = canvas.getContext('2d')!;
-		const img = new Image();
+	try {
+		// Convert file to buffer
+		const buffer = await file.arrayBuffer();
 		
-		img.onload = () => {
-			// Calculate new dimensions
-			let { width, height } = img;
-			
-			if (width > maxWidth) {
-				height = (height * maxWidth) / width;
-				width = maxWidth;
-			}
-			
-			if (height > maxHeight) {
-				width = (width * maxHeight) / height;
-				height = maxHeight;
-			}
-			
-			// Set canvas dimensions
-			canvas.width = width;
-			canvas.height = height;
-			
-			// Draw and compress image
-			ctx.drawImage(img, 0, 0, width, height);
-			canvas.toBlob(resolve, 'image/jpeg', quality);
-		};
+		// Use Sharp to resize and optimize the image
+		const processedBuffer = await sharp(buffer)
+			.resize(maxWidth, maxHeight, {
+				fit: 'inside', // Maintain aspect ratio
+				withoutEnlargement: true // Don't upscale small images
+			})
+			.jpeg({ 
+				quality: Math.round(quality * 100), // Convert 0-1 to 0-100
+				progressive: true, // Progressive JPEG for better loading
+				mozjpeg: true // Use mozjpeg for better compression
+			})
+			.toBuffer();
 		
-		img.src = URL.createObjectURL(file);
-	});
+		// Return as Blob with correct MIME type
+		return new Blob([processedBuffer], { type: 'image/jpeg' });
+	} catch (error) {
+		console.error('Error resizing image:', error);
+		// Fallback to canvas-based resizing if Sharp fails
+		return new Promise((resolve) => {
+			const canvas = document.createElement('canvas');
+			const ctx = canvas.getContext('2d')!;
+			const img = new Image();
+			
+			img.onload = () => {
+				// Calculate new dimensions
+				let { width, height } = img;
+				
+				if (width > maxWidth) {
+					height = (height * maxWidth) / width;
+					width = maxWidth;
+				}
+				
+				if (height > maxHeight) {
+					width = (width * maxHeight) / height;
+					height = maxHeight;
+				}
+				
+				// Set canvas dimensions
+				canvas.width = width;
+				canvas.height = height;
+				
+				// Draw and compress image
+				ctx.drawImage(img, 0, 0, width, height);
+				canvas.toBlob(resolve, 'image/jpeg', quality);
+			};
+			
+			img.src = URL.createObjectURL(file);
+		});
+	}
 }
 
 /**
@@ -133,6 +199,141 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
 }
 
 /**
+ * Calculate Hamming distance between two hashes for duplicate detection
+ */
+export function calculateHammingDistance(hash1: string, hash2: string): number {
+	if (hash1.length !== hash2.length) {
+		return Infinity; // Different length hashes can't be compared
+	}
+	
+	let distance = 0;
+	for (let i = 0; i < hash1.length; i++) {
+		if (hash1[i] !== hash2[i]) {
+			distance++;
+		}
+	}
+	
+	return distance;
+}
+
+/**
+ * Check if two images are likely duplicates based on perceptual hashing
+ */
+export function areSimilarImages(hash1: string, hash2: string, threshold: number = 5): boolean {
+	const distance = calculateHammingDistance(hash1, hash2);
+	return distance <= threshold;
+}
+
+/**
+ * Find similar images in a collection of hashes
+ */
+export function findSimilarImages(
+	newHash: string, 
+	existingHashes: string[], 
+	threshold: number = 5
+): string[] {
+	return existingHashes.filter(hash => areSimilarImages(newHash, hash, threshold));
+}
+
+/**
+ * Check for duplicate images in the database using perceptual hashing
+ */
+export async function checkImageDuplicate(
+	hash: string, 
+	listingId?: string, 
+	threshold: number = 5
+): Promise<{
+	isDuplicate: boolean;
+	similarCount: number;
+	similarImages: Array<{
+		listing_id: string;
+		photo_url: string;
+		hamming_distance: number;
+	}>;
+}> {
+	try {
+		const { data, error } = await supabase.rpc('check_image_duplicate', {
+			p_hash: hash,
+			p_listing_id: listingId || null,
+			p_threshold: threshold
+		});
+
+		if (error) {
+			console.error('Error checking image duplicate:', error);
+			return { isDuplicate: false, similarCount: 0, similarImages: [] };
+		}
+
+		return {
+			isDuplicate: data.is_duplicate,
+			similarCount: data.similar_count,
+			similarImages: data.similar_images || []
+		};
+	} catch (error) {
+		console.error('Error checking image duplicate:', error);
+		return { isDuplicate: false, similarCount: 0, similarImages: [] };
+	}
+}
+
+/**
+ * Enhanced image validation with format and dimension checks
+ */
+export async function validateImageFile(file: File): Promise<{ 
+	valid: boolean; 
+	error?: string; 
+	metadata?: { width: number; height: number; format: string; } 
+}> {
+	// Basic validation first
+	const basicValidation = validateFile(file);
+	if (!basicValidation.valid) {
+		return basicValidation;
+	}
+	
+	try {
+		// Use Sharp to get image metadata and validate
+		const buffer = await file.arrayBuffer();
+		const metadata = await sharp(buffer).metadata();
+		
+		if (!metadata.width || !metadata.height) {
+			return {
+				valid: false,
+				error: 'Invalid image file - unable to read dimensions.'
+			};
+		}
+		
+		// Check minimum dimensions (avoid tiny images)
+		if (metadata.width < 100 || metadata.height < 100) {
+			return {
+				valid: false,
+				error: 'Image too small. Minimum size is 100x100 pixels.'
+			};
+		}
+		
+		// Check maximum dimensions (avoid huge images)
+		if (metadata.width > 5000 || metadata.height > 5000) {
+			return {
+				valid: false,
+				error: 'Image too large. Maximum size is 5000x5000 pixels.'
+			};
+		}
+		
+		return { 
+			valid: true, 
+			metadata: {
+				width: metadata.width,
+				height: metadata.height,
+				format: metadata.format || 'unknown'
+			}
+		};
+	} catch (error) {
+		console.error('Error validating image:', error);
+		return {
+			valid: false,
+			error: 'Invalid or corrupted image file.'
+		};
+	}
+}
+
+/**
  * Upload image to Supabase Storage
  */
 export async function uploadImage(
@@ -142,8 +343,8 @@ export async function uploadImage(
 	options: ImageProcessingOptions = {}
 ): Promise<UploadResult> {
 	try {
-		// Validate file
-		const validation = validateFile(file);
+		// Enhanced image validation
+		const validation = await validateImageFile(file);
 		if (!validation.valid) {
 			throw new Error(validation.error);
 		}
