@@ -1,19 +1,23 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import { supabase } from '$lib/supabase';
 	import { goto } from '$app/navigation';
 	import { 
-		canCreateListing, 
+		canEditListing, 
+		updateListing,
 		CATEGORIES, 
 		CONDITIONS, 
 		AUSTRALIAN_STATES,
-		type ListingData
+		formatPrice,
+		type ListingUpdateData
 	} from '$lib/listings';
 	import { uploadListingPhoto } from '$lib/storage';
 	import ImageUpload from '$lib/components/ImageUpload.svelte';
-	import { Upload, X, Plus, DollarSign, Calendar, MapPin, Package, Truck, AlertCircle } from 'lucide-svelte';
+	import { Upload, X, Plus, DollarSign, Calendar, MapPin, Package, Truck, AlertCircle, Save } from 'lucide-svelte';
 
 	let user: any = null;
+	let listing: any = null;
 	let loading = true;
 	let submitting = false;
 	let error = '';
@@ -47,14 +51,31 @@
 		}
 
 		user = session.user;
+		const listingId = $page.params.listingId;
 		
-		// Check if user can create listings
-		const permissionCheck = await canCreateListing(user.id);
+		// Check if user can edit this listing
+		const permissionCheck = await canEditListing(user.id, listingId);
 		if (!permissionCheck.allowed) {
-			permissionError = permissionCheck.reason || 'You cannot create listings';
+			permissionError = permissionCheck.reason || 'You cannot edit this listing';
 			loading = false;
 			return;
 		}
+
+		listing = permissionCheck.listing;
+
+		// Populate form with existing data
+		title = listing.title;
+		description = listing.description;
+		categoryId = listing.category_id.toString();
+		condition = listing.condition;
+		startCents = (listing.start_cents / 100).toString();
+		reserveCents = listing.reserve_cents ? (listing.reserve_cents / 100).toString() : '';
+		buyNowCents = listing.buy_now_cents ? (listing.buy_now_cents / 100).toString() : '';
+		pickup = listing.pickup;
+		shipping = listing.shipping;
+		location = listing.location;
+		startAt = listing.start_at.slice(0, 16);
+		endAt = listing.end_at.slice(0, 16);
 
 		loading = false;
 	});
@@ -87,13 +108,8 @@
 				return;
 			}
 
-			if (photos.length === 0) {
-				error = 'Please upload at least one photo';
-				return;
-			}
-
 			// Prepare listing data
-			const listingData: ListingData = {
+			const listingData: ListingUpdateData = {
 				title,
 				description,
 				category_id: parseInt(categoryId),
@@ -108,9 +124,9 @@
 				end_at: endAt
 			};
 
-			// Create listing
-			const response = await fetch('/api/listings', {
-				method: 'POST',
+			// Update listing
+			const response = await fetch(`/api/listings/${listing.id}`, {
+				method: 'PUT',
 				headers: {
 					'Content-Type': 'application/json'
 				},
@@ -120,18 +136,16 @@
 			const result = await response.json();
 
 			if (!response.ok) {
-				error = result.error || 'Failed to create listing';
+				error = result.error || 'Failed to update listing';
 				return;
 			}
 
-			const listing = result.listing;
-
-			// Upload photos
+			// Upload new photos if any
 			for (let i = 0; i < photos.length; i++) {
 				const photo = photos[i];
 				const uploadResult = await uploadListingPhoto(photo, listing.id, i);
 				
-				// Note: Photo upload errors won't fail the listing creation
+				// Note: Photo upload errors won't fail the listing update
 				// but should be logged for monitoring
 				if (!uploadResult) {
 					console.error(`Failed to upload photo ${i} for listing ${listing.id}`);
@@ -139,28 +153,49 @@
 			}
 
 			// Redirect to listing page
-			goto(`/l/${listing.id}?message=created`);
+			goto(`/l/${listing.id}?message=updated`);
 
 		} catch (err) {
-			error = 'An error occurred while creating your listing';
+			error = 'An error occurred while updating your listing';
 			console.error('Submit error:', err);
 		} finally {
 			submitting = false;
 		}
 	}
 
-	function formatCurrency(value: string): string {
-		if (!value) return '';
-		const num = parseFloat(value);
-		return new Intl.NumberFormat('en-AU', {
-			style: 'currency',
-			currency: 'AUD'
-		}).format(num);
+	async function handleDelete() {
+		if (!confirm('Are you sure you want to delete this listing? This action cannot be undone.')) {
+			return;
+		}
+
+		submitting = true;
+		error = '';
+
+		try {
+			const response = await fetch(`/api/listings/${listing.id}`, {
+				method: 'DELETE'
+			});
+
+			if (!response.ok) {
+				const result = await response.json();
+				error = result.error || 'Failed to delete listing';
+				return;
+			}
+
+			// Redirect to user's listings
+			goto('/account/listings?message=deleted');
+
+		} catch (err) {
+			error = 'An error occurred while deleting your listing';
+			console.error('Delete error:', err);
+		} finally {
+			submitting = false;
+		}
 	}
 </script>
 
 <svelte:head>
-	<title>Create New Listing - Aussie Market</title>
+	<title>Edit Listing - Aussie Market</title>
 </svelte:head>
 
 {#if loading}
@@ -171,10 +206,10 @@
 	<div class="max-w-4xl mx-auto space-y-8">
 		<div class="text-center py-12">
 			<AlertCircle class="mx-auto h-12 w-12 text-red-400 mb-4" />
-			<h2 class="text-2xl font-bold text-gray-900 mb-4">Cannot Create Listing</h2>
+			<h2 class="text-2xl font-bold text-gray-900 mb-4">Cannot Edit Listing</h2>
 			<p class="text-gray-600 mb-6">{permissionError}</p>
 			<div class="space-x-4">
-				<a href="/account" class="btn-primary">Account Settings</a>
+				<a href="/account/listings" class="btn-primary">My Listings</a>
 				<a href="/" class="btn btn-outline">Back to Home</a>
 			</div>
 		</div>
@@ -182,9 +217,20 @@
 {:else}
 	<div class="max-w-4xl mx-auto space-y-8">
 		<!-- Header -->
-		<div>
-			<h1 class="text-3xl font-bold text-gray-900">Create New Listing</h1>
-			<p class="text-gray-600 mt-2">List your item for auction and reach thousands of potential buyers</p>
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-3xl font-bold text-gray-900">Edit Listing</h1>
+				<p class="text-gray-600 mt-2">Update your listing details and photos</p>
+			</div>
+			<div class="flex space-x-4">
+				<button 
+					on:click={handleDelete}
+					disabled={submitting}
+					class="btn btn-outline btn-danger"
+				>
+					Delete Listing
+				</button>
+			</div>
 		</div>
 
 		{#if error}
@@ -464,7 +510,7 @@
 			<div class="card">
 				<div class="card-header">
 					<h2 class="card-title">Photos</h2>
-					<p class="card-description">Upload clear photos of your item (up to 10 photos)</p>
+					<p class="card-description">Upload additional photos of your item (up to 10 total)</p>
 				</div>
 				<div class="card-content">
 					<ImageUpload
@@ -478,11 +524,11 @@
 
 			<!-- Submit -->
 			<div class="flex justify-end space-x-4">
-				<button type="button" on:click={() => goto('/')} class="btn btn-outline btn-lg">
+				<button type="button" on:click={() => goto(`/l/${listing.id}`)} class="btn btn-outline btn-lg">
 					Cancel
 				</button>
 				<button type="submit" disabled={submitting} class="btn-primary btn-lg">
-					{submitting ? 'Creating...' : 'Create Listing'}
+					{submitting ? 'Saving...' : 'Save Changes'}
 				</button>
 			</div>
 		</form>
