@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/stores';
 	import { supabase } from '$lib/supabase';
 	import { 
 		getOrderDetails, 
-		updateOrderState, 
 		getOrderStatusColor, 
 		getOrderStatusLabel,
 		formatPrice,
@@ -29,7 +28,9 @@
 	let user: any = null;
 	let updating = false;
 
-	$: orderId = $page.params.orderId;
+	let orderId: string;
+	$: orderId = $page.params.orderId as string;
+	let orderSubscription: { unsubscribe?: () => void } | null = null;
 
 	onMount(async () => {
 		// Get user session
@@ -40,19 +41,22 @@
 
 		// Set up real-time subscription for order updates
 		if (orderId) {
-			const subscription = subscribeToOrderUpdates(orderId, (updatedOrder) => {
+			orderSubscription = subscribeToOrderUpdates(orderId, (updatedOrder) => {
 				order = updatedOrder;
 			});
+		}
+	});
 
-			return () => {
-				subscription.unsubscribe();
-			};
+	onDestroy(() => {
+		if (orderSubscription && typeof orderSubscription.unsubscribe === 'function') {
+			orderSubscription.unsubscribe();
 		}
 	});
 
 	async function loadOrder() {
 		try {
-			order = await getOrderDetails(orderId);
+			if (!orderId) return;
+			order = await getOrderDetails(orderId as string);
 			if (!order) {
 				error = 'Order not found';
 			}
@@ -64,23 +68,49 @@
 		}
 	}
 
-	async function updateState(newState: string) {
-		if (!order || !user) return;
+	function actionForState(state: string): string | null {
+		switch (state) {
+			case 'ready_for_handover':
+				return 'mark_ready';
+			case 'shipped':
+				return 'mark_shipped';
+			case 'delivered':
+				return 'confirm_delivery';
+			case 'released':
+				return 'release_funds';
+			default:
+				return null;
+		}
+	}
 
+	async function performAction(action: string) {
 		updating = true;
 		try {
-			const success = await updateOrderState(order.id, newState);
-			if (success) {
-				await loadOrder(); // Reload order data
-			} else {
-				error = 'Failed to update order state';
+			const res = await fetch(`/api/orders/${order.id}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action })
+			});
+
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body?.error || 'Failed to perform action');
 			}
+
+			await loadOrder();
 		} catch (err) {
-			console.error('Error updating order state:', err);
+			console.error('Order action failed:', err);
 			error = 'Failed to update order state';
 		} finally {
 			updating = false;
 		}
+	}
+
+	async function updateState(newState: string) {
+		if (!order || !user) return;
+		const action = actionForState(newState);
+		if (!action) return;
+		await performAction(action);
 	}
 
 	function getMainPhoto(photos: any[]): string {
