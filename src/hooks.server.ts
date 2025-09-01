@@ -1,9 +1,23 @@
 import pkg from '@supabase/ssr';
 const { createServerClient } = pkg;
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
+import { initializeApplication } from '$lib/startup';
 import type { Handle } from '@sveltejs/kit';
 
+// Initialize application with environment validation
+let initializationPromise: Promise<void> | null = null;
+
+async function ensureInitialized() {
+	if (!initializationPromise) {
+		initializationPromise = initializeApplication();
+	}
+	await initializationPromise;
+}
+
 export const handle: Handle = async ({ event, resolve }) => {
+	// Ensure application is properly initialized
+	await ensureInitialized();
+	
 	event.locals.supabase = createServerClient(
 		PUBLIC_SUPABASE_URL,
 		PUBLIC_SUPABASE_ANON_KEY,

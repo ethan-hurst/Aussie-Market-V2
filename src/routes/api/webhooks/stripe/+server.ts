@@ -1,13 +1,14 @@
 import { json } from '@sveltejs/kit';
 import Stripe from 'stripe';
 import { supabase } from '$lib/supabase';
+import { env } from '$lib/env';
 import type { RequestHandler } from './$types';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here', {
+const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here', {
 	apiVersion: '2023-10-16'
 });
 
-const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_your_webhook_secret_here';
+const endpointSecret = env.STRIPE_WEBHOOK_SECRET || 'whsec_your_webhook_secret_here';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.text();

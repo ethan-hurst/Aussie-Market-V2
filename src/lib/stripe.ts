@@ -1,8 +1,8 @@
 import Stripe from 'stripe';
-import { STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY } from '$env/static/private';
+import { env } from './env';
 
-// Initialize Stripe with secret key for server-side operations
-export const stripe = new Stripe(STRIPE_SECRET_KEY, {
+// Initialize Stripe with validated configuration
+export const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here', {
 	apiVersion: '2024-06-20',
 	typescript: true
 });
@@ -49,7 +49,7 @@ export async function createIdentityVerificationSession(
 		// Create a verification session
 		const verificationSession = await stripe.identity.verificationSessions.create({
 			type: 'document',
-			return_url: `${process.env.PUBLIC_SITE_URL}/account/kyc/complete?user_id=${userId}`,
+			return_url: `${env.PUBLIC_SITE_URL}/account/kyc/complete?user_id=${userId}`,
 			metadata: {
 				user_id: userId
 			},
@@ -160,8 +160,8 @@ export async function createAccountLink(accountId: string, userId: string) {
 	try {
 		const accountLink = await stripe.accountLinks.create({
 			account: accountId,
-			refresh_url: `${process.env.PUBLIC_SITE_URL}/account/connect/refresh?user_id=${userId}`,
-			return_url: `${process.env.PUBLIC_SITE_URL}/account/connect/complete?user_id=${userId}`,
+			refresh_url: `${env.PUBLIC_SITE_URL}/account/connect/refresh?user_id=${userId}`,
+			return_url: `${env.PUBLIC_SITE_URL}/account/connect/complete?user_id=${userId}`,
 			type: 'account_onboarding'
 		});
 
