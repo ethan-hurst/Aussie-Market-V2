@@ -38,6 +38,11 @@ export interface OrderWithDetails extends Order {
 // Create an order when auction ends
 export async function createOrderFromAuction(auctionId: string): Promise<Order | null> {
 	try {
+		// This function is now primarily handled by the database function end_auction()
+		// But we'll keep it as a fallback/manual method
+
+		console.warn('createOrderFromAuction called - consider using the database function end_auction() instead');
+
 		// Get auction details with winning bid
 		const { data: auction, error: auctionError } = await supabase
 			.from('auctions')
@@ -74,7 +79,11 @@ export async function createOrderFromAuction(auctionId: string): Promise<Order |
 			throw new Error('No winning bid found');
 		}
 
-		// Create the order
+		// Calculate fees
+		const platformFeeCents = Math.round(winningBid.amount_cents * 0.05);
+		const sellerAmountCents = winningBid.amount_cents - platformFeeCents;
+
+		// Create the order with comprehensive details
 		const { data: order, error: orderError } = await supabase
 			.from('orders')
 			.insert({
@@ -82,7 +91,11 @@ export async function createOrderFromAuction(auctionId: string): Promise<Order |
 				buyer_id: winningBid.bidder_id,
 				seller_id: auction.listings.seller_id,
 				amount_cents: winningBid.amount_cents,
-				state: 'pending'
+				platform_fee_cents: platformFeeCents,
+				seller_amount_cents: sellerAmountCents,
+				state: 'pending_payment',
+				auction_id: auctionId,
+				winning_bid_id: winningBid.id
 			})
 			.select()
 			.single();
@@ -91,9 +104,71 @@ export async function createOrderFromAuction(auctionId: string): Promise<Order |
 			throw new Error('Failed to create order');
 		}
 
+		// Create payment intent automatically
+		try {
+			await createPaymentIntentForOrder(order.id);
+		} catch (paymentError) {
+			console.error('Failed to create payment intent for order:', paymentError);
+			// Don't fail the order creation if payment intent creation fails
+		}
+
 		return order;
 	} catch (error) {
-		console.error('Error creating order:', error);
+		console.error('Error creating order from auction:', error);
+		return null;
+	}
+}
+
+/**
+ * Create a payment intent for an auction win order
+ */
+export async function createPaymentIntentForOrder(orderId: string): Promise<string | null> {
+	try {
+		// This would integrate with your payment system (Stripe, etc.)
+		// For now, we'll create a placeholder payment record
+
+		const { data: order, error: orderError } = await supabase
+			.from('orders')
+			.select(`
+				*,
+				buyer:users!orders_buyer_id_fkey(email),
+				listing:listings(title)
+			`)
+			.eq('id', orderId)
+			.single();
+
+		if (orderError || !order) {
+			throw new Error('Order not found');
+		}
+
+		// Create a pending payment record
+		const { data: payment, error: paymentError } = await supabase
+			.from('payments')
+			.insert({
+				order_id: orderId,
+				amount_cents: order.amount_cents,
+				currency: 'aud',
+				payment_method: 'stripe',
+				status: 'pending',
+				created_at: new Date().toISOString()
+			})
+			.select()
+			.single();
+
+		if (paymentError) {
+			throw new Error('Failed to create payment record');
+		}
+
+		console.log(`Payment intent created for order ${orderId}`);
+
+		// In a real implementation, you would:
+		// 1. Call Stripe API to create a PaymentIntent
+		// 2. Store the payment_intent_id in the order
+		// 3. Return the client_secret for frontend use
+
+		return payment.id;
+	} catch (error) {
+		console.error('Error creating payment intent:', error);
 		return null;
 	}
 }
