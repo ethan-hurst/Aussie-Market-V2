@@ -247,17 +247,17 @@
 				<div>
 					<h3 class="text-sm font-semibold text-gray-400 tracking-wider uppercase mb-4">Buying</h3>
 					<ul class="space-y-2">
-						<li><a href="#" class="text-gray-600 hover:text-gray-900">How to Bid</a></li>
-						<li><a href="#" class="text-gray-600 hover:text-gray-900">Buyer Protection</a></li>
-						<li><a href="#" class="text-gray-600 hover:text-gray-900">Payment Methods</a></li>
+						<li><a href="/help/bidding" class="text-gray-600 hover:text-gray-900">How to Bid</a></li>
+						<li><a href="/help/buyer-protection" class="text-gray-600 hover:text-gray-900">Buyer Protection</a></li>
+						<li><a href="/help/payments" class="text-gray-600 hover:text-gray-900">Payment Methods</a></li>
 					</ul>
 				</div>
 				<div>
 					<h3 class="text-sm font-semibold text-gray-400 tracking-wider uppercase mb-4">Selling</h3>
 					<ul class="space-y-2">
-						<li><a href="#" class="text-gray-600 hover:text-gray-900">How to Sell</a></li>
-						<li><a href="#" class="text-gray-600 hover:text-gray-900">Seller Guidelines</a></li>
-						<li><a href="#" class="text-gray-600 hover:text-gray-900">Fees & Charges</a></li>
+						<li><a href="/help/selling" class="text-gray-600 hover:text-gray-900">How to Sell</a></li>
+						<li><a href="/help/seller-guidelines" class="text-gray-600 hover:text-gray-900">Seller Guidelines</a></li>
+						<li><a href="/help/fees" class="text-gray-600 hover:text-gray-900">Fees & Charges</a></li>
 					</ul>
 				</div>
 			</div>
