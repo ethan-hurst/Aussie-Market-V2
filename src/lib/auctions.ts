@@ -628,7 +628,7 @@ export function formatPrice(cents: number): string {
 }
 
 // Get bid history for an auction
-export async function getBidHistory(auctionId: string): Promise<Bid[]> {
+export async function getAuctionBidHistory(auctionId: string): Promise<Bid[]> {
 	const { data, error } = await supabase
 		.from('bids')
 		.select(`

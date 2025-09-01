@@ -1,4 +1,5 @@
-import { createSupabaseServerClient } from '@supabase/ssr';
+import pkg from '@supabase/ssr';
+const { createSupabaseServerClient } = pkg;
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import type { Handle } from '@sveltejs/kit';
 
