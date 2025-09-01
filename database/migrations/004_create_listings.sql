@@ -44,13 +44,30 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_listings_updated_at
-    BEFORE UPDATE ON public.listings
-    FOR EACH ROW
-    EXECUTE FUNCTION update_listings_updated_at();
+-- Create trigger if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger 
+        WHERE tgname = 'update_listings_updated_at' 
+        AND tgrelid = 'public.listings'::regclass
+    ) THEN
+        CREATE TRIGGER update_listings_updated_at
+            BEFORE UPDATE ON public.listings
+            FOR EACH ROW
+            EXECUTE FUNCTION update_listings_updated_at();
+    END IF;
+END $$;
 
 -- Row Level Security (RLS) policies
 ALTER TABLE public.listings ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Users can view active listings" ON public.listings;
+DROP POLICY IF EXISTS "Users can view own listings" ON public.listings;
+DROP POLICY IF EXISTS "KYC-verified sellers can create listings" ON public.listings;
+DROP POLICY IF EXISTS "Sellers can update own draft listings" ON public.listings;
+DROP POLICY IF EXISTS "Sellers can delete own draft listings" ON public.listings;
 
 -- Policy: Users can view all active listings
 CREATE POLICY "Users can view active listings" ON public.listings
