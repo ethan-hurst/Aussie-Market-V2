@@ -11,9 +11,15 @@ export async function recordMetric(metric_name: string, value: number, metadata?
 
 export async function recordError(message: string, context?: Record<string, any>) {
     try {
-        await supabase.from('audit_logs').insert({ action: 'error', description: message, metadata: context || {}, created_at: new Date().toISOString() });
+        // Prefer RPC to bypass RLS using SECURITY DEFINER function
+        await supabase.rpc('write_audit_log', { p_action: 'error', p_description: message, p_metadata: context || {} });
     } catch (e) {
-        console.warn('recordError failed', e);
+        // Fallback: best-effort insert (may be blocked by RLS)
+        try {
+            await supabase.from('audit_logs').insert({ action: 'error', description: message, metadata: context || {}, created_at: new Date().toISOString() });
+        } catch (e2) {
+            console.warn('recordError failed', e, e2);
+        }
     }
 }
 
