@@ -86,6 +86,7 @@
       aria-modal="true"
       aria-labelledby={labelledBy || (title ? internalTitleId : undefined)}
       aria-describedby={describedBy || internalDescId}
+      on:keydown={onKeydown}
     >
       <div class="bg-white rounded-lg shadow-lg border">
         <div class="px-5 py-4 border-b flex items-center justify-between">

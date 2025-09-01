@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { notifyOrderShipped, notifyOrderDelivered } from './notifications';
 
 export interface Order {
 	id: string;
