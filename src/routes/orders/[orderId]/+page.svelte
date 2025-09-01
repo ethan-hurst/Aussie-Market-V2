@@ -44,6 +44,17 @@
 	let redeemLoading = false;
 	let qrDataUrl = '';
 
+	async function copyText(text: string) {
+		try {
+			await navigator.clipboard.writeText(text);
+			pickupMessage = 'Copied to clipboard';
+			setTimeout(() => (pickupMessage = ''), 2000);
+		} catch (e) {
+			pickupErrorMsg = 'Copy failed';
+			setTimeout(() => (pickupErrorMsg = ''), 2000);
+		}
+	}
+
 	let orderId: string;
 	$: orderId = $page.params.orderId as string;
 	let orderSubscription: { unsubscribe?: () => void } | null = null;
@@ -444,6 +455,9 @@
 											</button>
 											{#if pickupCode}
 												<span class="ml-2 font-mono text-lg">{pickupCode}</span>
+												<button class="ml-2 text-sm text-primary-600 hover:underline" on:click={() => copyText(pickupCode)}>
+													<Copy class="w-4 h-4 inline-block mr-1" /> Copy
+												</button>
 											{/if}
 										</div>
 										{#if pickupToken}
