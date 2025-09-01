@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { validateStartup } from '$lib/startup';
+import { recordMetric } from '$lib/metrics';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async () => {
@@ -19,6 +20,8 @@ export const GET: RequestHandler = async () => {
 		};
 		
 		const statusCode = validation.success ? 200 : 503;
+		// Best-effort metric
+		recordMetric('health_check', statusCode === 200 ? 1 : 0, { errors: validation.errors, warnings: validation.warnings });
 		
 		return json(healthStatus, { status: statusCode });
 	} catch (error) {
