@@ -44,6 +44,14 @@
 	let redeemLoading = false;
 	let qrDataUrl = '';
 
+	// Shipping form state
+	let shipCarrier = '';
+	let shipTracking = '';
+	let shipLabelUrl = '';
+	let shipLoading = false;
+	let shipMsg = '';
+	let shipErr = '';
+
 	async function copyText(text: string) {
 		try {
 			await navigator.clipboard.writeText(text);
@@ -189,6 +197,28 @@
 			pickupErrorMsg = (e as Error).message || 'Failed to redeem pickup';
 		} finally {
 			redeemLoading = false;
+		}
+	}
+
+	async function saveShipment() {
+		try {
+			shipLoading = true;
+			shipErr = '';
+			shipMsg = '';
+			if (!shipCarrier || !shipTracking) throw new Error('Carrier and tracking required');
+			const res = await fetch(`/api/shipments/${order.id}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ carrier: shipCarrier, tracking: shipTracking, label_url: shipLabelUrl })
+			});
+			const data = await res.json();
+			if (!res.ok) throw new Error(data?.error || 'Failed to save shipment');
+			shipMsg = 'Shipment saved.';
+			await loadOrder();
+		} catch (e) {
+			shipErr = (e as Error).message || 'Failed to save shipment';
+		} finally {
+			shipLoading = false;
 		}
 	}
 
@@ -469,6 +499,29 @@
 												</div>
 											{/if}
 										{/if}
+									</div>
+								{/if}
+
+								<!-- Seller Manual Shipping Form -->
+								{#if isSeller() && (order.state === 'ready_for_handover' || order.state === 'paid')}
+									<div class="mt-6 p-4 border rounded-md bg-gray-50">
+										<h4 class="text-sm font-semibold text-gray-900 mb-3 flex items-center"><Truck class="w-4 h-4 mr-2"/> Add Shipping Details</h4>
+										{#if shipMsg}
+											<p class="text-sm text-green-700 mb-2">{shipMsg}</p>
+										{/if}
+										{#if shipErr}
+											<p class="text-sm text-red-700 mb-2">{shipErr}</p>
+										{/if}
+										<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+											<input class="input" placeholder="Carrier (e.g. AusPost)" bind:value={shipCarrier} />
+											<input class="input" placeholder="Tracking number" bind:value={shipTracking} />
+											<input class="input" placeholder="Label URL (optional)" bind:value={shipLabelUrl} />
+										</div>
+										<div class="mt-3">
+											<button class="btn btn-outline" disabled={shipLoading} on:click={saveShipment}>
+												{shipLoading ? 'Saving...' : 'Save & Mark Shipped'}
+											</button>
+										</div>
 									</div>
 								{/if}
 							{/if}
