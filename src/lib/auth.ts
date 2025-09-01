@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { createIdentityVerificationSession, type IdentityVerificationData } from './stripe';
 
 export interface KYCVerificationData {
 	legal_name: string;
@@ -13,26 +14,60 @@ export interface KYCVerificationData {
 
 export async function startKYCVerification(userId: string, data: KYCVerificationData) {
 	try {
-		// Update user profile with KYC data
+		// Parse legal name into first and last name
+		const nameParts = data.legal_name.trim().split(' ');
+		const firstName = nameParts[0] || '';
+		const lastName = nameParts.slice(1).join(' ') || '';
+
+		// Parse date of birth
+		const dobDate = new Date(data.dob);
+		const dobFormatted = {
+			day: dobDate.getDate(),
+			month: dobDate.getMonth() + 1,
+			year: dobDate.getFullYear()
+		};
+
+		// Format address for Stripe
+		const stripeAddress = {
+			line1: data.address.street,
+			city: data.address.suburb,
+			state: data.address.state,
+			postal_code: data.address.postcode,
+			country: 'AU'
+		};
+
+		// Create Stripe Identity verification session
+		const verificationData: IdentityVerificationData = {
+			first_name: firstName,
+			last_name: lastName,
+			dob: dobFormatted,
+			address: stripeAddress
+		};
+
+		const verificationSession = await createIdentityVerificationSession(userId, verificationData);
+
+		// Update user profile with KYC data and session info
 		const { error: profileError } = await supabase
 			.from('users')
 			.update({
 				legal_name: data.legal_name,
 				dob: data.dob,
 				address: data.address,
-				kyc: 'pending'
+				kyc: 'pending',
+				stripe_identity_session_id: verificationSession.id
 			})
 			.eq('id', userId);
 
 		if (profileError) {
+			console.error('Profile update error:', profileError);
 			throw new Error('Failed to update profile for KYC');
 		}
 
-		// In a real implementation, this would integrate with Stripe Identity
-		// For now, we'll simulate the KYC process
 		return {
 			success: true,
-			verificationId: `kyc_${userId}_${Date.now()}`
+			verificationId: verificationSession.id,
+			clientSecret: verificationSession.client_secret,
+			verificationUrl: verificationSession.verification_session_url
 		};
 	} catch (error) {
 		console.error('KYC verification error:', error);
@@ -42,20 +77,60 @@ export async function startKYCVerification(userId: string, data: KYCVerification
 
 export async function completeKYCVerification(userId: string, verificationId: string) {
 	try {
-		// In a real implementation, this would verify with Stripe Identity
-		// For now, we'll simulate a successful verification
+		// Import the function here to avoid circular dependency
+		const { getVerificationSessionStatus } = await import('./stripe');
+		
+		// Get verification status from Stripe
+		const verificationStatus = await getVerificationSessionStatus(verificationId);
+		
+		let kycStatus: 'passed' | 'failed' | 'pending' = 'pending';
+		let kycDetails: any = null;
+
+		// Map Stripe verification status to our KYC status
+		switch (verificationStatus.status) {
+			case 'verified':
+				kycStatus = 'passed';
+				kycDetails = {
+					verified_at: new Date().toISOString(),
+					verified_outputs: verificationStatus.verified_outputs
+				};
+				break;
+			case 'requires_input':
+			case 'processing':
+				kycStatus = 'pending';
+				break;
+			case 'canceled':
+			case 'verification_failed':
+				kycStatus = 'failed';
+				kycDetails = {
+					failed_at: new Date().toISOString(),
+					failure_reason: verificationStatus.last_error?.reason || 'Verification failed'
+				};
+				break;
+			default:
+				kycStatus = 'pending';
+		}
+
+		// Update user profile with verification results
 		const { error } = await supabase
 			.from('users')
 			.update({
-				kyc: 'passed'
+				kyc: kycStatus,
+				kyc_details: kycDetails,
+				kyc_completed_at: kycStatus === 'passed' ? new Date().toISOString() : null
 			})
 			.eq('id', userId);
 
 		if (error) {
+			console.error('KYC status update error:', error);
 			throw new Error('Failed to update KYC status');
 		}
 
-		return { success: true };
+		return { 
+			success: kycStatus === 'passed',
+			status: kycStatus,
+			details: kycDetails
+		};
 	} catch (error) {
 		console.error('KYC completion error:', error);
 		throw error;

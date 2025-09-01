@@ -43,43 +43,27 @@
 		error = '';
 
 		try {
-			// Prepare verification data
-			const verificationData = {
-				first_name: userProfile.legal_name?.split(' ')[0] || '',
-				last_name: userProfile.legal_name?.split(' ').slice(1).join(' ') || '',
-				dob: {
-					day: new Date(userProfile.dob).getDate(),
-					month: new Date(userProfile.dob).getMonth() + 1,
-					year: new Date(userProfile.dob).getFullYear()
-				},
+			// Use the real KYC verification function
+			const { startKYCVerification } = await import('$lib/auth');
+			
+			const kycData = {
+				legal_name: userProfile.legal_name,
+				dob: userProfile.dob,
 				address: {
-					line1: userProfile.address?.street || '',
-					city: userProfile.address?.suburb || '',
-					state: userProfile.address?.state || '',
-					postal_code: userProfile.address?.postcode || '',
-					country: 'AU'
+					street: userProfile.address?.street || '',
+					suburb: userProfile.address?.suburb || '',
+					postcode: userProfile.address?.postcode || '',
+					state: userProfile.address?.state || ''
 				}
 			};
 
-			// Create verification session
-			const response = await fetch('/api/kyc', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					userId: user.id,
-					verificationData
-				})
-			});
+			const result = await startKYCVerification(user.id, kycData);
 
-			const data = await response.json();
-
-			if (response.ok) {
+			if (result.success) {
 				// Redirect to Stripe Identity verification
-				window.location.href = data.verificationUrl;
+				window.location.href = result.verificationUrl;
 			} else {
-				error = data.error || 'Failed to start verification';
+				error = 'Failed to start verification';
 			}
 		} catch (err) {
 			console.error('Verification error:', err);
