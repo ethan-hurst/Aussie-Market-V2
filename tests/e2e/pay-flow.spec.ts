@@ -1,13 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { stubStripe } from './helpers/stripe';
 
 test('buyer can complete payment with stubbed Stripe and APIs', async ({ page }) => {
   const orderId = 'test-order-id';
 
-  // Stub Stripe JS
-  await page.route('https://js.stripe.com/v3', async (route) => {
-    const body = `window.Stripe = function(){return {elements(){return {create(){return {mount(){}}}}}, confirmCardPayment: async function(){return {paymentIntent:{id:'pi_stub'}}}}}`;
-    await route.fulfill({ status: 200, contentType: 'application/javascript', body });
-  });
+  await stubStripe(page);
 
   // Stub order fetch
   await page.route(`**/api/orders/${orderId}`, async (route) => {
