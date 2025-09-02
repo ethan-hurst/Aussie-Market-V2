@@ -4,10 +4,11 @@ import { sveltekit } from '@sveltejs/kit/vite';
 export default defineConfig({
   plugins: [sveltekit()],
   test: {
+    include: ['src/**/*.spec.ts'],
     environment: 'jsdom',
     globals: true,
     setupFiles: ['src/test/setup.ts'],
-    exclude: ['tests/e2e/**', 'playwright.config.ts'],
+    exclude: ['tests/e2e/**', 'playwright.config.ts', 'node_modules/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
