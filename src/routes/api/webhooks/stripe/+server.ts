@@ -9,6 +9,7 @@ const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_k
 });
 
 const endpointSecret = env.STRIPE_WEBHOOK_SECRET || 'whsec_your_webhook_secret_here';
+const WEBHOOK_TOLERANCE_SECONDS = 300; // 5 minutes
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.text();
@@ -21,6 +22,42 @@ export const POST: RequestHandler = async ({ request }) => {
 	} catch (err) {
 		console.error('Webhook signature verification failed:', err);
 		return json({ error: 'Invalid signature' }, { status: 400 });
+	}
+
+	// Basic timestamp drift protection (in addition to Stripe signature tolerance)
+	try {
+		if (event?.created) {
+			const nowSec = Math.floor(Date.now() / 1000);
+			const drift = Math.abs(nowSec - event.created);
+			if (drift > WEBHOOK_TOLERANCE_SECONDS) {
+				return json({ error: 'Stale event' }, { status: 400 });
+			}
+		}
+	} catch (e) {
+		// If event.created missing or malformed, continue – signature check already passed
+	}
+
+	// Idempotency: drop duplicate events by event.id
+	try {
+		if (event?.id) {
+			const existing = await supabase
+				.from('webhook_events')
+				.select('event_id, processed_at')
+				.eq('event_id', event.id)
+				.single();
+			if (existing && (existing as any).data) {
+				return json({ received: true, idempotent: true });
+			}
+			await supabase
+				.from('webhook_events')
+				.insert({
+					event_id: event.id,
+					type: event.type,
+					created_at: event.created ? new Date(event.created * 1000).toISOString() : new Date().toISOString()
+				});
+		}
+	} catch (e) {
+		// Best-effort idempotency. If storage not available, continue processing.
 	}
 
 	try {
@@ -56,6 +93,16 @@ export const POST: RequestHandler = async ({ request }) => {
 				console.log(`Unhandled event type: ${event.type}`);
 		}
 
+		// Mark event processed for idempotency
+		try {
+			if (event?.id) {
+				await supabase
+					.from('webhook_events')
+					.update({ processed_at: new Date().toISOString() })
+					.eq('event_id', event.id);
+			}
+		} catch {}
+
 		return json({ received: true });
 	} catch (error) {
 		console.error('Error processing webhook:', error);
@@ -68,6 +115,17 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 	
 	if (!orderId) {
 		console.error('No order_id in payment intent metadata');
+		return;
+	}
+
+	// Prevent downgrade or duplicate transition
+	const { data: existingOrder } = await supabase
+		.from('orders')
+		.select('state')
+		.eq('id', orderId)
+		.single();
+	if (existingOrder && existingOrder.state && existingOrder.state !== 'pending') {
+		console.log(`Order ${orderId} already processed to state ${existingOrder.state}; skipping.`);
 		return;
 	}
 
@@ -108,6 +166,17 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
 
 	if (!orderId) {
 		console.error('No order_id in failed payment intent metadata');
+		return;
+	}
+
+	// Only mark failed if order still pending
+	const { data: existingOrder } = await supabase
+		.from('orders')
+		.select('state')
+		.eq('id', orderId)
+		.single();
+	if (existingOrder && existingOrder.state && existingOrder.state !== 'pending') {
+		console.log(`Order ${orderId} already in state ${existingOrder.state}; not downgrading to payment_failed.`);
 		return;
 	}
 
@@ -232,7 +301,18 @@ async function handleDisputeCreated(dispute: Stripe.Dispute) {
 			description: `Dispute created by Stripe: ${dispute.reason}`
 		});
 
-	// Update order state
+	// Update order state unless already in a terminal/advanced state
+	const { data: orderStateRow } = await supabase
+		.from('orders')
+		.select('state')
+		.eq('id', payment.order_id)
+		.single();
+
+	if (orderStateRow && ['refunded', 'completed', 'released'].includes(orderStateRow.state)) {
+		console.log(`Order ${payment.order_id} already in state ${orderStateRow.state}; not setting disputed.`);
+		return;
+	}
+
 	await supabase
 		.from('orders')
 		.update({
@@ -338,7 +418,17 @@ async function handleRefundUpdated(refund: Stripe.Refund) {
 			processed_at: new Date().toISOString()
 		});
 
-	// Update order state
+	// Update order state unless already refunded
+	const { data: orderRow } = await supabase
+		.from('orders')
+		.select('state')
+		.eq('id', payment.order_id)
+		.single();
+	if (orderRow && orderRow.state === 'refunded') {
+		console.log(`Order ${payment.order_id} already refunded; skipping.`);
+		return;
+	}
+
 	await supabase
 		.from('orders')
 		.update({
