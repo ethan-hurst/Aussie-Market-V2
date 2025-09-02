@@ -18,7 +18,7 @@ let currentOrder: any = { id: 'o1', seller_id: 'seller1', stripe_payment_intent_
 // Mocks that we'll override in tests
 const insertPayment = vi.fn().mockResolvedValue({ error: null });
 const insertLedger = vi.fn().mockResolvedValue({ error: null });
-const ordersUpdate = vi.fn().mockResolvedValue({ error: null });
+const ordersUpdate = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) }));
 
 // Mock Supabase wired to shared currentOrder
 vi.mock('$lib/supabase', () => {
