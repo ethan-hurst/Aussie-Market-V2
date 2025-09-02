@@ -149,6 +149,18 @@ Edge Functions are located in `supabase/functions/`:
 - `stripe_webhook` - Handles Stripe events
 - `moderation_scan` - Content moderation
 
+### Auction Finalization (Cron & Manual)
+
+- Database RPCs: `end_auction(auction_id UUID)` and `end_expired_auctions()`
+- Cron: a pg_cron schedule runs every minute to execute `SELECT public.end_expired_auctions();`
+- Manual trigger (for local/testing):
+
+```bash
+curl -X POST http://localhost:5173/api/auctions/process-expired
+```
+
+When an auction is finalized, an `orders` row is created with `state=pending_payment`, `platform_fee_cents`, `seller_amount_cents`, and `winning_bid_id`, and buyer/seller notifications are inserted.
+
 ### Testing
 
 ```bash

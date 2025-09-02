@@ -22,6 +22,7 @@ describe('Stripe webhook hardening', () => {
   });
 
   it('rejects stale events beyond tolerance', async () => {
+    await vi.resetModules();
     vi.useFakeTimers();
     const now = new Date('2025-01-01T00:00:00Z');
     vi.setSystemTime(now);
@@ -44,6 +45,7 @@ describe('Stripe webhook hardening', () => {
   });
 
   it('is idempotent on duplicate event ids', async () => {
+    await vi.resetModules();
     // In-memory store to simulate webhook_events table
     const eventStore = new Set<string>();
 
@@ -86,15 +88,22 @@ describe('Stripe webhook hardening', () => {
   });
 
   it('does not downgrade order state on out-of-order failure after success', async () => {
+    await vi.resetModules();
     // Simple in-memory order state tracker
     const orderState: Record<string, string> = { o1: 'pending' };
 
-    const updateEq = vi.fn().mockImplementation(({ state }: any) => {
-      orderState.o1 = state;
-      return Promise.resolve({ error: null });
+    let lastUpdatePayload: any = null;
+    const update = vi.fn((payload: any) => {
+      lastUpdatePayload = payload;
+      return {
+        eq: vi.fn((field: string, value: string) => {
+          if (field === 'id') {
+            orderState[value] = lastUpdatePayload?.state;
+          }
+          return Promise.resolve({ error: null });
+        })
+      } as any;
     });
-
-    const update = vi.fn(() => ({ eq: updateEq }));
 
     const select = vi.fn((columns?: string) => ({
       eq: vi.fn((field: string, value: string) => ({
