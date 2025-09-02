@@ -39,12 +39,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 		// Test-only override: allow setting a session via header in CI/E2E
 		const testUserId = event.request.headers.get('x-test-user-id');
 		if (testUserId) {
-			return { data: { session: { user: { id: testUserId } } } } as any;
+			return { user: { id: testUserId } } as any;
 		}
 		const {
 			data: { session }
 		} = await event.locals.supabase.auth.getSession();
-		return { data: { session } } as any;
+		return session as any;
 	};
 
 	return resolve(event, {
