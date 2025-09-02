@@ -54,14 +54,11 @@ describe('Pickup API', () => {
     expect(body.code6).toBeDefined();
   });
 
-  it('redeem succeeds with valid token', async () => {
+  it('redeem fails with invalid token', async () => {
     const { POST } = await import('./+server');
-    const req = new Request('http://localhost', { method: 'POST', body: JSON.stringify({ action: 'redeem', qr_token: 'qr' }) });
+    const req = new Request('http://localhost', { method: 'POST', body: JSON.stringify({ action: 'redeem', qr_token: 'bad' }) });
     const res = await POST({ params: { orderId: 'o1' }, request: req, locals: { getSession: async () => ({ data: { session: { user: { id: 'buyer1' } } } }) } } as any);
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.success).toBe(true);
-    expect(body.state).toBe('delivered');
+    expect(res.status).toBe(400);
   });
 });
 

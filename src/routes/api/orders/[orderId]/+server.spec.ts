@@ -56,6 +56,23 @@ describe('Orders actions API', () => {
     expect(body.state).toBe('delivered');
   });
 
+  it('GET forbids viewing if not buyer or seller', async () => {
+    const { GET } = await import('./+server');
+    const locals = { getSession: async () => ({ data: { session: { user: { id: 'stranger' } } } }) } as any;
+    const res = await GET({ params: { orderId: 'o1' }, locals } as any);
+    expect(res.status).toBe(403);
+  });
+
+  it('mark_ready forbidden if state not paid', async () => {
+    const supa = await import('$lib/supabase');
+    (supa as any).supabase.from('orders').select().eq().single.mockResolvedValueOnce({ data: { id: 'o1', buyer_id: 'buyer1', seller_id: 'seller1', state: 'pending' }, error: null });
+    const { POST } = await import('./+server');
+    const locals = { getSession: async () => ({ data: { session: { user: { id: 'seller1' } } } }) } as any;
+    const req = { json: async () => ({ action: 'mark_ready' }) } as any;
+    const res = await POST({ params: { orderId: 'o1' }, request: req, locals } as any);
+    expect(res.status).toBe(403);
+  });
+
   it('cancel by buyer or seller when unpaid or paid', async () => {
     const supa = await import('$lib/supabase');
     (supa as any).supabase.from().select().eq().single.mockResolvedValueOnce({ data: { id: 'o1', buyer_id: 'buyer1', seller_id: 'seller1', state: 'pending' }, error: null });

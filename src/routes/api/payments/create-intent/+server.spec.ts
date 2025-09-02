@@ -76,6 +76,27 @@ describe('POST /api/payments/create-intent', () => {
     const body = await res.json();
     expect(body.error).toBe('Unauthorized');
   });
+
+  it('forbids non-buyer', async () => {
+    const supa = await import('$lib/supabase');
+    // Return order owned by another buyer
+    (supa as any).supabase.from('orders').select().eq().single.mockResolvedValueOnce({ data: { id: 'o1', buyer_id: 'userX', state: 'pending', buyer: { legal_name: 'X', email: 'x@x.com' }, listing: { title: 'Item' } }, error: null });
+    const { POST } = await import('./+server');
+    const locals = { getSession: async () => ({ data: { session: { user: { id: 'user1' } } } }) } as any;
+    const request = { json: async () => ({ orderId: 'o1', amount: 1234 }) } as any;
+    const res = await POST({ request, locals } as any);
+    expect(res.status).toBe(403);
+  });
+
+  it('rejects non-pending order', async () => {
+    const supa = await import('$lib/supabase');
+    (supa as any).supabase.from('orders').select().eq().single.mockResolvedValueOnce({ data: { id: 'o1', buyer_id: 'user1', state: 'paid', buyer: { legal_name: 'B', email: 'b@b.com' }, listing: { title: 'Item' } }, error: null });
+    const { POST } = await import('./+server');
+    const locals = { getSession: async () => ({ data: { session: { user: { id: 'user1' } } } }) } as any;
+    const request = { json: async () => ({ orderId: 'o1', amount: 1234 }) } as any;
+    const res = await POST({ request, locals } as any);
+    expect(res.status).toBe(400);
+  });
 });
 
 

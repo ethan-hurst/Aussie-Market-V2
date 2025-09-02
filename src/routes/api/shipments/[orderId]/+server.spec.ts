@@ -37,6 +37,17 @@ describe('Shipments API', () => {
     expect(body.success).toBe(true);
     expect(body.shipment.carrier).toBe('AUSPOST');
   });
+
+  it('forbids non-seller from creating shipment', async () => {
+    const { POST } = await import('./+server');
+    // Override order to belong to another seller
+    const supa = await import('$lib/supabase');
+    (supa as any).supabase.from('orders').select().eq().single.mockResolvedValueOnce({ data: { id: 'o1', seller_id: 'seller2', state: 'paid' }, error: null });
+    const req = new Request('http://localhost', { method: 'POST', body: JSON.stringify({ carrier: 'AUSPOST', tracking: 'T123' }) });
+    const locals = { getSession: async () => ({ data: { session: { user: { id: 'seller1' } } } }) } as any;
+    const res = await POST({ params: { orderId: 'o1' }, request: req, locals } as any);
+    expect(res.status).toBe(403);
+  });
 });
 
 

@@ -60,6 +60,15 @@ describe('POST /api/webhooks/stripe', () => {
     expect(res.status).toBe(200);
   });
 
+  it('handles unknown event types gracefully', async () => {
+    const { POST } = await import('./+server');
+    const event = { type: 'unknown.event', data: { object: {} } };
+    const body = JSON.stringify(event);
+    const headers = new Headers({ 'stripe-signature': 'sig_mock' });
+    const res = await POST({ request: new Request('http://localhost', { method: 'POST', body, headers }) } as any);
+    expect(res.status).toBe(200);
+  });
+
   it('rejects invalid signature', async () => {
     // Override constructEvent to throw on this call
     const Stripe = (await import('stripe')).default as any;

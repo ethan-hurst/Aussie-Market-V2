@@ -33,6 +33,16 @@ describe('Bids API', () => {
     expect(res.status).toBe(400);
   });
 
+  it('rejects ended auction via permission check', async () => {
+    const auctions = await import('$lib/auctions');
+    (auctions as any).canBidOnListing.mockResolvedValueOnce({ allowed: false, reason: 'Auction ended' });
+    const { POST } = await import('./+server');
+    const locals = { getSession: async () => ({ user: { id: 'u1' } }) } as any;
+    const req = { json: async () => ({ listingId: 'l1', amount_cents: 2000 }) } as any;
+    const res = await POST({ request: req, locals } as any);
+    expect(res.status).toBe(400);
+  });
+
   it('places bid via RPC when valid', async () => {
     const { POST } = await import('./+server');
     const locals = {
