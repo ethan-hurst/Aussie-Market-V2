@@ -37,6 +37,18 @@ vi.mock('$lib/env', () => ({ env: { STRIPE_SECRET_KEY: 'sk_test_mock' } }));
 describe('POST /api/payments/refund', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset supabase mock implementation to default for each test
+    import('$lib/supabase').then((supa) => {
+      (supa as any).supabase.from.mockImplementation((table: string) => {
+        if (table === 'orders') {
+          const single = vi.fn().mockResolvedValue({ data: { id: 'o1', seller_id: 'seller1', stripe_payment_intent_id: 'pi_123', amount_cents: 2000 }, error: null });
+          return { select: vi.fn(() => ({ eq: vi.fn(() => ({ single })) })) } as any;
+        }
+        if (table === 'payments') return { insert: insertPayment } as any;
+        if (table === 'ledger_entries') return { insert: insertLedger } as any;
+        return {} as any;
+      });
+    });
   });
 
   it('returns 401 when unauthenticated', async () => {
@@ -51,7 +63,7 @@ describe('POST /api/payments/refund', () => {
     // Override order seller_id to something else
     const supa = await import('$lib/supabase');
     const single = vi.fn().mockResolvedValue({ data: { id: 'o1', seller_id: 'another', stripe_payment_intent_id: 'pi_123', amount_cents: 2000 }, error: null });
-    (supa as any).supabase.from.mockImplementation((table: string) => {
+    (supa as any).supabase.from.mockImplementationOnce((table: string) => {
       if (table === 'orders') return { select: vi.fn(() => ({ eq: vi.fn(() => ({ single })) })) } as any;
       return (supa as any).supabase.from(table);
     });
@@ -66,7 +78,7 @@ describe('POST /api/payments/refund', () => {
   it('returns 404 when order not found', async () => {
     const supa = await import('$lib/supabase');
     const single = vi.fn().mockResolvedValue({ data: null, error: { message: 'not found' } });
-    (supa as any).supabase.from.mockImplementation((table: string) => {
+    (supa as any).supabase.from.mockImplementationOnce((table: string) => {
       if (table === 'orders') return { select: vi.fn(() => ({ eq: vi.fn(() => ({ single })) })) } as any;
       return (supa as any).supabase.from(table);
     });
@@ -81,7 +93,7 @@ describe('POST /api/payments/refund', () => {
   it('returns 400 when no payment intent on order', async () => {
     const supa = await import('$lib/supabase');
     const single = vi.fn().mockResolvedValue({ data: { id: 'o1', seller_id: 'seller1', stripe_payment_intent_id: null, amount_cents: 2000 }, error: null });
-    (supa as any).supabase.from.mockImplementation((table: string) => {
+    (supa as any).supabase.from.mockImplementationOnce((table: string) => {
       if (table === 'orders') return { select: vi.fn(() => ({ eq: vi.fn(() => ({ single })) })) } as any;
       return (supa as any).supabase.from(table);
     });
