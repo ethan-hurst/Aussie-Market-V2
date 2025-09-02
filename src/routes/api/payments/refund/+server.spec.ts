@@ -12,14 +12,17 @@ vi.mock('stripe', () => {
   return { default: StripeMock };
 });
 
+// Shared state for supabase order select
+let currentOrder: any = { id: 'o1', seller_id: 'seller1', stripe_payment_intent_id: 'pi_123', amount_cents: 2000 };
+
 // Mocks that we'll override in tests
 const insertPayment = vi.fn().mockResolvedValue({ error: null });
 const insertLedger = vi.fn().mockResolvedValue({ error: null });
 const ordersUpdate = vi.fn().mockResolvedValue({ error: null });
 
-// Mock Supabase
+// Mock Supabase wired to shared currentOrder
 vi.mock('$lib/supabase', () => {
-  const single = vi.fn().mockResolvedValue({ data: { id: 'o1', seller_id: 'seller1', stripe_payment_intent_id: 'pi_123', amount_cents: 2000 }, error: null });
+  const single = vi.fn().mockImplementation(async () => ({ data: currentOrder, error: currentOrder ? null : { message: 'not found' } }));
   const eq = vi.fn(() => ({ single }));
   const select = vi.fn(() => ({ eq }));
   const from = vi.fn((table: string) => {
@@ -37,18 +40,7 @@ vi.mock('$lib/env', () => ({ env: { STRIPE_SECRET_KEY: 'sk_test_mock' } }));
 describe('POST /api/payments/refund', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset supabase mock implementation to default for each test
-    import('$lib/supabase').then((supa) => {
-      (supa as any).supabase.from.mockImplementation((table: string) => {
-        if (table === 'orders') {
-          const single = vi.fn().mockResolvedValue({ data: { id: 'o1', seller_id: 'seller1', stripe_payment_intent_id: 'pi_123', amount_cents: 2000 }, error: null });
-          return { select: vi.fn(() => ({ eq: vi.fn(() => ({ single })) })) } as any;
-        }
-        if (table === 'payments') return { insert: insertPayment } as any;
-        if (table === 'ledger_entries') return { insert: insertLedger } as any;
-        return {} as any;
-      });
-    });
+    currentOrder = { id: 'o1', seller_id: 'seller1', stripe_payment_intent_id: 'pi_123', amount_cents: 2000 };
   });
 
   it('returns 401 when unauthenticated', async () => {
@@ -61,12 +53,7 @@ describe('POST /api/payments/refund', () => {
 
   it('returns 403 when requester is not the seller', async () => {
     // Override order seller_id to something else
-    const supa = await import('$lib/supabase');
-    const single = vi.fn().mockResolvedValue({ data: { id: 'o1', seller_id: 'another', stripe_payment_intent_id: 'pi_123', amount_cents: 2000 }, error: null });
-    (supa as any).supabase.from.mockImplementationOnce((table: string) => {
-      if (table === 'orders') return { select: vi.fn(() => ({ eq: vi.fn(() => ({ single })) })) } as any;
-      return (supa as any).supabase.from(table);
-    });
+    currentOrder = { id: 'o1', seller_id: 'another', stripe_payment_intent_id: 'pi_123', amount_cents: 2000 };
 
     const { POST } = await import('./+server');
     const locals = { getSession: async () => ({ data: { session: { user: { id: 'seller1' } } } }) } as any;
@@ -76,12 +63,7 @@ describe('POST /api/payments/refund', () => {
   });
 
   it('returns 404 when order not found', async () => {
-    const supa = await import('$lib/supabase');
-    const single = vi.fn().mockResolvedValue({ data: null, error: { message: 'not found' } });
-    (supa as any).supabase.from.mockImplementationOnce((table: string) => {
-      if (table === 'orders') return { select: vi.fn(() => ({ eq: vi.fn(() => ({ single })) })) } as any;
-      return (supa as any).supabase.from(table);
-    });
+    currentOrder = null;
 
     const { POST } = await import('./+server');
     const locals = { getSession: async () => ({ data: { session: { user: { id: 'seller1' } } } }) } as any;
@@ -91,12 +73,7 @@ describe('POST /api/payments/refund', () => {
   });
 
   it('returns 400 when no payment intent on order', async () => {
-    const supa = await import('$lib/supabase');
-    const single = vi.fn().mockResolvedValue({ data: { id: 'o1', seller_id: 'seller1', stripe_payment_intent_id: null, amount_cents: 2000 }, error: null });
-    (supa as any).supabase.from.mockImplementationOnce((table: string) => {
-      if (table === 'orders') return { select: vi.fn(() => ({ eq: vi.fn(() => ({ single })) })) } as any;
-      return (supa as any).supabase.from(table);
-    });
+    currentOrder = { id: 'o1', seller_id: 'seller1', stripe_payment_intent_id: null, amount_cents: 2000 };
 
     const { POST } = await import('./+server');
     const locals = { getSession: async () => ({ data: { session: { user: { id: 'seller1' } } } }) } as any;
