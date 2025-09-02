@@ -55,9 +55,14 @@ describe('Stripe webhook hardening', () => {
       return { single: vi.fn().mockResolvedValue({ data: null, error: null }) } as any;
     });
     const select = vi.fn(() => ({ eq }));
+    // Orders select chain used by handler (state check)
+    const ordersSelect = vi.fn(() => ({ eq: vi.fn(() => ({ single: vi.fn().mockResolvedValue({ data: { state: 'pending' }, error: null }) })) }));
     const insert = vi.fn(async (payload: any) => { if (payload?.event_id) eventStore.add(payload.event_id); return { error: null }; });
     const update = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) }));
-    const from = vi.fn((table: string) => ({ select, insert, update } as any));
+    const from = vi.fn((table: string) => {
+      if (table === 'orders') return { select: ordersSelect, update } as any;
+      return { select, insert, update } as any;
+    });
 
     vi.doMock('$lib/supabase', () => ({ supabase: { from } }));
     vi.doMock('$lib/env', () => ({ env: { STRIPE_WEBHOOK_SECRET: 'whsec_mock', STRIPE_SECRET_KEY: 'sk_test_x' } }));
