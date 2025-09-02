@@ -45,7 +45,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Payment not completed' }, { status: 400 });
 		}
 
-		// Update order state to paid
+		// Update order state to paid (idempotent safe)
 		const { error: updateError } = await supabase
 			.from('orders')
 			.update({
@@ -66,7 +66,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			.from('payments')
 			.insert({
 				order_id: orderId,
-				amount_cents: order.total_amount_cents,
+				amount_cents: order.amount_cents,
 				currency: 'aud',
 				payment_method: 'stripe',
 				stripe_payment_intent_id: paymentIntentId,
@@ -85,8 +85,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			.insert({
 				order_id: orderId,
 				user_id: session.user.id,
-				amount_cents: order.total_amount_cents,
-				entry_type: 'payment_received',
+				amount_cents: order.amount_cents,
+				entry_type: 'CAPTURE',
 				description: `Payment received for order ${orderId}`,
 				created_at: new Date().toISOString()
 			});

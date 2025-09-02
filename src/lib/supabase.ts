@@ -204,6 +204,7 @@ export type Database = {
 					auction_id?: string | null;
 					winning_bid_id?: string | null;
 					payment_intent_id?: string | null;
+					stripe_payment_intent_id?: string | null;
 					created_at: string;
 					updated_at: string;
 				};
@@ -220,6 +221,7 @@ export type Database = {
 					auction_id?: string | null;
 					winning_bid_id?: string | null;
 					payment_intent_id?: string | null;
+					stripe_payment_intent_id?: string | null;
 					created_at?: string;
 					updated_at?: string;
 				};
@@ -236,6 +238,7 @@ export type Database = {
 					auction_id?: string | null;
 					winning_bid_id?: string | null;
 					payment_intent_id?: string | null;
+					stripe_payment_intent_id?: string | null;
 					created_at?: string;
 					updated_at?: string;
 				};
