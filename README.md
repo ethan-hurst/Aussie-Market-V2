@@ -1,5 +1,7 @@
 # Aussie-Market-V2 - C2C Auction Marketplace
 
+[![CI](https://github.com/ethan-hurst/Aussie-Market-V2/actions/workflows/ci.yml/badge.svg)](https://github.com/ethan-hurst/Aussie-Market-V2/actions/workflows/ci.yml)
+
 A TradeMe-style C2C auction platform for Australia, focused on regular people auctioning items with trust features including ID-verified sellers, on-platform payments, pickup verification, and clear dispute flow.
 
 ## 🎯 Project Overview
@@ -150,17 +152,8 @@ Edge Functions are located in `supabase/functions/`:
 ### Testing
 
 ```bash
-# Run unit tests
-npm run test:unit
-
-# Run integration tests
-npm run test:integration
-
-# Run E2E tests
-npm run test:e2e
-
-# Run all tests
-npm run test
+# Run all tests with coverage
+npm test -- --coverage
 ```
 
 ## 🎯 Key Features
