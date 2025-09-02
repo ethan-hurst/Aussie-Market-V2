@@ -41,8 +41,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Unauthorized' }, { status: 403 });
 		}
 
-		// Check if order is in pending state
-		if (order.state !== 'pending') {
+		// Check if order is in unpaid state (support both legacy 'pending' and 'pending_payment')
+		const isUnpaid = order.state === 'pending' || order.state === 'pending_payment';
+		if (!isUnpaid) {
 			return json({ error: 'Order cannot be paid for' }, { status: 400 });
 		}
 
