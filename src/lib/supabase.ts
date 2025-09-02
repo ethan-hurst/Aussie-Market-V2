@@ -14,6 +14,14 @@ export const supabase = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_K
 	}
 });
 
+// Test-only: allow Playwright to override the realtime channel factory to simulate events
+if (typeof window !== 'undefined') {
+  const anyWin: any = window as any;
+  if (anyWin.__TEST_OVERRIDE_SUPABASE_CHANNEL && typeof anyWin.__TEST_OVERRIDE_SUPABASE_CHANNEL === 'function') {
+    (supabase as any).channel = (...args: any[]) => anyWin.__TEST_OVERRIDE_SUPABASE_CHANNEL(...args);
+  }
+}
+
 // Database types
 export type Database = {
 	public: {
