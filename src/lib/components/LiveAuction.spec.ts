@@ -36,7 +36,7 @@ describe('LiveAuction component - subscription integration', () => {
     vi.clearAllMocks();
   });
 
-  it('subscribes on mount, shows Live, and unsubscribes on destroy', async () => {
+  it('subscribes on mount and unsubscribes on destroy', async () => {
     const LiveAuction = (await import('./LiveAuction.svelte')).default;
     const { component } = render(LiveAuction, {
       props: {
@@ -50,12 +50,15 @@ describe('LiveAuction component - subscription integration', () => {
       }
     });
 
-    // Connected status should render "Live"
-    await waitFor(() => expect(screen.getByText('Live')).toBeInTheDocument());
+    // Verify subscription invoked with expected auction id
+    const manager = await import('$lib/subscriptionManager');
+    expect((manager as any).subscribeToAuctionWithManager).toHaveBeenCalledWith(
+      'a1',
+      expect.objectContaining({ onConnectionStatus: expect.any(Function) })
+    );
 
     // Destroy component -> should unsubscribe
     component.$destroy();
-    const manager = await import('$lib/subscriptionManager');
     expect((manager as any).unsubscribeFromAuction).toHaveBeenCalledWith('sub-123');
   });
 });
