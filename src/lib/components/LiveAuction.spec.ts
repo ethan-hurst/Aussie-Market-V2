@@ -31,7 +31,7 @@ vi.mock('$lib/auctions', async (importOriginal) => {
   };
 });
 
-describe.skip('LiveAuction component - subscription integration', () => {
+describe('LiveAuction component - subscription integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -52,10 +52,12 @@ describe.skip('LiveAuction component - subscription integration', () => {
 
     // Verify subscription invoked with expected auction id
     const manager = await import('$lib/subscriptionManager');
-    expect((manager as any).subscribeToAuctionWithManager).toHaveBeenCalledWith(
-      'a1',
-      expect.objectContaining({ onConnectionStatus: expect.any(Function) })
-    );
+    await waitFor(() => {
+      expect((manager as any).subscribeToAuctionWithManager).toHaveBeenCalledWith(
+        'a1',
+        expect.objectContaining({ onConnectionStatus: expect.any(Function) })
+      );
+    });
 
     // Destroy component -> should unsubscribe
     component.$destroy();
