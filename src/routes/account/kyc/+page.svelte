@@ -3,6 +3,8 @@
 	import { supabase } from '$lib/supabase';
 	import { goto } from '$app/navigation';
 	import { Shield, CheckCircle, AlertCircle, Clock, ExternalLink } from 'lucide-svelte';
+	import { mapApiErrorToMessage } from '$lib/errors';
+	import { toastError, toastSuccess } from '$lib/toast';
 
 	let user: any = null;
 	let userProfile: any = null;
@@ -60,14 +62,19 @@
 			const result = await startKYCVerification(user.id, kycData);
 
 			if (result.success) {
+				toastSuccess('Verification started. Follow the prompts.');
 				// Redirect to Stripe Identity verification
 				window.location.href = result.verificationUrl;
 			} else {
-				error = 'Failed to start verification';
+				const friendly = mapApiErrorToMessage(result);
+				error = friendly || 'Failed to start verification';
+				toastError(error);
 			}
 		} catch (err) {
 			console.error('Verification error:', err);
-			error = 'Failed to start verification process';
+			const friendly = mapApiErrorToMessage(err);
+			error = friendly || 'Failed to start verification process';
+			toastError(error);
 		} finally {
 			startingVerification = false;
 		}
@@ -117,9 +124,8 @@
 		{#if userProfile?.kyc !== 'none'}
 			<div class="card">
 				<div class="card-content">
-					<div class="flex items-center space-x-3">
-						{@const StatusIcon = getKYCStatusIcon(userProfile?.kyc)}
-						<StatusIcon class="w-6 h-6 text-gray-400" />
+						<div class="flex items-center space-x-3">
+							<svelte:component this={getKYCStatusIcon(userProfile?.kyc)} class="w-6 h-6 text-gray-400" />
 						<div>
 							<h3 class="text-lg font-medium text-gray-900">Verification Status</h3>
 							<span class="px-3 py-1 text-sm font-medium rounded-md {getKYCStatusColor(userProfile?.kyc)}">

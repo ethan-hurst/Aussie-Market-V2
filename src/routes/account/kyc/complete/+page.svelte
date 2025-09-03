@@ -3,6 +3,8 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { CheckCircle, AlertCircle, Clock, Shield, XCircle } from 'lucide-svelte';
+	import { mapApiErrorToMessage } from '$lib/errors';
+	import { toastError, toastSuccess, toastInfo } from '$lib/toast';
 
 	let loading = true;
 	let verificationStatus = '';
@@ -32,12 +34,23 @@
 
 			if (response.ok) {
 				verificationStatus = data.status;
+				if (verificationStatus === 'verified') {
+					toastSuccess('KYC verified — you can now sell.');
+				} else if (verificationStatus === 'pending') {
+					toastInfo("Verification pending. We'll update you shortly.");
+				} else if (verificationStatus === 'requires_input') {
+					toastError('Verification requires additional information.');
+				}
 			} else {
-				error = data.error || 'Failed to check verification status';
+				const friendly = mapApiErrorToMessage(data);
+				error = friendly || 'Failed to check verification status';
+				toastError(error);
 			}
 		} catch (err) {
 			console.error('Error checking verification status:', err);
-			error = 'Failed to check verification status';
+			const friendly = mapApiErrorToMessage(err);
+			error = friendly || 'Failed to check verification status';
+			toastError(error);
 		} finally {
 			loading = false;
 		}
