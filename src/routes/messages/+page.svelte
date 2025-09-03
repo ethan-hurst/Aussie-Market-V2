@@ -19,6 +19,8 @@
 		Package,
 		ArrowRight
 	} from 'lucide-svelte';
+	import { mapApiErrorToMessage } from '$lib/errors';
+	import { toastError } from '$lib/toast';
 
 	let threads: MessageThread[] = [];
 	let loading = true;
@@ -71,7 +73,8 @@
 			totalUnread = await getTotalUnreadCount(user.id);
 		} catch (err) {
 			console.error('Error loading threads:', err);
-			error = 'Failed to load messages';
+			error = mapApiErrorToMessage(err);
+			toastError(error);
 		} finally {
 			loading = false;
 		}
