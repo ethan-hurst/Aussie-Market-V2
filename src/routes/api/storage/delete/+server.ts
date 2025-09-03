@@ -69,6 +69,14 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 				}
 				break;
 
+			case STORAGE_BUCKETS.ADDRESS_PROOFS:
+				// Only the owner can delete their own proof files
+				const proofUserId = path.split('/')[0];
+				if (proofUserId !== session.user.id) {
+					return json({ error: 'Unauthorized' }, { status: 403 });
+				}
+				break;
+
 			case STORAGE_BUCKETS.EVIDENCE_UPLOADS:
 				// For evidence files, check if user is involved in the dispute
 				// Extract disputeId from path (format: disputeId/userId_filename)

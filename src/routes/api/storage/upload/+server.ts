@@ -5,7 +5,9 @@ import {
 	uploadListingPhoto, 
 	uploadEvidenceFile, 
 	uploadProfileAvatar,
+	uploadAddressProof,
 	validateFile,
+	validateProofFile,
 	checkDuplicateImage,
 	STORAGE_BUCKETS
 } from '$lib/storage';
@@ -54,7 +56,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		// Validate file
-		const validation = validateFile(file);
+		const validation = (type === 'address_proof') ? validateProofFile(file) : validateFile(file);
 		if (!validation.valid) {
 			return json({ error: validation.error }, { status: 400 });
 		}
@@ -93,6 +95,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				}
 
 				uploadResult = await uploadListingPhoto(file, listingId, orderIndex);
+				break;
+
+			case 'address_proof':
+				// Proof of address goes to private bucket under user id
+				uploadResult = await uploadAddressProof(file, session.user.id);
 				break;
 
 			case 'evidence_file':

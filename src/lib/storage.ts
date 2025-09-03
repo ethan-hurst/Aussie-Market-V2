@@ -8,7 +8,8 @@ import { bmvbhash } from 'blockhash-core';
 export const STORAGE_BUCKETS = {
 	LISTING_PHOTOS: 'listing-photos',
 	EVIDENCE_UPLOADS: 'evidence-uploads',
-	PROFILE_AVATARS: 'profile-avatars'
+	PROFILE_AVATARS: 'profile-avatars',
+	ADDRESS_PROOFS: 'address-proofs'
 } as const;
 
 // File type validation
@@ -17,6 +18,11 @@ export const ALLOWED_IMAGE_TYPES = [
 	'image/jpg',
 	'image/png',
 	'image/webp'
+];
+
+export const ALLOWED_PROOF_TYPES = [
+	...ALLOWED_IMAGE_TYPES,
+	'application/pdf'
 ];
 
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -196,6 +202,25 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
 	}
 	
 	return { valid: true };
+}
+
+/**
+ * Validate file for address proof (allow images and PDF)
+ */
+export function validateProofFile(file: File): { valid: boolean; error?: string } {
+    if (!ALLOWED_PROOF_TYPES.includes(file.type)) {
+        return {
+            valid: false,
+            error: 'Invalid file type. Only images or PDF allowed for proof of address.'
+        };
+    }
+    if (file.size > MAX_FILE_SIZE) {
+        return {
+            valid: false,
+            error: `File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB.`
+        };
+    }
+    return { valid: true };
 }
 
 /**
@@ -411,6 +436,45 @@ export async function uploadImage(
 }
 
 /**
+ * Upload raw file (no processing) to Supabase Storage
+ */
+export async function uploadRaw(
+    file: File,
+    bucket: string,
+    path: string
+): Promise<UploadResult> {
+    try {
+        const { data, error } = await supabase.storage
+            .from(bucket)
+            .upload(path, file, {
+                cacheControl: '3600',
+                upsert: false
+            });
+
+        if (error) {
+            throw new Error(`Upload failed: ${error.message}`);
+        }
+
+        const { data: urlData } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(path);
+
+        return {
+            url: urlData.publicUrl,
+            path: data.path,
+            metadata: {
+                size: file.size,
+                type: file.type,
+                uploadedAt: new Date().toISOString()
+            }
+        };
+    } catch (error) {
+        console.error('Raw upload error:', error);
+        throw error;
+    }
+}
+
+/**
  * Upload listing photo
  */
 export async function uploadListingPhoto(
@@ -464,6 +528,29 @@ export async function uploadProfileAvatar(
 		stripExif: true,
 		generateHash: false
 	});
+}
+
+/**
+ * Upload proof of address document (image or PDF)
+ */
+export async function uploadAddressProof(
+    file: File,
+    userId: string
+): Promise<UploadResult> {
+    // Preserve extension if provided, otherwise infer from type
+    const originalName = (file as any).name || '';
+    const extFromName = originalName.includes('.') ? `.${originalName.split('.').pop()}` : '';
+    let ext = extFromName;
+    if (!ext) {
+        if (file.type === 'application/pdf') ext = '.pdf';
+        else if (file.type.includes('png')) ext = '.png';
+        else if (file.type.includes('webp')) ext = '.webp';
+        else ext = '.jpg';
+    }
+    const fileName = `${userId}/poa_${uuidv4()}${ext}`;
+
+    // Use raw upload for PDF or non-standard images; for images it's fine to keep raw too
+    return uploadRaw(file, STORAGE_BUCKETS.ADDRESS_PROOFS, fileName);
 }
 
 /**
