@@ -5,6 +5,7 @@ import { supabase } from '$lib/supabase';
 import { notifyOrderPaid } from '$lib/notifications';
 import { env } from '$lib/env';
 import type { RequestHandler } from './$types';
+import { rateLimit } from '$lib/security';
 
 const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here', {
 	apiVersion: '2023-10-16'
@@ -15,6 +16,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const { data: { session } } = await locals.getSession();
 		if (!session) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
+
+		// Rate limit payment confirmations per user
+		const rl = rateLimit(`pay-confirm:${session.user.id}`, 20, 10 * 60_000);
+		if (!rl.allowed) {
+			return json({ error: 'Too many requests. Please slow down.' }, { status: 429, headers: rl.retryAfterMs ? { 'Retry-After': Math.ceil(rl.retryAfterMs / 1000).toString() } : {} });
 		}
 
 		const { orderId, paymentIntentId } = await request.json();
