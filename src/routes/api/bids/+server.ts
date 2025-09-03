@@ -16,7 +16,7 @@ import { validate, BidSchema } from '$lib/validation';
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
 		// Verify user is authenticated
-		const session = await locals.getSession();
+		const { data: { session } } = await locals.getSession();
 		if (!session) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
 		}
@@ -109,7 +109,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		const userId = url.searchParams.get('userId');
 
 		// Verify user is authenticated
-		const session = await locals.getSession();
+		const { data: { session } } = await locals.getSession();
 		if (!session) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
 		}
