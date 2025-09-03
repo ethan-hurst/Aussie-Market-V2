@@ -16,6 +16,7 @@
 		isAuctionEndingSoon
 	} from '$lib/auctions';
 import { mapApiErrorToMessage } from '$lib/errors';
+import { toastError, toastSuccess } from '$lib/toast';
 	import {
 		Gavel,
 		Clock,
@@ -229,8 +230,10 @@ import { mapApiErrorToMessage } from '$lib/errors';
 			await updateMinBidAmount();
 			
 			setTimeout(() => success = '', 3000);
+			toastSuccess('Bid placed successfully');
 		} catch (err: any) {
 			error = mapApiErrorToMessage(err);
+			toastError(error);
 		} finally {
 			loading = false;
 		}

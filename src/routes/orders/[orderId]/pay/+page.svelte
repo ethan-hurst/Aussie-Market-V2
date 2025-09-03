@@ -6,6 +6,7 @@
 	import type { OrderWithDetails } from '$lib/orders';
 	import { formatPrice, getOrderStatusLabel } from '$lib/orders';
 import { mapApiErrorToMessage } from '$lib/errors';
+import { toastError, toastSuccess } from '$lib/toast';
 
 	let order: OrderWithDetails | null = null;
 	let loading = true;
@@ -45,6 +46,7 @@ import { mapApiErrorToMessage } from '$lib/errors';
 			
 		} catch (err) {
 			error = mapApiErrorToMessage(err);
+			toastError(error);
 		} finally {
 			loading = false;
 		}
@@ -102,6 +104,7 @@ import { mapApiErrorToMessage } from '$lib/errors';
 			
 		} catch (err) {
 			error = mapApiErrorToMessage(err);
+			toastError(error);
 		} finally {
 			processing = false;
 		}
