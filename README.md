@@ -89,7 +89,12 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 STRIPE_SECRET_KEY=your-stripe-secret-key
 STRIPE_PUBLISHABLE_KEY=your-stripe-publishable-key
 STRIPE_WEBHOOK_SECRET=your-webhook-secret
+PUBLIC_SITE_URL=http://localhost:5173
 ```
+
+Health check endpoint:
+
+- GET `/api/health` returns `{ ok, errors, warnings, services }` and HTTP 200/503 based on startup validation.
 
 ### 5. Start Development Server
 

@@ -100,10 +100,14 @@ export function validateEnvironment(): ValidationResult {
 	// Validate public variables (available in browser)
 	if (!PUBLIC_SUPABASE_URL) {
 		errors.push('PUBLIC_SUPABASE_URL is required but not set');
-	} else if (!PUBLIC_SUPABASE_URL.startsWith('https://') || !PUBLIC_SUPABASE_URL.includes('supabase.co')) {
-		errors.push('PUBLIC_SUPABASE_URL appears to be invalid (should be a Supabase URL)');
 	} else {
-		config.PUBLIC_SUPABASE_URL = PUBLIC_SUPABASE_URL;
+		const looksLikeSupabase = PUBLIC_SUPABASE_URL.startsWith('https://') && PUBLIC_SUPABASE_URL.includes('supabase.co');
+		const looksLikeLocal = PUBLIC_SUPABASE_URL.startsWith('http://127.0.0.1') || PUBLIC_SUPABASE_URL.startsWith('http://localhost');
+		if (!looksLikeSupabase && !(dev && looksLikeLocal)) {
+			errors.push('PUBLIC_SUPABASE_URL appears invalid. Use a Supabase URL in prod or http://127.0.0.1 in dev.');
+		} else {
+			config.PUBLIC_SUPABASE_URL = PUBLIC_SUPABASE_URL;
+		}
 	}
 	
 	if (!PUBLIC_SUPABASE_ANON_KEY) {
