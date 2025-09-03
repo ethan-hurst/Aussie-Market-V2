@@ -140,13 +140,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 		switch (action) {
 			case 'mark_ready': {
-				if (!isSeller || state !== 'paid') return json({ error: 'Not allowed' }, { status: 403 });
+				if (!isSeller || state !== 'paid') return json({ error: 'Forbidden' }, { status: 403 });
 				await updateState('ready_for_handover');
 				await ledger('mark_ready', 'Seller marked order ready for handover');
 				return json({ success: true, state: 'ready_for_handover' });
 			}
 			case 'mark_shipped': {
-				if (!isSeller || state !== 'ready_for_handover') return json({ error: 'Not allowed' }, { status: 403 });
+				if (!isSeller || state !== 'ready_for_handover') return json({ error: 'Forbidden' }, { status: 403 });
 				await updateState('shipped');
 				await ledger('shipped', 'Seller marked order shipped');
 				// Notify buyer
@@ -154,7 +154,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 				return json({ success: true, state: 'shipped' });
 			}
 			case 'confirm_delivery': {
-				if (!isBuyer || state !== 'shipped') return json({ error: 'Not allowed' }, { status: 403 });
+				if (!isBuyer || state !== 'shipped') return json({ error: 'Forbidden' }, { status: 403 });
 				await updateState('delivered');
 				await ledger('delivered', 'Buyer confirmed delivery');
 				// Notify seller
@@ -162,7 +162,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 				return json({ success: true, state: 'delivered' });
 			}
 			case 'release_funds': {
-				if (!isBuyer || state !== 'delivered') return json({ error: 'Not allowed' }, { status: 403 });
+				if (!isBuyer || state !== 'delivered') return json({ error: 'Forbidden' }, { status: 403 });
 				await updateState('released');
 				// Release seller funds (logical entry only; payouts handled separately)
 				const sellerAmount = order.seller_amount_cents || 0;
@@ -171,7 +171,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			}
 			case 'cancel': {
 				if (!(isBuyer || isSeller) || !(isUnpaid || state === 'paid')) {
-					return json({ error: 'Not allowed' }, { status: 403 });
+					return json({ error: 'Forbidden' }, { status: 403 });
 				}
 				await updateState('cancelled');
 				await ledger('cancelled', 'Order cancelled');
@@ -180,7 +180,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			case 'refund': {
 				// Simple refund flow; Stripe refund should be handled by payments API/webhook
 				if (!isSeller || !(state === 'paid' || state === 'shipped' || state === 'delivered')) {
-					return json({ error: 'Not allowed' }, { status: 403 });
+					return json({ error: 'Forbidden' }, { status: 403 });
 				}
 				await updateState('refunded');
 				await ledger('refund_issued', 'Seller issued refund', order.amount_cents || 0);

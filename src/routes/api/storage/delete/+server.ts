@@ -3,6 +3,7 @@ import { mapApiErrorToMessage } from '$lib/errors';
 import type { RequestHandler } from './$types';
 import { deleteFile, STORAGE_BUCKETS } from '$lib/storage';
 import { supabase } from '$lib/supabase';
+import { rateLimit } from '$lib/security';
 
 export const DELETE: RequestHandler = async ({ request, locals }) => {
 	try {
@@ -10,6 +11,15 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 		const session = await locals.getSession();
 		if (!session) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
+
+		// Rate limit deletes per user (e.g., 30/minute)
+		const rl = rateLimit(`delete:${session.user.id}`, 30, 60_000);
+		if (!rl.allowed) {
+			return json(
+				{ error: 'Too many delete requests. Please slow down.' },
+				{ status: 429, headers: rl.retryAfterMs ? { 'Retry-After': Math.ceil(rl.retryAfterMs / 1000).toString() } : {} }
+			);
 		}
 
 		const { bucket, path, photoId, listingId } = await request.json();
