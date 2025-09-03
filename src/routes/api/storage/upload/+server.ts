@@ -10,6 +10,7 @@ import {
 	STORAGE_BUCKETS
 } from '$lib/storage';
 import { supabase } from '$lib/supabase';
+import { rateLimit } from '$lib/security';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
@@ -17,6 +18,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const session = await locals.getSession();
 		if (!session) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
+
+		// Rate limit uploads per user (e.g., 60/minute overall)
+		const rl = rateLimit(`upload:${session.user.id}`, 60, 60_000);
+		if (!rl.allowed) {
+			return json(
+				{ error: 'Too many uploads. Please slow down.' },
+				{ status: 429, headers: rl.retryAfterMs ? { 'Retry-After': Math.ceil(rl.retryAfterMs / 1000).toString() } : {} }
+			);
 		}
 
 		const formData = await request.formData();
