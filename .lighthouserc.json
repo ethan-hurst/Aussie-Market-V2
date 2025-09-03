@@ -1,0 +1,31 @@
+{
+  "ci": {
+    "collect": {
+      "numberOfRuns": 2,
+      "staticDistDir": "build",
+      "settings": {
+        "preset": "desktop"
+      },
+      "url": [
+        "/",
+        "/orders/o1",
+        "/l/sample-listing"
+      ]
+    },
+    "assert": {
+      "preset": "lighthouse:recommended",
+      "assertions": {
+        "categories:performance": ["error", {"minScore": 0.9}],
+        "first-contentful-paint": ["warn", {"maxNumericValue": 2000}],
+        "largest-contentful-paint": ["error", {"maxNumericValue": 2500}],
+        "total-blocking-time": ["error", {"maxNumericValue": 300}],
+        "cumulative-layout-shift": ["error", {"maxNumericValue": 0.1}]
+      }
+    },
+    "upload": {
+      "target": "temporary-public-storage"
+    }
+  }
+}
+
+

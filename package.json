@@ -9,6 +9,8 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"e2e": "playwright test",
+		"lhci:ci": "lhci autorun --upload.target=temporary-public-storage",
+		"lhci:server": "lhci server --port=9001",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "prettier --check . && eslint .",
@@ -21,6 +23,9 @@
 		"db:diff": "supabase db diff"
 	},
 	"devDependencies": {
+		"@axe-core/playwright": "^4.9.0",
+		"@lhci/cli": "^0.13.0",
+		"@playwright/test": "^1.47.2",
 		"@sveltejs/adapter-auto": "^3.3.1",
 		"@sveltejs/kit": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^3.0.0",
@@ -45,9 +50,7 @@
 		"typescript": "^5.0.0",
 		"vite": "^5.0.3",
 		"vitest": "^3.2.4",
-		"@playwright/test": "^1.47.2",
-		"wait-on": "^7.2.0",
-		"@axe-core/playwright": "^4.9.0"
+		"wait-on": "^7.2.0"
 	},
 	"dependencies": {
 		"@stripe/stripe-js": "^7.9.0",
