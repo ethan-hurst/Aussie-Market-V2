@@ -27,6 +27,8 @@
 		ArrowUp,
 		ArrowDown
 	} from 'lucide-svelte';
+import { mapApiErrorToMessage } from '$lib/errors';
+import { toastError, toastSuccess } from '$lib/toast';
 
 	let order: any = null;
 	let loading = true;
@@ -102,10 +104,12 @@
 			order = await getOrderDetails(orderId as string);
 			if (!order) {
 				error = 'Order not found';
+				toastError(error);
 			}
 		} catch (err) {
 			console.error('Error loading order:', err);
-			error = 'Failed to load order';
+			error = mapApiErrorToMessage(err);
+			toastError(error);
 		} finally {
 			loading = false;
 		}
@@ -137,13 +141,15 @@
 
 			if (!res.ok) {
 				const body = await res.json().catch(() => ({}));
-				throw new Error(body?.error || 'Failed to perform action');
+				throw new Error(mapApiErrorToMessage(body) || 'Failed to perform action');
 			}
 
 			await loadOrder();
+			toastSuccess('Order updated');
 		} catch (err) {
 			console.error('Order action failed:', err);
-			error = 'Failed to update order state';
+			error = mapApiErrorToMessage(err);
+			toastError(error);
 		} finally {
 			updating = false;
 		}
@@ -167,10 +173,11 @@
 				body: JSON.stringify({ action: 'init' })
 			});
 			const data = await res.json();
-			if (!res.ok) throw new Error(data?.error || 'Failed to initialize pickup');
+			if (!res.ok) throw new Error(mapApiErrorToMessage(data) || 'Failed to initialize pickup');
 			pickupCode = data.code6;
 			pickupToken = data.qr_token;
 			pickupMessage = 'Pickup code generated. Share this code with the buyer at handover.';
+			toastSuccess('Pickup code generated');
 			// Build QR for token if available
 			try {
 				const mod = await import('qrcode');
@@ -180,7 +187,8 @@
 				console.warn('QR generation failed', e);
 			}
 		} catch (e) {
-			pickupErrorMsg = (e as Error).message || 'Failed to initialize pickup';
+			pickupErrorMsg = mapApiErrorToMessage(e) || 'Failed to initialize pickup';
+			toastError(pickupErrorMsg);
 		} finally {
 			pickupLoading = false;
 		}
@@ -198,11 +206,13 @@
 				body: JSON.stringify({ action: 'redeem', code6: redeemCode })
 			});
 			const data = await res.json();
-			if (!res.ok) throw new Error(data?.error || 'Failed to redeem pickup');
+			if (!res.ok) throw new Error(mapApiErrorToMessage(data) || 'Failed to redeem pickup');
 			pickupMessage = 'Pickup confirmed.';
+			toastSuccess('Pickup confirmed');
 			await loadOrder();
 		} catch (e) {
-			pickupErrorMsg = (e as Error).message || 'Failed to redeem pickup';
+			pickupErrorMsg = mapApiErrorToMessage(e) || 'Failed to redeem pickup';
+			toastError(pickupErrorMsg);
 		} finally {
 			redeemLoading = false;
 		}
@@ -220,11 +230,13 @@
 				body: JSON.stringify({ carrier: shipCarrier, tracking: shipTracking, label_url: shipLabelUrl })
 			});
 			const data = await res.json();
-			if (!res.ok) throw new Error(data?.error || 'Failed to save shipment');
+			if (!res.ok) throw new Error(mapApiErrorToMessage(data) || 'Failed to save shipment');
 			shipMsg = 'Shipment saved.';
+			toastSuccess('Shipment saved');
 			await loadOrder();
 		} catch (e) {
-			shipErr = (e as Error).message || 'Failed to save shipment';
+			shipErr = mapApiErrorToMessage(e) || 'Failed to save shipment';
+			toastError(shipErr);
 		} finally {
 			shipLoading = false;
 		}
@@ -250,14 +262,16 @@
 				body: JSON.stringify({ status: newEventStatus, description: newEventDesc, location: newEventLocation })
 			});
 			const data = await res.json();
-			if (!res.ok) throw new Error(data?.error || 'Failed to add event');
+			if (!res.ok) throw new Error(mapApiErrorToMessage(data) || 'Failed to add event');
 			newEventStatus = '';
 			newEventDesc = '';
 			newEventLocation = '';
 			await loadShipmentEvents();
 			await loadOrder();
+			toastSuccess('Tracking event added');
 		} catch (e) {
 			console.error(e);
+			toastError(mapApiErrorToMessage(e));
 		} finally {
 			eventLoading = false;
 		}
