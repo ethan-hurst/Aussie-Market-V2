@@ -5,6 +5,7 @@ import { supabase } from '$lib/supabase';
 import { env } from '$lib/env';
 import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
+import { validate, PaymentCreateIntentSchema } from '$lib/validation';
 
 const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here', {
 	apiVersion: '2023-10-16'
@@ -23,11 +24,10 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Too many requests. Please slow down.' }, { status: 429, headers: rl.retryAfterMs ? { 'Retry-After': Math.ceil(rl.retryAfterMs / 1000).toString() } : {} });
 		}
 
-		const { orderId, amount, currency = 'aud' } = await request.json();
 
-		if (!orderId || !amount) {
-			return json({ error: 'Order ID and amount required' }, { status: 400 });
-		}
+		const parsed = validate(PaymentCreateIntentSchema, await request.json());
+		if (!parsed.ok) return json({ error: mapApiErrorToMessage(parsed.error) }, { status: 400 });
+		const { orderId, amount, currency } = parsed.value as any;
 
 		// Fetch order details
 		const { data: order, error: orderError } = await supabase

@@ -4,6 +4,7 @@ import type { RequestHandler } from './$types';
 import { deleteFile, STORAGE_BUCKETS } from '$lib/storage';
 import { supabase } from '$lib/supabase';
 import { rateLimit } from '$lib/security';
+import { validate, StorageDeleteSchema } from '$lib/validation';
 
 export const DELETE: RequestHandler = async ({ request, locals }) => {
 	try {
@@ -22,7 +23,9 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 			);
 		}
 
-		const { bucket, path, photoId, listingId } = await request.json();
+		const parsed = validate(StorageDeleteSchema, await request.json());
+		if (!parsed.ok) return json({ error: mapApiErrorToMessage(parsed.error) }, { status: 400 });
+		const { bucket, path, photoId, listingId } = parsed.value as any;
 
 		if (!bucket || !path) {
 			return json({ error: 'Missing bucket or path' }, { status: 400 });

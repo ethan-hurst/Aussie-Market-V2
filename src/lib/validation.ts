@@ -92,4 +92,24 @@ export const ShipmentUpsertSchema = z.object({
   label_url: z.string().url().optional()
 });
 
+// Payments
+export const PaymentCreateIntentSchema = z.object({
+  orderId: z.string().min(1),
+  amount: z.number().int().min(100),
+  currency: z.string().length(3).default('aud')
+});
+
+export const PaymentConfirmSchema = z.object({
+  orderId: z.string().min(1),
+  paymentIntentId: z.string().min(5)
+});
+
+// Storage
+export const StorageDeleteSchema = z.object({
+  bucket: z.string().min(1),
+  path: z.string().min(1),
+  photoId: z.string().optional(),
+  listingId: z.string().optional()
+});
+
 

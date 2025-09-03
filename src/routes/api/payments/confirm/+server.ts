@@ -6,6 +6,7 @@ import { notifyOrderPaid } from '$lib/notifications';
 import { env } from '$lib/env';
 import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
+import { validate, PaymentConfirmSchema } from '$lib/validation';
 
 const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here', {
 	apiVersion: '2023-10-16'
@@ -24,11 +25,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Too many requests. Please slow down.' }, { status: 429, headers: rl.retryAfterMs ? { 'Retry-After': Math.ceil(rl.retryAfterMs / 1000).toString() } : {} });
 		}
 
-		const { orderId, paymentIntentId } = await request.json();
-
-		if (!orderId || !paymentIntentId) {
-			return json({ error: 'Order ID and payment intent ID required' }, { status: 400 });
-		}
+		const parsed = validate(PaymentConfirmSchema, await request.json());
+		if (!parsed.ok) return json({ error: mapApiErrorToMessage(parsed.error) }, { status: 400 });
+		const { orderId, paymentIntentId } = parsed.value as any;
 
 		// Fetch order details
 		const { data: order, error: orderError } = await supabase
