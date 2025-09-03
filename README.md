@@ -169,6 +169,22 @@ When an auction is finalized, an `orders` row is created with `state=pending_pay
 npm test -- --coverage
 ```
 
+### Database schema validation
+
+We ship a lightweight schema validation suite to catch drift and missing security controls.
+
+Local run (requires a Postgres URL):
+
+```bash
+export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+psql $DATABASE_URL -v ON_ERROR_STOP=1 -f database/schema.sql
+npm run db:test
+psql $DATABASE_URL -v ON_ERROR_STOP=1 -f database/tests/002_rls_policies.sql
+psql $DATABASE_URL -v ON_ERROR_STOP=1 -f database/tests/003_fk_indexes.sql
+```
+
+CI runs the same via `.github/workflows/db-validate.yml` on pushes and PRs.
+
 ### Canary (Staging Stripe/Webhooks)
 
 The repository includes a scheduled canary that validates the Stripe webhook path and idempotency on staging.
