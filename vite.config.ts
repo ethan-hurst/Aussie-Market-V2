@@ -16,10 +16,10 @@ export default defineConfig({
 		coverage: {
 			provider: 'v8',
 			reporter: ['text', 'html'],
-			lines: 60,
-			functions: 60,
-			branches: 50,
-			statements: 60
+			lines: 65,
+			functions: 65,
+			branches: 55,
+			statements: 65
 		}
 	} as VitestUserConfig['test']
 });
