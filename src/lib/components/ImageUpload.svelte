@@ -2,6 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { Upload, X, Image, AlertCircle, CheckCircle } from 'lucide-svelte';
 	import { validateFile, MAX_FILE_SIZE, ALLOWED_IMAGE_TYPES } from '$lib/storage';
+	import { toastError, toastSuccess } from '$lib/toast';
 
 	export let multiple = false;
 	export let maxFiles = 10;
@@ -72,6 +73,7 @@
 
 		if (errors.length > 0) {
 			dispatch('error', { message: errors.join(', ') });
+			toastError(errors.join(', '));
 			return;
 		}
 
@@ -83,6 +85,7 @@
 		}
 
 		dispatch('upload', { files: newFiles });
+		toastSuccess('Files ready to upload');
 	}
 
 	function removeFile(index: number) {

@@ -6,6 +6,7 @@
 		validateBidAmount,
 		type BidData
 	} from '$lib/auctions';
+import { toastError, toastSuccess } from '$lib/toast';
 	import { DollarSign, Clock, AlertCircle, CheckCircle, Zap } from 'lucide-svelte';
 
 	export let listing: any;
@@ -60,15 +61,18 @@
 			// Validate bid data
 			if (!bidValidation?.valid) {
 				error = bidValidation?.reason || 'Invalid bid amount';
+				toastError(error);
 				submitting = false;
 				return;
 			}
 
 			// Dispatch bid event
 			dispatch('bid', { bidData, success: true });
+			toastSuccess('Bid submitted');
 
 		} catch (err) {
 			error = 'Failed to process bid';
+			toastError(error);
 			console.error('Bid submission error:', err);
 		} finally {
 			submitting = false;

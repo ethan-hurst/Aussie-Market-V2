@@ -1,5 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions } from './$types';
+import { mapApiErrorToMessage } from '$lib/errors';
 
 export const actions: Actions = {
 	default: async ({ request, locals, url }) => {
@@ -27,7 +28,7 @@ export const actions: Actions = {
 
 				if (error) {
 					return fail(400, {
-						error: error.message,
+						error: mapApiErrorToMessage(error),
 						email
 					});
 				}
@@ -44,7 +45,7 @@ export const actions: Actions = {
 
 				if (error) {
 					return fail(400, {
-						error: error.message,
+						error: mapApiErrorToMessage(error),
 						email
 					});
 				}
@@ -58,7 +59,7 @@ export const actions: Actions = {
 				throw err;
 			}
 			return fail(500, {
-				error: 'An unexpected error occurred',
+				error: mapApiErrorToMessage(err),
 				email
 			});
 		}
