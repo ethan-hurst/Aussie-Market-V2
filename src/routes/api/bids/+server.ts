@@ -17,7 +17,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
 		// Verify user is authenticated
 		const sessionResp = await locals.getSession();
-		const session = (sessionResp as any)?.data?.session ?? (sessionResp as any)?.session ?? null;
+		const sessionUser = (sessionResp as any)?.data?.session?.user 
+			?? (sessionResp as any)?.session?.user 
+			?? (sessionResp as any)?.user 
+			?? null;
+		const session = sessionUser ? { user: sessionUser } : null;
 		if (!session) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
 		}
@@ -111,7 +115,11 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 		// Verify user is authenticated
 		const sessionResp = await locals.getSession();
-		const session = (sessionResp as any)?.data?.session ?? (sessionResp as any)?.session ?? null;
+		const sessionUser = (sessionResp as any)?.data?.session?.user 
+			?? (sessionResp as any)?.session?.user 
+			?? (sessionResp as any)?.user 
+			?? null;
+		const session = sessionUser ? { user: sessionUser } : null;
 		if (!session) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
 		}

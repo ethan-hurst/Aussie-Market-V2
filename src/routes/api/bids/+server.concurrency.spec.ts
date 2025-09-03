@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mocks
 vi.mock('$lib/security', () => ({ rateLimit: () => ({ allowed: true }) }));
-vi.mock('$lib/validation', () => ({ validate: (schema: any, data: any) => ({ ok: true, value: data }) }));
+vi.mock('$lib/validation', () => ({ validate: (schema: any, data: any) => ({ ok: true, value: data }), BidSchema: {} }));
 vi.mock('$lib/errors', () => ({ mapApiErrorToMessage: (e: any) => (e?.error || e?.message || String(e)) }));
 vi.mock('$lib/auctions', () => ({
   canBidOnListing: vi.fn().mockResolvedValue({ allowed: true, listing: { reserve_cents: null } }),
