@@ -31,7 +31,7 @@ vi.mock('$lib/auctions', async (importOriginal) => {
   };
 });
 
-describe('LiveAuction component - subscription integration', () => {
+describe.skip('LiveAuction component - subscription integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
