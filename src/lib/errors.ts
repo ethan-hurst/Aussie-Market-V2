@@ -16,6 +16,11 @@ export function mapApiErrorToMessage(error: ApiErrorInput): string {
     return normalize(sb.error.message);
   }
 
+  // API error: { error: string }
+  if (typeof sb?.error === 'string') {
+    return normalize(sb.error);
+  }
+
   if (typeof error === 'string') return normalize(error);
 
   try {

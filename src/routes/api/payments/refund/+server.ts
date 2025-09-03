@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { mapApiErrorToMessage } from '$lib/errors';
 import Stripe from 'stripe';
 import { supabase } from '$lib/supabase';
 import { env } from '$lib/env';
@@ -86,10 +87,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     return json({ success: true, refund_id: refund.id });
   } catch (error) {
     console.error('Error issuing refund:', error);
+    const friendly = mapApiErrorToMessage(error);
     if (error instanceof Stripe.errors.StripeError) {
-      return json({ error: error.message }, { status: 400 });
+      return json({ error: friendly }, { status: 400 });
     }
-    return json({ error: 'Failed to issue refund' }, { status: 500 });
+    return json({ error: friendly }, { status: 500 });
   }
 };
 
