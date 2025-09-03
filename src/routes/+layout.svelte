@@ -56,6 +56,7 @@ import ToastContainer from '$lib/components/ToastContainer.svelte';
 	<meta name="description" content="Australia's premier C2C auction marketplace" />
 </svelte:head>
 
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 bg-white text-black px-3 py-2 rounded shadow">Skip to main content</a>
 <div class="min-h-screen bg-gray-50">
 	<!-- Navigation -->
 	<nav class="bg-white shadow-sm border-b border-gray-200">
@@ -236,7 +237,7 @@ import ToastContainer from '$lib/components/ToastContainer.svelte';
 	</nav>
 
 	<!-- Main content -->
-	<main class="flex-1">
+	<main id="main" class="flex-1" tabindex="-1">
 		<slot />
 	</main>
 

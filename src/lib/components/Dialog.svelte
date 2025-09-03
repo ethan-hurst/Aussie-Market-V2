@@ -68,13 +68,15 @@
 {#if open}
   <div
     class="fixed inset-0 z-50 flex items-center justify-center"
-    aria-hidden={!open}
   >
     <!-- Overlay -->
     <div
       class="fixed inset-0 bg-black/50"
+      role="button"
+      tabindex="0"
+      aria-label="Close dialog"
       on:click={() => { if (closeOnOverlay) close(); }}
-      aria-hidden="true"
+      on:keydown={(e) => { if (closeOnOverlay && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); close(); } }}
     />
 
     <!-- Dialog -->
