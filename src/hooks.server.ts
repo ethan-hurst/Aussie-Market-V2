@@ -4,6 +4,7 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/publi
 import { initializeApplication } from '$lib/startup';
 import type { Handle } from '@sveltejs/kit';
 import { isCsrfRequestValid } from '$lib/security';
+import { dev } from '$app/environment';
 
 // Initialize application with environment validation
 let initializationPromise: Promise<void> | null = null;
@@ -63,4 +64,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 			return name === 'x-sveltekit-action';
 		}
 	});
+};
+
+export const handleError = ({ error, event }) => {
+  // Centralized error logging
+  console.error('SvelteKit error:', {
+    path: event.url.pathname,
+    method: event.request.method,
+    message: (error as any)?.message,
+  });
+
+  // Sanitize message for client
+  const message = dev ? (error as any)?.message : 'Something went wrong';
+  return {
+    message
+  };
 };
