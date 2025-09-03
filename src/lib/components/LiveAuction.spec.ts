@@ -1,6 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/svelte';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import LiveAuction from './LiveAuction.svelte';
 
 // Mock subscription manager to capture unsubscribe and trigger connection status
 vi.mock('$lib/subscriptionManager', () => {
@@ -38,6 +37,7 @@ describe('LiveAuction component - subscription integration', () => {
   });
 
   it('subscribes on mount, shows Live, and unsubscribes on destroy', async () => {
+    const LiveAuction = (await import('./LiveAuction.svelte')).default;
     const { component } = render(LiveAuction, {
       props: {
         auctionId: 'a1',
