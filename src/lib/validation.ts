@@ -112,4 +112,16 @@ export const StorageDeleteSchema = z.object({
   listingId: z.string().optional()
 });
 
+// Storage upload (multipart form fields validated after extraction)
+export const StorageUploadSchema = z.object({
+  type: z.enum(['listing_photo', 'evidence_file', 'profile_avatar']),
+  listingId: z.string().uuid().optional(),
+  disputeId: z.string().uuid().optional(),
+  orderIndex: z.coerce.number().int().min(0).max(100).default(0)
+}).refine((data) => {
+  if (data.type === 'listing_photo') return !!data.listingId;
+  if (data.type === 'evidence_file') return !!data.disputeId;
+  return true;
+}, { message: 'Missing required identifier for upload type' });
+
 
