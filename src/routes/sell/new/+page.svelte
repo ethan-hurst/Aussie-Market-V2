@@ -12,6 +12,8 @@
 	import { uploadListingPhoto } from '$lib/storage';
 	import ImageUpload from '$lib/components/ImageUpload.svelte';
 	import { Upload, X, Plus, DollarSign, Calendar, MapPin, Package, Truck, AlertCircle } from 'lucide-svelte';
+	import { mapApiErrorToMessage } from '$lib/errors';
+	import { toastError, toastSuccess } from '$lib/toast';
 
 	let user: any = null;
 	let loading = true;
@@ -23,17 +25,17 @@
 	let title = '';
 	let description = '';
 	let categoryId = '';
-	let condition = 'good';
+	let condition: ListingData['condition'] = 'good';
 	let startCents = '';
 	let reserveCents = '';
 	let buyNowCents = '';
 	let pickup = true;
 	let shipping = false;
-	let location = {
+	let location: ListingData['location'] = {
 		street: '',
 		suburb: '',
 		postcode: '',
-		state: ''
+		state: 'NSW'
 	};
 	let startAt = '';
 	let endAt = '';
@@ -52,6 +54,7 @@
 		const permissionCheck = await canCreateListing(user.id);
 		if (!permissionCheck.allowed) {
 			permissionError = permissionCheck.reason || 'You cannot create listings';
+			try { toastError(mapApiErrorToMessage(permissionCheck.reason || 'You cannot create listings')); } catch {}
 			loading = false;
 			return;
 		}
@@ -84,11 +87,13 @@
 			// Validate required fields
 			if (!title || !description || !categoryId || !startCents || !startAt || !endAt) {
 				error = 'Please fill in all required fields';
+				toastError(error);
 				return;
 			}
 
 			if (photos.length === 0) {
 				error = 'Please upload at least one photo';
+				toastError(error);
 				return;
 			}
 
@@ -120,7 +125,9 @@
 			const result = await response.json();
 
 			if (!response.ok) {
-				error = result.error || 'Failed to create listing';
+				const friendly = mapApiErrorToMessage(result);
+				error = friendly || 'Failed to create listing';
+				toastError(error);
 				return;
 			}
 
@@ -138,11 +145,14 @@
 				}
 			}
 
-			// Redirect to listing page
+			// Notify and redirect to listing page
+			toastSuccess('Listing created successfully');
 			goto(`/l/${listing.id}?message=created`);
 
 		} catch (err) {
-			error = 'An error occurred while creating your listing';
+			const friendly = mapApiErrorToMessage(err);
+			error = friendly || 'An error occurred while creating your listing';
+			toastError(error);
 			console.error('Submit error:', err);
 		} finally {
 			submitting = false;

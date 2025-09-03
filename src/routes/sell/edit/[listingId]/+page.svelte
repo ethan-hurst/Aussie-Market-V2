@@ -16,6 +16,8 @@
 	import ImageUpload from '$lib/components/ImageUpload.svelte';
 	import { Upload, X, Plus, DollarSign, Calendar, MapPin, Package, Truck, AlertCircle, Save } from 'lucide-svelte';
 	import Dialog from '$lib/components/Dialog.svelte';
+	import { mapApiErrorToMessage } from '$lib/errors';
+	import { toastError, toastSuccess } from '$lib/toast';
 
 	let user: any = null;
 	let listing: any = null;
@@ -59,6 +61,7 @@
 		const permissionCheck = await canEditListing(user.id, listingId);
 		if (!permissionCheck.allowed) {
 			permissionError = permissionCheck.reason || 'You cannot edit this listing';
+			try { toastError(mapApiErrorToMessage(permissionCheck.reason || 'You cannot edit this listing')); } catch {}
 			loading = false;
 			return;
 		}
@@ -107,6 +110,7 @@
 			// Validate required fields
 			if (!title || !description || !categoryId || !startCents || !startAt || !endAt) {
 				error = 'Please fill in all required fields';
+				toastError(error);
 				return;
 			}
 
@@ -138,7 +142,9 @@
 			const result = await response.json();
 
 			if (!response.ok) {
-				error = result.error || 'Failed to update listing';
+				const friendly = mapApiErrorToMessage(result);
+				error = friendly || 'Failed to update listing';
+				toastError(error);
 				return;
 			}
 
@@ -154,11 +160,13 @@
 				}
 			}
 
-			// Redirect to listing page
+			toastSuccess('Listing updated successfully');
 			goto(`/l/${listing.id}?message=updated`);
 
 		} catch (err) {
-			error = 'An error occurred while updating your listing';
+			const friendly = mapApiErrorToMessage(err);
+			error = friendly || 'An error occurred while updating your listing';
+			toastError(error);
 			console.error('Submit error:', err);
 		} finally {
 			submitting = false;
@@ -532,12 +540,16 @@
 					const response = await fetch(`/api/listings/${listing.id}`, { method: 'DELETE' });
 					if (!response.ok) {
 						const result = await response.json();
-						error = result.error || 'Failed to delete listing';
+						const friendly = mapApiErrorToMessage(result);
+						error = friendly || 'Failed to delete listing';
+						toastError(error);
 						return;
 					}
+					toastSuccess('Listing deleted');
 					goto('/account/listings?message=deleted');
 				} catch (err) {
-					error = 'An error occurred while deleting your listing';
+					error = mapApiErrorToMessage(err) || 'An error occurred while deleting your listing';
+					toastError(error);
 					console.error('Delete error:', err);
 				} finally {
 					submitting = false;
