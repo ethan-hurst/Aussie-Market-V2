@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { mapApiErrorToMessage } from '$lib/errors';
 import { supabase } from '$lib/supabase';
 import type { RequestHandler } from './$types';
 
@@ -44,7 +45,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         return json({ success: true, shipment });
     } catch (error) {
         console.error('Shipment API error:', error);
-        return json({ error: 'Internal server error' }, { status: 500 });
+        return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
     }
 };
 

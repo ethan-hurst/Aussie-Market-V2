@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { mapApiErrorToMessage } from '$lib/errors';
 import { supabase } from '$lib/supabase';
 import type { RequestHandler } from './$types';
 
@@ -30,7 +31,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
         return json({ events: events || [] });
     } catch (error) {
         console.error('List events error:', error);
-        return json({ error: 'Internal server error' }, { status: 500 });
+        return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
     }
 };
 
@@ -74,7 +75,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         return json({ success: true, event });
     } catch (error) {
         console.error('Add event error:', error);
-        return json({ error: 'Internal server error' }, { status: 500 });
+        return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
     }
 };
 

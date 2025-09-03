@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { mapApiErrorToMessage } from '$lib/errors';
 import type { RequestHandler } from './$types';
 import { 
 	canBidOnListing, 
@@ -84,7 +85,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	} catch (error) {
 		console.error('Bid placement error:', error);
-		return json({ error: 'Failed to place bid' }, { status: 500 });
+		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
 	}
 };
 
@@ -172,6 +173,6 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	} catch (error) {
 		console.error('Bid retrieval error:', error);
-		return json({ error: 'Failed to retrieve bid information' }, { status: 500 });
+		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
 	}
 };

@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { mapApiErrorToMessage } from '$lib/errors';
 import type { RequestHandler } from './$types';
 import { deleteFile, STORAGE_BUCKETS } from '$lib/storage';
 import { supabase } from '$lib/supabase';
@@ -96,6 +97,6 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 
 	} catch (error) {
 		console.error('Delete error:', error);
-		return json({ error: 'Delete failed' }, { status: 500 });
+		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
 	}
 };

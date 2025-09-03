@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { mapApiErrorToMessage } from '$lib/errors';
 import { supabase } from '$lib/supabase';
 import { notifyOrderShipped, notifyOrderDelivered } from '$lib/notifications';
 import type { RequestHandler } from './$types';
@@ -68,7 +69,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		return json(order);
 	} catch (error) {
 		console.error('Error in order API:', error);
-		return json({ error: 'Internal server error' }, { status: 500 });
+		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
 	}
 };
 
@@ -181,6 +182,6 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
 	} catch (error) {
 		console.error('Error in order action API:', error);
-		return json({ error: 'Internal server error' }, { status: 500 });
+		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
 	}
 };

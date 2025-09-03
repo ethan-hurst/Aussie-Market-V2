@@ -1,4 +1,5 @@
 import { json } from '@sveltejs/kit';
+import { mapApiErrorToMessage } from '$lib/errors';
 import type { RequestHandler } from './$types';
 import { 
 	uploadListingPhoto, 
@@ -122,6 +123,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	} catch (error) {
 		console.error('Upload error:', error);
-		return json({ error: 'Upload failed' }, { status: 500 });
+		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
 	}
 };

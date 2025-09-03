@@ -6,6 +6,7 @@
 	import { page } from '$app/stores';
 	import { User, ShoppingCart, Plus, MessageSquare, Settings, LogOut, Menu, X } from 'lucide-svelte';
 	import NotificationBell from '$lib/components/NotificationBell.svelte';
+import ToastContainer from '$lib/components/ToastContainer.svelte';
 
 	// Get data from server-side load function
 	export let data: { session: any; user: any; userProfile: any; url: string };
@@ -279,5 +280,7 @@
 		</div>
 	</footer>
 </div>
+
+<ToastContainer />
 
 
