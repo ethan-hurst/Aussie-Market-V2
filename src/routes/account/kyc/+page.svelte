@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { supabase } from '$lib/supabase';
 	import { goto } from '$app/navigation';
-	import { Shield, CheckCircle, AlertCircle, Clock, ExternalLink } from 'lucide-svelte';
+	import { Shield, CheckCircle, AlertCircle, Clock, ExternalLink, Upload } from 'lucide-svelte';
 	import { mapApiErrorToMessage } from '$lib/errors';
 	import { toastError, toastSuccess } from '$lib/toast';
 	import { safeFetch } from '$lib/http';
@@ -11,8 +11,10 @@
 	let userProfile: any = null;
 	let loading = true;
 	let startingVerification = false;
+	let uploadingProof = false;
 	let error = '';
 	let success = '';
+	let addressProofFile: File | null = null;
 
 	onMount(async () => {
 		const { data: { session } } = await supabase.auth.getSession();
@@ -98,6 +100,38 @@
 			default: return Shield;
 		}
 	}
+
+	async function uploadAddressProof() {
+		if (!addressProofFile) {
+			toastError('Please choose a file first');
+			return;
+		}
+		try {
+			uploadingProof = true;
+			const form = new FormData();
+			form.append('file', addressProofFile);
+			form.append('type', 'address_proof');
+			const res = await safeFetch('/api/storage/upload', {
+				method: 'POST',
+				body: form
+			});
+			const data = await res.json();
+			if (data?.success) {
+				toastSuccess('Proof uploaded. We will verify your address shortly.');
+			} else {
+				toastError(mapApiErrorToMessage(data));
+			}
+		} catch (err) {
+			toastError(mapApiErrorToMessage(err));
+		} finally {
+			uploadingProof = false;
+		}
+	}
+
+	function onAddressProofChange(event: Event) {
+		const input = event.currentTarget as HTMLInputElement | null;
+		addressProofFile = input?.files?.[0] ?? null;
+	}
 </script>
 
 <svelte:head>
@@ -151,6 +185,41 @@
 				</div>
 			</div>
 		{/if}
+
+		<!-- Address Verification -->
+		<div id="address-verification" class="card">
+			<div class="card-header">
+				<h2 class="card-title">Address Verification</h2>
+				<p class="card-description">Increase trust by verifying your address.</p>
+			</div>
+			<div class="card-content space-y-4">
+				{#if userProfile?.address_verified}
+					<div class="flex items-center space-x-3">
+						<CheckCircle class="w-5 h-5 text-success-600" />
+						<p class="text-sm text-success-700">
+							Verified {userProfile?.address_verified_at ? new Date(userProfile.address_verified_at).toLocaleString('en-AU') : ''}
+							{#if userProfile?.address_verification_method}
+								<span class="text-xs text-gray-500">({userProfile.address_verification_method})</span>
+							{/if}
+						</p>
+					</div>
+					{#if userProfile?.address_normalized}
+						<p class="text-sm text-gray-600">
+							{userProfile.address_normalized.street}, {userProfile.address_normalized.suburb} {userProfile.address_normalized.state} {userProfile.address_normalized.postcode}
+						</p>
+					{/if}
+				{:else}
+					<p class="text-sm text-gray-600">Your address is not verified yet.</p>
+					<div class="space-y-2">
+						<input type="file" accept="image/*,application/pdf" on:change={onAddressProofChange} />
+						<button class="btn btn-outline" disabled={uploadingProof} on:click={uploadAddressProof}>
+							<Upload class="w-4 h-4 mr-2" /> {uploadingProof ? 'Uploading…' : 'Upload Proof of Address'}
+						</button>
+						<p class="text-xs text-gray-500">Accepted: JPG, PNG, WEBP, PDF. Max 10MB.</p>
+					</div>
+				{/if}
+			</div>
+		</div>
 
 		{#if error}
 			<div class="bg-red-50 border border-red-200 rounded-md p-4">
