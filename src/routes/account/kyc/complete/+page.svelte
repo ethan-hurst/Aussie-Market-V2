@@ -174,6 +174,9 @@
 					</div>
 
 					<div class="mt-6 space-y-3">
+						<a href="/account/kyc#address-verification" class="btn btn-outline w-full">
+							Verify Address (optional)
+						</a>
 						<a href="/account" class="btn btn-outline w-full">
 							Back to Account
 						</a>
