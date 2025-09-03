@@ -3,6 +3,7 @@ import { mapApiErrorToMessage } from '$lib/errors';
 import { supabase } from '$lib/supabase';
 import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
+import { validate, ShipmentEventSchema } from '$lib/validation';
 
 // List shipment events for an order (buyer/seller)
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -49,8 +50,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         }
 
         const { orderId } = params;
-        const { status, description, location, event_time } = await request.json();
-        if (!status) return json({ error: 'Status required' }, { status: 400 });
+        const body = await request.json();
+        const parsed = validate(ShipmentEventSchema.extend({ event_time: (require('zod') as any).z.string().datetime().optional() }), body);
+        if (!parsed.ok) {
+            return json({ error: mapApiErrorToMessage(parsed.error) }, { status: 400 });
+        }
+        const { status, description, location, event_time } = parsed.value as any;
 
         // Ensure seller owns order and has a shipment
         const { data: shipment, error: shipErr } = await supabase

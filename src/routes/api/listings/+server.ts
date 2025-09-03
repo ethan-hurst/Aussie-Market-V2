@@ -12,6 +12,7 @@ import {
 } from '$lib/listings';
 import { rateLimit } from '$lib/security';
 import { mapApiErrorToMessage } from '$lib/errors';
+import { validate, ListingCreateSchema, SearchSchema } from '$lib/validation';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
@@ -30,10 +31,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			);
 		}
 
-		const listingData = await request.json();
+		const raw = await request.json();
+		const parsed = validate(ListingCreateSchema, raw);
+		if (!parsed.ok) {
+			return json({ error: mapApiErrorToMessage(parsed.error) }, { status: 400 });
+		}
 
 		// Create listing
-		const result = await createListing(session.user.id, listingData);
+		const result = await createListing(session.user.id, parsed.value as any);
 
 		if (!result.success) {
 			return json({ error: mapApiErrorToMessage(result.error) }, { status: 400 });
@@ -93,17 +98,13 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 		// Search listings
 		if (action === 'search') {
-			const filters = {
-				category_id: url.searchParams.get('category_id') ? parseInt(url.searchParams.get('category_id')!) : undefined,
-				condition: url.searchParams.get('condition') || undefined,
-				state: url.searchParams.get('state') || undefined,
-				min_price: url.searchParams.get('min_price') ? parseFloat(url.searchParams.get('min_price')!) : undefined,
-				max_price: url.searchParams.get('max_price') ? parseFloat(url.searchParams.get('max_price')!) : undefined,
-				search: url.searchParams.get('search') || undefined,
-				status: url.searchParams.get('status') || undefined
-			};
+			const filtersObj = Object.fromEntries(url.searchParams.entries());
+			const parsedSearch = validate(SearchSchema, filtersObj);
+			if (!parsedSearch.ok) {
+				return json({ error: mapApiErrorToMessage(parsedSearch.error) }, { status: 400 });
+			}
 
-			const result = await searchListings(filters);
+			const result = await searchListings(parsedSearch.value as any);
 			
 			if (!result.success) {
 				return json({ error: mapApiErrorToMessage(result.error) }, { status: 500 });

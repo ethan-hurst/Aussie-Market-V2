@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { updateListing, deleteListing, getListing } from '$lib/listings';
 import { mapApiErrorToMessage } from '$lib/errors';
+import { validate, ListingUpdateSchema } from '$lib/validation';
 
 export const GET: RequestHandler = async ({ params }) => {
 	try {
@@ -41,10 +42,14 @@ export const PUT: RequestHandler = async ({ request, params, locals }) => {
 			return json({ error: 'Listing ID required' }, { status: 400 });
 		}
 
-		const updateData = await request.json();
+		const raw = await request.json();
+		const parsed = validate(ListingUpdateSchema, raw);
+		if (!parsed.ok) {
+			return json({ error: mapApiErrorToMessage(parsed.error) }, { status: 400 });
+		}
 
 		// Update listing
-		const result = await updateListing(session.user.id, listingId, updateData);
+		const result = await updateListing(session.user.id, listingId, parsed.value as any);
 
 		if (!result.success) {
 			return json({ error: mapApiErrorToMessage(result.error) }, { status: 400 });

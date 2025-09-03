@@ -11,6 +11,7 @@ import {
 	type BidData
 } from '$lib/auctions';
 import { rateLimit } from '$lib/security';
+import { validate, BidSchema } from '$lib/validation';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
@@ -29,11 +30,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			);
 		}
 
-		const { listingId, amount_cents, proxy_max_cents } = await request.json();
-
-		if (!listingId || !amount_cents) {
-			return json({ error: 'Listing ID and bid amount are required' }, { status: 400 });
+		const parsed = validate(BidSchema, await request.json());
+		if (!parsed.ok) {
+			return json({ error: mapApiErrorToMessage(parsed.error) }, { status: 400 });
 		}
+		const { listingId, amount_cents, proxy_max_cents } = parsed.value as any;
+
+		// listingId and amount validated by schema
 
 		// Check if user can bid on this listing
 		const permissionCheck = await canBidOnListing(session.user.id, listingId);
