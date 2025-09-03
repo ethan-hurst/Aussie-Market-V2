@@ -111,13 +111,70 @@ export async function completeKYCVerification(userId: string, verificationId: st
 				kycStatus = 'pending';
 		}
 
+
+		// Attempt to normalize and match address when verified
+		let addressVerified = false;
+		let addressNormalized: any = null;
+		let addressVerifiedAt: string | null = null;
+		let addressVerificationMethod: string | null = null;
+
+		if (kycStatus === 'passed' && (verificationStatus as any).verified_outputs?.address) {
+			const out = (verificationStatus as any).verified_outputs.address as any;
+			const normalized = {
+				street: String(out.line1 || '').trim().toLowerCase(),
+				suburb: String(out.city || '').trim().toLowerCase(),
+				postcode: String(out.postal_code || '').trim(),
+				state: String(out.state || '').trim().toUpperCase(),
+				country: 'AU'
+			};
+
+			// Fetch user-provided address
+			const { data: userRow } = await supabase
+				.from('users')
+				.select('address')
+				.eq('id', userId)
+				.single();
+
+			const userAddr = (userRow?.address || {}) as any;
+			const provided = {
+				street: String(userAddr.street || '').trim().toLowerCase(),
+				suburb: String(userAddr.suburb || '').trim().toLowerCase(),
+				postcode: String(userAddr.postcode || '').trim(),
+				state: String(userAddr.state || '').trim().toUpperCase(),
+				country: 'AU'
+			};
+
+			// Simple fuzzy match: exact on postcode/state, exact suburb, prefix match on street
+			const matches = (
+				provided.postcode === normalized.postcode &&
+				provided.state === normalized.state &&
+				provided.suburb === normalized.suburb &&
+				(
+					provided.street === normalized.street ||
+					normalized.street.startsWith(provided.street) ||
+					provided.street.startsWith(normalized.street)
+				)
+			);
+
+			if (matches) {
+				addressVerified = true;
+				addressVerifiedAt = new Date().toISOString();
+				addressVerificationMethod = 'identity';
+				addressNormalized = normalized;
+			}
+		}
+
 		// Update user profile with verification results
 		const { error } = await supabase
 			.from('users')
 			.update({
 				kyc: kycStatus,
 				kyc_details: kycDetails,
-				kyc_completed_at: kycStatus === 'passed' ? new Date().toISOString() : null
+				kyc_completed_at: kycStatus === 'passed' ? new Date().toISOString() : null,
+				address_verified: addressVerified,
+				address_verified_at: addressVerified ? addressVerifiedAt : null,
+				address_verification_method: addressVerified ? addressVerificationMethod : null,
+				address_normalized: addressVerified ? addressNormalized : null
 			})
 			.eq('id', userId);
 
