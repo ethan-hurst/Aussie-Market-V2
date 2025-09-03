@@ -37,6 +37,8 @@ describe('LiveAuction component - subscription integration', () => {
   });
 
   it('subscribes on mount and unsubscribes on destroy', async () => {
+    // Import manager BEFORE component so the same mocked instance is used
+    const manager = await import('$lib/subscriptionManager');
     const LiveAuction = (await import('./LiveAuction.svelte')).default;
     const { component } = render(LiveAuction, {
       props: {
@@ -51,7 +53,6 @@ describe('LiveAuction component - subscription integration', () => {
     });
 
     // Verify subscription invoked with expected auction id
-    const manager = await import('$lib/subscriptionManager');
     await waitFor(() => {
       expect((manager as any).subscribeToAuctionWithManager).toHaveBeenCalledWith(
         'a1',
