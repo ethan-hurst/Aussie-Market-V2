@@ -14,6 +14,7 @@
 	import { Upload, X, Plus, DollarSign, Calendar, MapPin, Package, Truck, AlertCircle } from 'lucide-svelte';
 	import { mapApiErrorToMessage } from '$lib/errors';
 	import { toastError, toastSuccess } from '$lib/toast';
+	import { safeFetch } from '$lib/http';
 
 	let user: any = null;
 	let loading = true;
@@ -114,7 +115,7 @@
 			};
 
 			// Create listing
-			const response = await fetch('/api/listings', {
+			const response = await safeFetch('/api/listings', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'
@@ -123,13 +124,6 @@
 			});
 
 			const result = await response.json();
-
-			if (!response.ok) {
-				const friendly = mapApiErrorToMessage(result);
-				error = friendly || 'Failed to create listing';
-				toastError(error);
-				return;
-			}
 
 			const listing = result.listing;
 

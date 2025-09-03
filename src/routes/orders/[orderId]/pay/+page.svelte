@@ -7,6 +7,7 @@
 	import { formatPrice, getOrderStatusLabel } from '$lib/orders';
 import { mapApiErrorToMessage } from '$lib/errors';
 import { toastError, toastSuccess } from '$lib/toast';
+import { safeFetch } from '$lib/http';
 
 	let order: OrderWithDetails | null = null;
 	let loading = true;
@@ -22,8 +23,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 			stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_your_stripe_publishable_key_here');
 			
 			// Load order details
-			const response = await fetch(`/api/orders/${$page.params.orderId}`);
-			if (!response.ok) throw new Error('Failed to load order');
+			const response = await safeFetch(`/api/orders/${$page.params.orderId}`);
 			order = await response.json();
 			
 			// Initialize Stripe Elements
@@ -60,17 +60,15 @@ import { toastError, toastSuccess } from '$lib/toast';
 		
 		try {
 			// Create payment intent
-			const intentResponse = await fetch('/api/payments/create-intent', {
+			const intentResponse = await safeFetch('/api/payments/create-intent', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					orderId: order.id,
-					amount: order.total_amount_cents,
+					amount: order.amount_cents,
 					currency: 'aud'
 				})
 			});
-			
-			if (!intentResponse.ok) throw new Error((await intentResponse.json()).error || 'Failed to create payment intent');
 			const { clientSecret } = await intentResponse.json();
 			
 			// Confirm payment
@@ -88,7 +86,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 			}
 			
 			// Confirm payment on our backend
-			const confirmResponse = await fetch('/api/payments/confirm', {
+			const confirmResponse = await safeFetch('/api/payments/confirm', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -96,8 +94,6 @@ import { toastError, toastSuccess } from '$lib/toast';
 					paymentIntentId: paymentIntent.id
 				})
 			});
-			
-			if (!confirmResponse.ok) throw new Error((await confirmResponse.json()).error || 'Failed to confirm payment');
 			
 			// Redirect to order details
 			goto(`/orders/${order.id}`);
@@ -144,7 +140,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 						<p class="text-blue-100">Order #{order.id.slice(0, 8)}</p>
 					</div>
 					<div class="text-right">
-						<div class="text-3xl font-bold text-white">{formatPrice(order.total_amount_cents)}</div>
+						<div class="text-3xl font-bold text-white">{formatPrice(order.amount_cents)}</div>
 						<div class="text-blue-100">Total Amount</div>
 					</div>
 				</div>
@@ -157,20 +153,12 @@ import { toastError, toastSuccess } from '$lib/toast';
 					<div class="space-y-2">
 						<div class="flex justify-between">
 							<span class="text-gray-600">Item:</span>
-							<span class="font-medium">{order.listing.title}</span>
-						</div>
-						<div class="flex justify-between">
-							<span class="text-gray-600">Winning Bid:</span>
-							<span class="font-medium">{formatPrice(order.winning_bid_amount_cents)}</span>
-						</div>
-						<div class="flex justify-between">
-							<span class="text-gray-600">Platform Fee:</span>
-							<span class="font-medium">{formatPrice(order.platform_fee_cents)}</span>
+							<span class="font-medium">{order.listings.title}</span>
 						</div>
 						<div class="border-t pt-2">
 							<div class="flex justify-between text-lg font-bold">
 								<span>Total:</span>
-								<span>{formatPrice(order.total_amount_cents)}</span>
+								<span>{formatPrice(order.amount_cents)}</span>
 							</div>
 						</div>
 					</div>
@@ -196,13 +184,14 @@ import { toastError, toastSuccess } from '$lib/toast';
 								<svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
 									<path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
 								</svg>
-						</div>
-						<div class="ml-3">
-							<h3 class="text-sm font-medium text-blue-800">Secure Payment</h3>
-							<div class="mt-2 text-sm text-blue-700">
-								<p>• Your card details are encrypted and secure</p>
-								<p>• We never store your full card information</p>
-								<p>• Protected by Stripe's industry-leading security</p>
+							</div>
+							<div class="ml-3">
+								<h3 class="text-sm font-medium text-blue-800">Secure Payment</h3>
+								<div class="mt-2 text-sm text-blue-700">
+									<p>• Your card details are encrypted and secure</p>
+									<p>• We never store your full card information</p>
+									<p>• Protected by Stripe's industry-leading security</p>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -214,13 +203,14 @@ import { toastError, toastSuccess } from '$lib/toast';
 								<svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
 									<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
 								</svg>
-						</div>
-						<div class="ml-3">
-							<h3 class="text-sm font-medium text-green-800">Buyer Protection</h3>
-							<div class="mt-2 text-sm text-green-700">
-								<p>• Secure payment processing</p>
-								<p>• Dispute resolution support</p>
-								<p>• Money-back guarantee for eligible issues</p>
+							</div>
+							<div class="ml-3">
+								<h3 class="text-sm font-medium text-green-800">Buyer Protection</h3>
+								<div class="mt-2 text-sm text-green-700">
+									<p>• Secure payment processing</p>
+									<p>• Dispute resolution support</p>
+									<p>• Money-back guarantee for eligible issues</p>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -238,7 +228,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 							</svg>
 							Processing Payment...
 						{:else}
-							Pay {formatPrice(order.total_amount_cents)}
+							Pay {formatPrice(order.amount_cents)}
 						{/if}
 					</button>
 				</form>

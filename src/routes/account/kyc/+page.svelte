@@ -5,6 +5,7 @@
 	import { Shield, CheckCircle, AlertCircle, Clock, ExternalLink } from 'lucide-svelte';
 	import { mapApiErrorToMessage } from '$lib/errors';
 	import { toastError, toastSuccess } from '$lib/toast';
+	import { safeFetch } from '$lib/http';
 
 	let user: any = null;
 	let userProfile: any = null;

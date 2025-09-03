@@ -29,6 +29,7 @@
 	} from 'lucide-svelte';
 import { mapApiErrorToMessage } from '$lib/errors';
 import { toastError, toastSuccess } from '$lib/toast';
+import { safeFetch } from '$lib/http';
 
 	let order: any = null;
 	let loading = true;
@@ -133,7 +134,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 	async function performAction(action: string) {
 		updating = true;
 		try {
-			const res = await fetch(`/api/orders/${order.id}`, {
+			const res = await safeFetch(`/api/orders/${order.id}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ action })
@@ -167,7 +168,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 			pickupLoading = true;
 			pickupErrorMsg = '';
 			pickupMessage = '';
-			const res = await fetch(`/api/pickup/${order.id}`, {
+			const res = await safeFetch(`/api/pickup/${order.id}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ action: 'init' })
@@ -200,7 +201,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 			pickupErrorMsg = '';
 			pickupMessage = '';
 			if (!redeemCode) throw new Error('Enter the 6-digit code');
-			const res = await fetch(`/api/pickup/${order.id}`, {
+			const res = await safeFetch(`/api/pickup/${order.id}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ action: 'redeem', code6: redeemCode })
@@ -224,7 +225,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 			shipErr = '';
 			shipMsg = '';
 			if (!shipCarrier || !shipTracking) throw new Error('Carrier and tracking required');
-			const res = await fetch(`/api/shipments/${order.id}`, {
+			const res = await safeFetch(`/api/shipments/${order.id}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ carrier: shipCarrier, tracking: shipTracking, label_url: shipLabelUrl })
@@ -245,7 +246,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 	async function loadShipmentEvents() {
 		try {
 			if (!orderId) return;
-			const res = await fetch(`/api/shipments/${orderId}/events`);
+			const res = await safeFetch(`/api/shipments/${orderId}/events`);
 			const data = await res.json();
 			shipmentEvents = data?.events || [];
 		} catch (e) {
@@ -256,7 +257,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 	async function addShipmentEvent() {
 		try {
 			eventLoading = true;
-			const res = await fetch(`/api/shipments/${orderId}/events`, {
+			const res = await safeFetch(`/api/shipments/${orderId}/events`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ status: newEventStatus, description: newEventDesc, location: newEventLocation })

@@ -5,6 +5,7 @@
 	import { CheckCircle, AlertCircle, Clock, Shield, XCircle } from 'lucide-svelte';
 	import { mapApiErrorToMessage } from '$lib/errors';
 	import { toastError, toastSuccess, toastInfo } from '$lib/toast';
+	import { safeFetch } from '$lib/http';
 
 	let loading = true;
 	let verificationStatus = '';
@@ -29,7 +30,7 @@
 
 	async function checkVerificationStatus(sessionId: string, userId: string) {
 		try {
-			const response = await fetch(`/api/kyc?session_id=${sessionId}&user_id=${userId}`);
+			const response = await safeFetch(`/api/kyc?session_id=${sessionId}&user_id=${userId}`);
 			const data = await response.json();
 
 			if (response.ok) {

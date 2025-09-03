@@ -18,6 +18,7 @@
 	import Dialog from '$lib/components/Dialog.svelte';
 	import { mapApiErrorToMessage } from '$lib/errors';
 	import { toastError, toastSuccess } from '$lib/toast';
+	import { safeFetch } from '$lib/http';
 
 	let user: any = null;
 	let listing: any = null;
@@ -131,7 +132,7 @@
 			};
 
 			// Update listing
-			const response = await fetch(`/api/listings/${listing.id}`, {
+			const response = await safeFetch(`/api/listings/${listing.id}`, {
 				method: 'PUT',
 				headers: {
 					'Content-Type': 'application/json'
@@ -537,7 +538,7 @@
 				submitting = true;
 				error = '';
 				try {
-					const response = await fetch(`/api/listings/${listing.id}`, { method: 'DELETE' });
+					const response = await safeFetch(`/api/listings/${listing.id}`, { method: 'DELETE' });
 					if (!response.ok) {
 						const result = await response.json();
 						const friendly = mapApiErrorToMessage(result);
