@@ -10,6 +10,7 @@ import {
 	type ListingData,
 	type ListingUpdateData
 } from '$lib/listings';
+import { rateLimit } from '$lib/security';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
@@ -17,6 +18,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const session = await locals.getSession();
 		if (!session) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
+
+		// Rate limit listing creation per user (e.g., 5 creates per hour)
+		const rl = rateLimit(`create-listing:${session.user.id}`, 5, 60 * 60_000);
+		if (!rl.allowed) {
+			return json(
+				{ error: 'Too many listing creations. Please try later.' },
+				{ status: 429, headers: rl.retryAfterMs ? { 'Retry-After': Math.ceil(rl.retryAfterMs / 1000).toString() } : {} }
+			);
 		}
 
 		const listingData = await request.json();

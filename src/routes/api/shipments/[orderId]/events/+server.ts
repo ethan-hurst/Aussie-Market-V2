@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { mapApiErrorToMessage } from '$lib/errors';
 import { supabase } from '$lib/supabase';
 import type { RequestHandler } from './$types';
+import { rateLimit } from '$lib/security';
 
 // List shipment events for an order (buyer/seller)
 export const GET: RequestHandler = async ({ params, locals }) => {
@@ -40,6 +41,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
     try {
         const { data: { session } } = await locals.getSession();
         if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
+
+        // Limit tracking event writes per seller
+        const rl = rateLimit(`shipment-event:${session.user.id}`, 60, 10 * 60_000);
+        if (!rl.allowed) {
+            return json({ error: 'Too many requests. Please slow down.' }, { status: 429, headers: rl.retryAfterMs ? { 'Retry-After': Math.ceil(rl.retryAfterMs / 1000).toString() } : {} });
+        }
 
         const { orderId } = params;
         const { status, description, location, event_time } = await request.json();

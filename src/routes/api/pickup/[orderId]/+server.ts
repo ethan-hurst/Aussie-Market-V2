@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { mapApiErrorToMessage } from '$lib/errors';
 import { supabase } from '$lib/supabase';
 import type { RequestHandler } from './$types';
+import { rateLimit } from '$lib/security';
 import crypto from 'crypto';
 
 function generateCode6(): string {
@@ -24,6 +25,15 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
         const body = await request.json().catch(() => ({}));
         const action = body?.action || 'init';
+
+        // Rate limit init/redeem to prevent brute-force
+        const key = action === 'init' ? `pickup-init:${session.user.id}` : `pickup-redeem:${session.user.id}`;
+        const windowMs = action === 'init' ? 10 * 60_000 : 60_000; // init less frequent
+        const limit = action === 'init' ? 10 : 30; // allow more redeems
+        const rl = rateLimit(key, limit, windowMs);
+        if (!rl.allowed) {
+            return json({ error: 'Too many requests. Please slow down.' }, { status: 429, headers: rl.retryAfterMs ? { 'Retry-After': Math.ceil(rl.retryAfterMs / 1000).toString() } : {} });
+        }
 
         // Fetch order
         const { data: order, error: orderError } = await supabase
