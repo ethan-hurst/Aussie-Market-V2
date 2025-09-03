@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { updateListing, deleteListing, getListing } from '$lib/listings';
+import { mapApiErrorToMessage } from '$lib/errors';
 
 export const GET: RequestHandler = async ({ params }) => {
 	try {
@@ -13,7 +14,7 @@ export const GET: RequestHandler = async ({ params }) => {
 		const result = await getListing(listingId);
 
 		if (!result.success) {
-			return json({ error: result.error }, { status: 404 });
+			return json({ error: mapApiErrorToMessage(result.error) }, { status: 404 });
 		}
 
 		return json({
@@ -23,7 +24,7 @@ export const GET: RequestHandler = async ({ params }) => {
 
 	} catch (error) {
 		console.error('Listing retrieval error:', error);
-		return json({ error: 'Failed to retrieve listing' }, { status: 500 });
+		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
 	}
 };
 
@@ -46,7 +47,7 @@ export const PUT: RequestHandler = async ({ request, params, locals }) => {
 		const result = await updateListing(session.user.id, listingId, updateData);
 
 		if (!result.success) {
-			return json({ error: result.error }, { status: 400 });
+			return json({ error: mapApiErrorToMessage(result.error) }, { status: 400 });
 		}
 
 		return json({
@@ -56,7 +57,7 @@ export const PUT: RequestHandler = async ({ request, params, locals }) => {
 
 	} catch (error) {
 		console.error('Listing update error:', error);
-		return json({ error: 'Failed to update listing' }, { status: 500 });
+		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
 	}
 };
 
@@ -77,13 +78,13 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 		const result = await deleteListing(session.user.id, listingId);
 
 		if (!result.success) {
-			return json({ error: result.error }, { status: 400 });
+			return json({ error: mapApiErrorToMessage(result.error) }, { status: 400 });
 		}
 
 		return json({ success: true });
 
 	} catch (error) {
 		console.error('Listing deletion error:', error);
-		return json({ error: 'Failed to delete listing' }, { status: 500 });
+		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
 	}
 };

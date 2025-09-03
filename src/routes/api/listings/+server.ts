@@ -11,6 +11,7 @@ import {
 	type ListingUpdateData
 } from '$lib/listings';
 import { rateLimit } from '$lib/security';
+import { mapApiErrorToMessage } from '$lib/errors';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
@@ -35,7 +36,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const result = await createListing(session.user.id, listingData);
 
 		if (!result.success) {
-			return json({ error: result.error }, { status: 400 });
+			return json({ error: mapApiErrorToMessage(result.error) }, { status: 400 });
 		}
 
 		return json({
@@ -45,7 +46,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	} catch (error) {
 		console.error('Listing creation error:', error);
-		return json({ error: 'Failed to create listing' }, { status: 500 });
+		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
 	}
 };
 
@@ -61,7 +62,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			const result = await getListing(listingId);
 			
 			if (!result.success) {
-				return json({ error: result.error }, { status: 404 });
+				return json({ error: mapApiErrorToMessage(result.error) }, { status: 404 });
 			}
 
 			return json({
@@ -81,7 +82,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			const result = await getUserListings(userId, status || undefined);
 			
 			if (!result.success) {
-				return json({ error: result.error }, { status: 500 });
+				return json({ error: mapApiErrorToMessage(result.error) }, { status: 500 });
 			}
 
 			return json({
@@ -105,7 +106,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 			const result = await searchListings(filters);
 			
 			if (!result.success) {
-				return json({ error: result.error }, { status: 500 });
+				return json({ error: mapApiErrorToMessage(result.error) }, { status: 500 });
 			}
 
 			return json({
@@ -118,6 +119,6 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
 	} catch (error) {
 		console.error('Listing retrieval error:', error);
-		return json({ error: 'Failed to retrieve listings' }, { status: 500 });
+		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
 	}
 };
