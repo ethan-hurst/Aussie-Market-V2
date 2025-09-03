@@ -2,14 +2,16 @@
   "ci": {
     "collect": {
       "numberOfRuns": 2,
-      "staticDistDir": "build",
+      "startServerCommand": "npm run preview -- --port=4173",
+      "startServerReadyPattern": "Local:\\s+http://localhost:4173",
+      "startServerReadyTimeout": 120000,
       "settings": {
         "preset": "desktop"
       },
       "url": [
-        "/",
-        "/orders/o1",
-        "/l/sample-listing"
+        "http://localhost:4173/",
+        "http://localhost:4173/orders/test-order",
+        "http://localhost:4173/l/test-listing"
       ]
     },
     "assert": {

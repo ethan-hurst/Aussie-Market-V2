@@ -26,6 +26,8 @@ jobs:
         run: npm run build
 
       - name: Run Lighthouse CI
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
         run: npm run lhci:ci
 
       - name: Upload LHCI results
