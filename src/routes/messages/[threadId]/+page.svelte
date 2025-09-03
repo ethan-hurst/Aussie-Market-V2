@@ -12,6 +12,8 @@
 		type MessageThread,
 		type Message
 	} from '$lib/messaging';
+import { mapApiErrorToMessage } from '$lib/errors';
+import { toastError, toastSuccess } from '$lib/toast';
 	import { 
 		ArrowLeft, 
 		Send, 
@@ -84,7 +86,8 @@
 			setTimeout(scrollToBottom, 100);
 		} catch (err) {
 			console.error('Error loading thread:', err);
-			error = 'Failed to load messages';
+			error = mapApiErrorToMessage(err);
+			toastError(error);
 		} finally {
 			loading = false;
 		}
@@ -105,10 +108,12 @@
 				newMessage = '';
 				messages = [...messages, message];
 				scrollToBottom();
+				toastSuccess('Message sent');
 			}
 		} catch (err) {
 			console.error('Error sending message:', err);
-			error = 'Failed to send message';
+			error = mapApiErrorToMessage(err);
+			toastError(error);
 		} finally {
 			sending = false;
 		}
