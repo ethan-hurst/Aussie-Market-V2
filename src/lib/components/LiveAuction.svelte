@@ -15,6 +15,7 @@
 		formatPrice,
 		isAuctionEndingSoon
 	} from '$lib/auctions';
+import { mapApiErrorToMessage } from '$lib/errors';
 	import {
 		Gavel,
 		Clock,
@@ -229,7 +230,7 @@
 			
 			setTimeout(() => success = '', 3000);
 		} catch (err: any) {
-			error = err.message || 'Failed to place bid';
+			error = mapApiErrorToMessage(err);
 		} finally {
 			loading = false;
 		}
