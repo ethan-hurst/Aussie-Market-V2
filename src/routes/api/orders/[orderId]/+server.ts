@@ -3,6 +3,7 @@ import { mapApiErrorToMessage } from '$lib/errors';
 import { supabase } from '$lib/supabase';
 import { notifyOrderShipped, notifyOrderDelivered } from '$lib/notifications';
 import type { RequestHandler } from './$types';
+import { rateLimit } from '$lib/security';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	try {
@@ -78,6 +79,15 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		const { data: { session } } = await locals.getSession();
 		if (!session) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
+
+		// Rate limit order actions per user (e.g., 20 actions per 5 minutes)
+		const rl = rateLimit(`order-actions:${session.user.id}`, 20, 5 * 60_000);
+		if (!rl.allowed) {
+			return json(
+				{ error: 'Too many requests. Please slow down.' },
+				{ status: 429, headers: rl.retryAfterMs ? { 'Retry-After': Math.ceil(rl.retryAfterMs / 1000).toString() } : {} }
+			);
 		}
 
 		const { orderId } = params;

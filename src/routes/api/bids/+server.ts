@@ -10,6 +10,7 @@ import {
 	isUserWinning,
 	type BidData
 } from '$lib/auctions';
+import { rateLimit } from '$lib/security';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
@@ -17,6 +18,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		const session = await locals.getSession();
 		if (!session) {
 			return json({ error: 'Unauthorized' }, { status: 401 });
+		}
+
+		// Rate limit bid placements per user (e.g., 10 bids per minute)
+		const rl = rateLimit(`bids:${session.user.id}`, 10, 60_000);
+		if (!rl.allowed) {
+			return json(
+				{ error: 'Too many requests. Please slow down.' },
+				{ status: 429, headers: rl.retryAfterMs ? { 'Retry-After': Math.ceil(rl.retryAfterMs / 1000).toString() } : {} }
+			);
 		}
 
 		const { listingId, amount_cents, proxy_max_cents } = await request.json();

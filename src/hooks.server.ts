@@ -3,6 +3,7 @@ const { createServerClient } = pkg;
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { initializeApplication } from '$lib/startup';
 import type { Handle } from '@sveltejs/kit';
+import { isCsrfRequestValid } from '$lib/security';
 
 // Initialize application with environment validation
 let initializationPromise: Promise<void> | null = null;
@@ -17,6 +18,11 @@ async function ensureInitialized() {
 export const handle: Handle = async ({ event, resolve }) => {
 	// Ensure application is properly initialized
 	await ensureInitialized();
+	
+	// CSRF protection for state-changing API requests
+	if (!isCsrfRequestValid(event)) {
+		return new Response(JSON.stringify({ error: 'Invalid CSRF' }), { status: 403, headers: { 'content-type': 'application/json' } });
+	}
 	
 	event.locals.supabase = createServerClient(
 		PUBLIC_SUPABASE_URL,
