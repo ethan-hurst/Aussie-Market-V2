@@ -1,0 +1,56 @@
+name: Canary - Staging Stripe/Webhooks
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *' # every 30 minutes
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_SITE_URL }}
+      STAGING_SITE_URL: ${{ secrets.STAGING_SITE_URL }}
+      CANARY_TOKEN: ${{ secrets.CANARY_TOKEN }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Trigger Stripe test event (payment_intent.succeeded)
+        id: stripe_event
+        run: |
+          npm i -g stripe
+          # Create a test PaymentIntent to generate a succeeded event immediately
+          # Associate metadata so our webhook maps it correctly (order_id may be synthetic for canary)
+          EVENT_JSON=$(stripe trigger payment_intent.succeeded --log-level=info --api-key "$STRIPE_SECRET_KEY" --raw | tee /dev/stderr)
+          echo "$EVENT_JSON" | jq -r '.id' | awk '{ print "STRIPE_TEST_EVENT_ID=" $1 }' >> $GITHUB_ENV
+
+      - name: Run canary E2E
+        run: |
+          npx playwright test tests/e2e/canary.stripe-webhook.spec.ts --reporter=line
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-canary-artifacts
+          path: |
+            playwright-report/**/*
+            test-results/**/*
+
+

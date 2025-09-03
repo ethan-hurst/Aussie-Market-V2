@@ -1,6 +1,7 @@
 # Aussie-Market-V2 - C2C Auction Marketplace
 
 [![CI](https://github.com/ethan-hurst/Aussie-Market-V2/actions/workflows/ci.yml/badge.svg)](https://github.com/ethan-hurst/Aussie-Market-V2/actions/workflows/ci.yml)
+ [![Canary](https://github.com/ethan-hurst/Aussie-Market-V2/actions/workflows/canary.yml/badge.svg)](https://github.com/ethan-hurst/Aussie-Market-V2/actions/workflows/canary.yml)
 
 A TradeMe-style C2C auction platform for Australia, focused on regular people auctioning items with trust features including ID-verified sellers, on-platform payments, pickup verification, and clear dispute flow.
 
@@ -167,6 +168,24 @@ When an auction is finalized, an `orders` row is created with `state=pending_pay
 # Run all tests with coverage
 npm test -- --coverage
 ```
+
+### Canary (Staging Stripe/Webhooks)
+
+The repository includes a scheduled canary that validates the Stripe webhook path and idempotency on staging.
+
+Secrets required in GitHub for canary:
+
+- `STAGING_SITE_URL` – Base URL of the deployed staging site (e.g., https://staging.example.com)
+- `CANARY_TOKEN` – Shared secret for the secured canary endpoint
+- `STRIPE_SECRET_KEY` – Stripe test secret key (sk_test_...)
+- `STRIPE_WEBHOOK_SECRET` – Stripe webhook signing secret for staging endpoint
+
+Manual run:
+
+```bash
+gh workflow run canary.yml -f env=staging
+```
+
 
 ## 🎯 Key Features
 
