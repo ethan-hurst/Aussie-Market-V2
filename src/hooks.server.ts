@@ -67,15 +67,18 @@ export const handle: Handle = async ({ event, resolve }) => {
 };
 
 export const handleError = ({ error, event }) => {
+  // Generate a simple correlation id
+  const correlationId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
   // Centralized error logging
   console.error('SvelteKit error:', {
     path: event.url.pathname,
     method: event.request.method,
     message: (error as any)?.message,
+    correlationId
   });
 
   // Sanitize message for client
-  const message = dev ? (error as any)?.message : 'Something went wrong';
+  const message = dev ? (error as any)?.message : `Something went wrong (ref: ${correlationId})`;
   return {
     message
   };
