@@ -3,15 +3,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import LiveAuction from './LiveAuction.svelte';
 
 // Mock subscription manager to capture unsubscribe and trigger connection status
-const unsubscribeMock = vi.fn();
-vi.mock('$lib/subscriptionManager', () => ({
-  subscribeToAuctionWithManager: vi.fn((auctionId: string, callbacks: any) => {
+vi.mock('$lib/subscriptionManager', () => {
+  const subscribeToAuctionWithManager = vi.fn((auctionId: string, callbacks: any) => {
     // Immediately report connected so the UI reflects "Live"
     callbacks.onConnectionStatus?.('connected');
     return 'sub-123';
-  }),
-  unsubscribeFromAuction: unsubscribeMock
-}));
+  });
+  const unsubscribeFromAuction = vi.fn();
+  return { subscribeToAuctionWithManager, unsubscribeFromAuction };
+});
 
 // Mock supabase auth session
 vi.mock('$lib/supabase', () => ({
@@ -55,7 +55,8 @@ describe('LiveAuction component - subscription integration', () => {
 
     // Destroy component -> should unsubscribe
     component.$destroy();
-    expect(unsubscribeMock).toHaveBeenCalledWith('sub-123');
+    const manager = await import('$lib/subscriptionManager');
+    expect((manager as any).unsubscribeFromAuction).toHaveBeenCalledWith('sub-123');
   });
 });
 
