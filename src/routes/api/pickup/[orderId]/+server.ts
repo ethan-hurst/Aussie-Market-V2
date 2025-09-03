@@ -4,6 +4,7 @@ import { supabase } from '$lib/supabase';
 import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
 import crypto from 'crypto';
+import { validate, PickupSchema } from '$lib/validation';
 
 function generateCode6(): string {
     // 6-digit numeric code
@@ -23,7 +24,12 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         const { orderId } = params;
         if (!orderId) return json({ error: 'Order ID required' }, { status: 400 });
 
-        const body = await request.json().catch(() => ({}));
+        const raw = await request.json().catch(() => ({}));
+        const parsed = validate(PickupSchema, raw);
+        if (!parsed.ok) {
+            return json({ error: mapApiErrorToMessage(parsed.error) }, { status: 400 });
+        }
+        const body = parsed.value as any;
         const action = body?.action || 'init';
 
         // Rate limit init/redeem to prevent brute-force
@@ -80,7 +86,6 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         if (action === 'redeem') {
             // buyer or seller can redeem at handover location, but validate code/qr
             const { code6, qr_token } = body || {};
-            if (!code6 && !qr_token) return json({ error: 'Provide code6 or qr_token' }, { status: 400 });
 
             const { data: pickup, error: pickupError } = await supabase
                 .from('pickups')

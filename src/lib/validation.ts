@@ -73,4 +73,23 @@ export function validate<T>(schema: z.ZodSchema<T>, data: unknown): { ok: true; 
   return { ok: true, value: result.data };
 }
 
+// Orders and Pickup
+export const OrderActionSchema = z.object({
+  action: z.enum(['mark_ready', 'mark_shipped', 'confirm_delivery', 'release_funds', 'cancel', 'refund'])
+});
+
+export const PickupSchema = z.object({
+  action: z.enum(['init', 'redeem']).default('init'),
+  code6: z.string().regex(/^\d{6}$/).optional(),
+  qr_token: z.string().uuid().optional()
+}).refine((d) => d.action === 'init' || (!!d.code6 || !!d.qr_token), {
+  message: 'Provide code6 or qr_token'
+});
+
+export const ShipmentUpsertSchema = z.object({
+  carrier: z.string().min(2).max(64).transform(sanitizeInline),
+  tracking: z.string().min(3).max(64).transform(sanitizeInline),
+  label_url: z.string().url().optional()
+});
+
 

@@ -4,6 +4,7 @@ import { supabase } from '$lib/supabase';
 import { notifyOrderShipped, notifyOrderDelivered } from '$lib/notifications';
 import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
+import { validate, OrderActionSchema } from '$lib/validation';
 
 export const GET: RequestHandler = async ({ params, locals }) => {
 	try {
@@ -95,10 +96,11 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			return json({ error: 'Order ID required' }, { status: 400 });
 		}
 
-		const { action } = await request.json();
-		if (!action) {
-			return json({ error: 'Action is required' }, { status: 400 });
+		const parsed = validate(OrderActionSchema, await request.json());
+		if (!parsed.ok) {
+			return json({ error: mapApiErrorToMessage(parsed.error) }, { status: 400 });
 		}
+		const { action } = parsed.value as any;
 
 		// Fetch order
 		const { data: order, error: orderError } = await supabase

@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { mapApiErrorToMessage } from '$lib/errors';
 import { supabase } from '$lib/supabase';
 import type { RequestHandler } from './$types';
+import { validate, ShipmentUpsertSchema } from '$lib/validation';
 
 // Create or update manual shipment info for an order (seller only)
 export const POST: RequestHandler = async ({ params, request, locals }) => {
@@ -12,8 +13,9 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         const { orderId } = params;
         if (!orderId) return json({ error: 'Order ID required' }, { status: 400 });
 
-        const { carrier, tracking, label_url } = await request.json();
-        if (!carrier || !tracking) return json({ error: 'Carrier and tracking required' }, { status: 400 });
+        const parsed = validate(ShipmentUpsertSchema, await request.json());
+        if (!parsed.ok) return json({ error: mapApiErrorToMessage(parsed.error) }, { status: 400 });
+        const { carrier, tracking, label_url } = parsed.value as any;
 
         // Verify order and permissions
         const { data: order, error: orderError } = await supabase
