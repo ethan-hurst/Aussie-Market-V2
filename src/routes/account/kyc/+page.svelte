@@ -211,11 +211,12 @@
 				{:else}
 					<p class="text-sm text-gray-600">Your address is not verified yet.</p>
 					<div class="space-y-2">
-						<input type="file" accept="image/*,application/pdf" on:change={onAddressProofChange} />
+						<label for="address-proof" class="block text-sm font-medium text-gray-700">Proof of address</label>
+						<input id="address-proof" type="file" accept="image/*,application/pdf" aria-describedby="address-proof-help" on:change={onAddressProofChange} />
 						<button class="btn btn-outline" disabled={uploadingProof} on:click={uploadAddressProof}>
-							<Upload class="w-4 h-4 mr-2" /> {uploadingProof ? 'Uploading…' : 'Upload Proof of Address'}
+							<Upload aria-hidden="true" class="w-4 h-4 mr-2" /> {uploadingProof ? 'Uploading…' : 'Upload Proof of Address'}
 						</button>
-						<p class="text-xs text-gray-500">Accepted: JPG, PNG, WEBP, PDF. Max 10MB.</p>
+						<p id="address-proof-help" class="text-xs text-gray-500">Accepted: JPG, PNG, WEBP, PDF. Max 10MB.</p>
 					</div>
 				{/if}
 			</div>
@@ -271,13 +272,13 @@
 						
 						<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-1">Legal Name</label>
+								<div class="block text-sm font-medium text-gray-700 mb-1">Legal Name</div>
 								<p class="text-sm text-gray-900">
 									{userProfile?.legal_name || 'Not provided'}
 								</p>
 							</div>
 							<div>
-								<label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+								<div class="block text-sm font-medium text-gray-700 mb-1">Date of Birth</div>
 								<p class="text-sm text-gray-900">
 									{userProfile?.dob ? new Date(userProfile.dob).toLocaleDateString('en-AU') : 'Not provided'}
 								</p>
@@ -285,7 +286,7 @@
 						</div>
 
 						<div>
-							<label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+							<div class="block text-sm font-medium text-gray-700 mb-1">Address</div>
 							<p class="text-sm text-gray-900">
 								{userProfile?.address?.street ? 
 									`${userProfile.address.street}, ${userProfile.address.suburb} ${userProfile.address.state} ${userProfile.address.postcode}` :

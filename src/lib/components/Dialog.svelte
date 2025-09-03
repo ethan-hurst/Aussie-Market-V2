@@ -70,13 +70,11 @@
     class="fixed inset-0 z-50 flex items-center justify-center"
   >
     <!-- Overlay -->
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
     <div
       class="fixed inset-0 bg-black/50"
-      role="button"
-      tabindex="0"
-      aria-label="Close dialog"
+      aria-hidden="true"
       on:click={() => { if (closeOnOverlay) close(); }}
-      on:keydown={(e) => { if (closeOnOverlay && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); close(); } }}
     />
 
     <!-- Dialog -->
