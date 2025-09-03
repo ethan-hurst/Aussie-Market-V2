@@ -53,12 +53,11 @@ describe('LiveAuction component - subscription integration', () => {
     });
 
     // Verify subscription invoked with expected auction id
-    await waitFor(() => {
-      expect((manager as any).subscribeToAuctionWithManager).toHaveBeenCalledWith(
-        'a1',
-        expect.objectContaining({ onConnectionStatus: expect.any(Function) })
-      );
-    });
+    // Assert without waiting (mock runs synchronously in our vi.mock)
+    expect((manager as any).subscribeToAuctionWithManager).toHaveBeenCalledWith(
+      'a1',
+      expect.objectContaining({ onConnectionStatus: expect.any(Function) })
+    );
 
     // Destroy component -> should unsubscribe
     component.$destroy();

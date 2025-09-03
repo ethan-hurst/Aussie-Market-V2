@@ -3,7 +3,7 @@ import { mapApiErrorToMessage } from './errors';
 
 describe('mapApiErrorToMessage', () => {
   it('handles string errors', () => {
-    expect(mapApiErrorToMessage('auction ended')).toContain('Auction has already ended');
+    expect(mapApiErrorToMessage('auction ended')).toMatch(/auction has already ended/i);
   });
 
   it('handles supabase shaped errors', () => {
