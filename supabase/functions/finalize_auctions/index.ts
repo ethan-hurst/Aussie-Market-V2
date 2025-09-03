@@ -69,6 +69,17 @@ serve(async (req) => {
 					continue;
 				}
 
+				// Idempotency: skip if an order already exists for this auction
+				const existing = await supabase
+					.from('orders')
+					.select('id')
+					.eq('auction_id', auction.id)
+					.maybeSingle();
+				if (existing.data?.id) {
+					console.log(`Order already exists for auction ${auction.id} -> ${existing.data.id}, skipping`);
+					continue;
+				}
+
 				// Create order from auction
 				const orderResult = await createOrderFromAuction(auction);
 				if (orderResult) {
