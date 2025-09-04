@@ -1,4 +1,4 @@
--- Ensure a single order per auction for idempotency
+-- Ensure a single order per auction for idempotency (partial unique index)
 DO $$
 BEGIN
   IF EXISTS (
@@ -6,7 +6,6 @@ BEGIN
   ) THEN
     EXECUTE 'DROP INDEX public.uniq_orders_auction_id';
   END IF;
-  -- Create a partial unique index so multiple NULL auction_id rows are allowed
   EXECUTE 'CREATE UNIQUE INDEX uniq_orders_auction_id ON public.orders(auction_id) WHERE auction_id IS NOT NULL';
 END $$;
 
