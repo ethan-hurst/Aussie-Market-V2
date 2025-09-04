@@ -360,7 +360,7 @@
 									<div class="ml-4">
 										<p class="text-sm font-medium text-gray-500">Pending Orders</p>
 										<p class="text-2xl font-bold text-gray-900">
-											{myOrders.filter(o => o.state === 'pending').length}
+											{myOrders.filter(o => o.state === 'pending_payment').length}
 										</p>
 									</div>
 								</div>

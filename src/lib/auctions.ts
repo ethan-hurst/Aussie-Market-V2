@@ -557,11 +557,11 @@ export function subscribeToAuction(
 
 				// Create bid update
 				const bidUpdate: BidUpdate = {
-					bid_id: payload.new?.id || payload.old?.id,
+					bid_id: (payload.new as any)?.id || (payload.old as any)?.id,
 					auction_id: auctionId,
-					bidder_id: payload.new?.bidder_id,
-					amount_cents: payload.new?.amount_cents || payload.old?.amount_cents,
-					placed_at: payload.new?.placed_at,
+					bidder_id: (payload.new as any)?.bidder_id,
+					amount_cents: (payload.new as any)?.amount_cents || (payload.old as any)?.amount_cents,
+					placed_at: (payload.new as any)?.placed_at,
 					event_type: payload.eventType,
 					current_price_cents: auction.current_price_cents,
 					high_bidder_id: auction.high_bid_id,
@@ -608,16 +608,16 @@ export function subscribeToAuction(
 			try {
 				const statusUpdate: AuctionStatusUpdate = {
 					auction_id: auctionId,
-					old_status: payload.old?.status,
-					new_status: payload.new?.status,
+					old_status: (payload.old as any)?.status,
+					new_status: (payload.new as any)?.status,
 					changed_at: new Date().toISOString(),
-					current_price_cents: payload.new?.current_price_cents || payload.old?.current_price_cents
+					current_price_cents: (payload.new as any)?.current_price_cents || (payload.old as any)?.current_price_cents
 				};
 
 				callbacks.onStatusChange?.(statusUpdate);
 
 				// If auction ended, stop the time remaining updates
-				if (payload.new?.status === 'ended' || payload.new?.status === 'finalized') {
+				if ((payload.new as any)?.status === 'ended' || (payload.new as any)?.status === 'finalized') {
 					if (timeRemainingInterval) {
 						clearInterval(timeRemainingInterval);
 						timeRemainingInterval = null;

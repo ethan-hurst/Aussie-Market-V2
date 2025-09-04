@@ -175,7 +175,7 @@
 								<!-- Order Status -->
 								<div class="mt-4 flex items-center justify-between">
 									<div class="flex items-center space-x-2">
-										{#if order.state === 'pending'}
+										{#if order.state === 'pending_payment'}
 											<Clock class="w-5 h-5 text-gray-400" />
 										{:else if order.state === 'paid'}
 											<CheckCircle class="w-5 h-5 text-green-400" />

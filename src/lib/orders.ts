@@ -7,7 +7,7 @@ export interface Order {
 	buyer_id: string;
 	seller_id: string;
 	amount_cents: number;
-	state: 'pending' | 'paid' | 'ready_for_handover' | 'shipped' | 'delivered' | 'released' | 'refunded' | 'cancelled';
+	state: 'pending_payment' | 'paid' | 'ready_for_handover' | 'shipped' | 'delivered' | 'released' | 'refunded' | 'cancelled';
 	payment_intent_id: string | null;
 	created_at: string;
 	updated_at: string;
@@ -387,7 +387,7 @@ export function formatPrice(cents: number): string {
 export function canPerformAction(order: Order, userId: string, action: string): boolean {
 	switch (action) {
 		case 'pay':
-			return order.buyer_id === userId && order.state === 'pending';
+			return order.buyer_id === userId && order.state === 'pending_payment';
 		case 'mark_ready':
 			return order.seller_id === userId && order.state === 'paid';
 		case 'mark_shipped':
@@ -398,7 +398,7 @@ export function canPerformAction(order: Order, userId: string, action: string): 
 			return order.buyer_id === userId && order.state === 'delivered';
 		case 'cancel':
 			return (order.buyer_id === userId || order.seller_id === userId) && 
-				   ['pending', 'paid'].includes(order.state);
+				   ['pending_payment', 'paid'].includes(order.state);
 		default:
 			return false;
 	}

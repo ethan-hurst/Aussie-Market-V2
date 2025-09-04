@@ -53,6 +53,14 @@
 		showConfirmPassword = !showConfirmPassword;
 	}
 
+	function onPasswordInput(e: Event) {
+		password = (e.currentTarget as HTMLInputElement).value;
+	}
+
+	function onConfirmPasswordInput(e: Event) {
+		confirmPassword = (e.currentTarget as HTMLInputElement).value;
+	}
+
 	function validateForm() {
 		if (!email || !password || !confirmPassword || !legalName) {
 			error = 'Please fill in all required fields';
@@ -314,7 +322,8 @@
 						<input
 							id="password"
 							type={showPassword ? 'text' : 'password'}
-							bind:value={password}
+							value={password}
+							on:input={onPasswordInput}
 							required
 							minlength="8"
 							class="input pl-10 pr-10"
@@ -344,7 +353,8 @@
 						<input
 							id="confirmPassword"
 							type={showConfirmPassword ? 'text' : 'password'}
-							bind:value={confirmPassword}
+							value={confirmPassword}
+							on:input={onConfirmPasswordInput}
 							required
 							class="input pl-10 pr-10"
 							placeholder="Confirm your password"

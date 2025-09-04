@@ -56,7 +56,7 @@ BEGIN
             winning_bid.bidder_id,
             l.seller_id,
             winning_bid.amount_cents,
-            'pending'
+            'pending_payment'
         FROM listings l
         WHERE l.id = auction_record.listing_id
         RETURNING id INTO order_id;

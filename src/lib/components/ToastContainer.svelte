@@ -1,15 +1,15 @@
 <script lang="ts">
   import { toasts, removeToast, type Toast } from '$lib/toast';
   import { fly } from 'svelte/transition';
-  let $toasts: Toast[] = [];
-  const unsubscribe = toasts.subscribe((v) => ($toasts = v));
+  let toastsStoreValue: Toast[] = [];
+  const unsubscribe = toasts.subscribe((v) => (toastsStoreValue = v));
   import { onDestroy } from 'svelte';
   onDestroy(() => unsubscribe());
 </script>
 
 <div class="fixed inset-0 pointer-events-none z-50">
   <div class="absolute right-4 top-4 space-y-2 w-80">
-    {#each $toasts as t (t.id)}
+    {#each toastsStoreValue as t (t.id)}
       <div
         in:fly={{ y: -8, duration: 150 }}
         out:fly={{ y: -8, duration: 150 }}
