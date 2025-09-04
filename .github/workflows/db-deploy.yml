@@ -7,10 +7,18 @@ on:
     paths:
       - 'supabase/migrations/**.sql'
 
+concurrency:
+  group: db-deploy-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
