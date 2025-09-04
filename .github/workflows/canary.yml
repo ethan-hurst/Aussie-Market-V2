@@ -31,6 +31,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -70,5 +71,38 @@ jobs:
           path: |
             playwright-report/**/*
             test-results/**/*
+          retention-days: 7
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          STAGING_URL: ${{ secrets.STAGING_SITE_URL }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL}" ]; then
+            echo "SLACK_WEBHOOK_URL not set; skipping Slack notification";
+            exit 0;
+          fi
+          MSG="[$REPO] Canary failed on staging.\nStaging: ${STAGING_URL}\nRun: ${RUN_URL}"
+          payload=$(jq -n --arg text "$MSG" '{text: $text}')
+          curl -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+
+      - name: Notify Microsoft Teams on failure
+        if: failure()
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REPO: ${{ github.repository }}
+          STAGING_URL: ${{ secrets.STAGING_SITE_URL }}
+        run: |
+          if [ -z "${TEAMS_WEBHOOK_URL}" ]; then
+            echo "TEAMS_WEBHOOK_URL not set; skipping Teams notification";
+            exit 0;
+          fi
+          MSG="[$REPO] Canary failed on staging.\nStaging: ${STAGING_URL}\nRun: ${RUN_URL}"
+          payload=$(jq -n --arg text "$MSG" '{text: $text}')
+          curl -X POST -H 'Content-type: application/json' --data "$payload" "$TEAMS_WEBHOOK_URL"
 
 

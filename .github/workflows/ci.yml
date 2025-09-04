@@ -3,8 +3,18 @@ name: CI
 on:
   push:
     branches: [ main, develop ]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE/**'
   pull_request:
     branches: [ main, develop ]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE/**'
   schedule:
     - cron: '0 3 * * *'
 
@@ -50,6 +60,7 @@ jobs:
         with:
           name: coverage-report
           path: coverage
+          retention-days: 7
 
   e2e:
     runs-on: ubuntu-latest
@@ -103,6 +114,7 @@ jobs:
         with:
           name: playwright-report-${{ matrix.shard }}
           path: playwright-report
+          retention-days: 7
 
       - name: Upload Playwright test-results
         if: always()
@@ -110,3 +122,4 @@ jobs:
         with:
           name: playwright-test-results-${{ matrix.shard }}
           path: test-results
+          retention-days: 7
