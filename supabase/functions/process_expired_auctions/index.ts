@@ -1,10 +1,15 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createLogger, measureTime } from '../../src/lib/edge-logger.ts';
+import { Metrics, setupMetricsCleanup } from '../../src/lib/edge-metrics.ts';
 
 // Use function-scoped env names (avoid SUPABASE_ prefix per platform rules)
 const supabaseUrl = Deno.env.get('PUBLIC_SUPABASE_URL') || Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Setup metrics cleanup
+const cleanup = setupMetricsCleanup();
 
 interface AuctionToProcess {
 	id: string;
@@ -15,75 +20,107 @@ interface AuctionToProcess {
 }
 
 serve(async (req) => {
+	const logger = createLogger('process_expired_auctions', {
+		requestId: crypto.randomUUID()
+	});
+
 	try {
-		console.log('Starting expired auctions processing...');
+		logger.info('Starting expired auctions processing');
 
 		// Get all auctions that have expired but haven't been processed
 		const now = new Date().toISOString();
-		const { data: expiredAuctions, error: auctionError } = await supabase
-			.from('auctions')
-			.select(`
-				id,
-				listing_id,
-				status,
-				listings!inner(
-					title,
-					end_at
-				)
-			`)
-			.eq('status', 'live')
-			.lt('listings.end_at', now);
+		const { data: expiredAuctions, error: auctionError } = await measureTime(
+			logger,
+			'fetch_expired_auctions',
+			async () => {
+				return await supabase
+					.from('auctions')
+					.select(`
+						id,
+						listing_id,
+						status,
+						listings!inner(
+							title,
+							end_at
+						)
+					`)
+					.eq('status', 'live')
+					.lt('listings.end_at', now);
+			}
+		);
 
 		if (auctionError) {
-			console.error('Error fetching expired auctions:', auctionError);
+			logger.error('Failed to fetch expired auctions', auctionError);
+			Metrics.errorOccurred('fetch_expired_auctions', auctionError);
 			return new Response(
-				JSON.stringify({ error: 'Failed to fetch expired auctions' }),
+				JSON.stringify({ 
+					error: 'Failed to fetch expired auctions',
+					requestId: logger.getRequestId()
+				}),
 				{ status: 500 }
 			);
 		}
 
 		const auctions = expiredAuctions as AuctionToProcess[];
-		console.log(`Found ${auctions.length} expired auctions to process`);
+		logger.info(`Found ${auctions.length} expired auctions to process`, {
+			auction_count: auctions.length
+		});
+		logger.counter('expired_auctions_found', auctions.length);
 
 		const results = [];
 		const errors = [];
 
 		// Process each expired auction
 		for (const auction of auctions) {
+			const auctionLogger = logger.child({ auctionId: auction.id, listingId: auction.listing_id });
+			
 			try {
-				console.log(`Processing auction: ${auction.id} - ${auction.listings.title}`);
-
-				// Call the database function to end the auction
-				const { data: endResult, error: endError } = await supabase.rpc('end_auction', {
-					auction_id: auction.id
+				auctionLogger.info('Processing expired auction', {
+					title: auction.listings.title
 				});
 
+				// Call the database function to end the auction
+				const { data: endResult, error: endError } = await measureTime(
+					auctionLogger,
+					'end_auction_rpc',
+					async () => {
+						return await supabase.rpc('end_auction', {
+							auction_id: auction.id
+						});
+					}
+				);
+
 				if (endError) {
-					console.error(`Error ending auction ${auction.id}:`, endError);
+					auctionLogger.error('Error ending auction', endError);
 					errors.push({
 						auction_id: auction.id,
 						title: auction.listings.title,
 						error: endError.message
 					});
+					Metrics.errorOccurred('end_auction_rpc', endError, { auctionId: auction.id });
 				} else {
-					console.log(`Successfully processed auction ${auction.id}:`, endResult);
+					auctionLogger.info('Successfully processed auction', {
+						result: endResult
+					});
 					results.push({
 						auction_id: auction.id,
 						title: auction.listings.title,
 						result: endResult
 					});
+					Metrics.auctionProcessed(auction.id, true, 0); // Duration tracked by measureTime
 				}
 
 				// Small delay between auctions to avoid overwhelming the database
 				await new Promise(resolve => setTimeout(resolve, 100));
 
 			} catch (error) {
-				console.error(`Exception processing auction ${auction.id}:`, error);
+				auctionLogger.error('Exception processing auction', error as Error);
 				errors.push({
 					auction_id: auction.id,
 					title: auction.listings.title,
 					error: error instanceof Error ? error.message : 'Unknown error'
 				});
+				Metrics.errorOccurred('process_auction', error as Error, { auctionId: auction.id });
 			}
 		}
 
@@ -93,22 +130,35 @@ serve(async (req) => {
 			successful: results.length,
 			failed: errors.length,
 			timestamp: new Date().toISOString(),
+			requestId: logger.getRequestId(),
 			results,
 			errors
 		};
 
-		console.log('Auction processing complete:', summary);
+		logger.info('Auction processing complete', {
+			total_processed: auctions.length,
+			successful: results.length,
+			failed: errors.length
+		});
 
-		// Create a log entry for monitoring
-		await supabase
-			.from('metrics')
-			.insert({
-				metric_type: 'auction_processing',
-				metric_name: 'expired_auctions_processed',
-				value: auctions.length,
-				metadata: summary,
-				recorded_at: new Date().toISOString()
-			});
+		// Log final metrics
+		logger.counter('auctions_processed', auctions.length);
+		logger.counter('auctions_successful', results.length);
+		if (errors.length > 0) {
+			logger.counter('auctions_failed', errors.length);
+		}
+
+		// Create a log entry for monitoring using the new metrics system
+		Metrics.addBusinessMetric({
+			event_type: 'auction_processing_complete',
+			entity_type: 'batch',
+			entity_id: logger.getRequestId(),
+			value: auctions.length,
+			metadata: summary
+		});
+
+		// Function execution metric
+		Metrics.functionExecuted('process_expired_auctions', Date.now() - logger['startTime'], true);
 
 		return new Response(
 			JSON.stringify(summary),
@@ -119,13 +169,20 @@ serve(async (req) => {
 		);
 
 	} catch (error) {
-		console.error('Auction processing error:', error);
+		logger.error('Auction processing failed', error as Error);
+		Metrics.errorOccurred('process_expired_auctions', error as Error);
+		Metrics.functionExecuted('process_expired_auctions', Date.now() - logger['startTime'], false);
+		
 		return new Response(
 			JSON.stringify({
 				error: error instanceof Error ? error.message : 'Unknown error',
-				timestamp: new Date().toISOString()
+				timestamp: new Date().toISOString(),
+				requestId: logger.getRequestId()
 			}),
 			{ status: 500 }
 		);
+	} finally {
+		// Ensure metrics are flushed
+		cleanup();
 	}
 });
