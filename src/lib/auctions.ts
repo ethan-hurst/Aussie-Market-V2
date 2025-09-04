@@ -1,4 +1,10 @@
 import { supabase } from './supabase';
+/**
+ * Canonical model note:
+ * - Auctions-centric schema is the source of truth (tables: `auctions`, `bids.auction_id`).
+ * - Temporary compatibility is maintained for legacy listing-centric reads (`bids.listing_id`).
+ * - Write-paths should prefer auctions-centric RPCs. Reads attempt auctions→listing fallback.
+ */
 import { z } from 'zod';
 
 // Bid validation schemas
@@ -182,7 +188,32 @@ export async function getCurrentBid(listingId: string): Promise<{
 	error?: string;
 }> {
 	try {
-		const { data: bid, error } = await supabase
+		// Prefer auctions-centric schema if available
+		const { data: auctionRow } = await supabase
+			.from('auctions')
+			.select('id')
+			.eq('listing_id', listingId)
+			.single();
+
+		if (auctionRow?.id) {
+			const { data: bidAuc, error: errAuc } = await supabase
+				.from('bids')
+				.select('*')
+				.eq('auction_id', auctionRow.id)
+				.order('amount_cents', { ascending: false })
+				.limit(1)
+				.single();
+
+			if (errAuc && (errAuc as any).code !== 'PGRST116') {
+				console.error('Error fetching current bid (auction):', errAuc);
+				return { success: false, error: 'Failed to fetch current bid' };
+			}
+
+			return { success: true, bid: bidAuc || null };
+		}
+
+		// Fallback to listing-centric schema
+		const { data: bidList, error: errList } = await supabase
 			.from('bids')
 			.select('*')
 			.eq('listing_id', listingId)
@@ -190,12 +221,12 @@ export async function getCurrentBid(listingId: string): Promise<{
 			.limit(1)
 			.single();
 
-		if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-			console.error('Error fetching current bid:', error);
+		if (errList && (errList as any).code !== 'PGRST116') {
+			console.error('Error fetching current bid (listing):', errList);
 			return { success: false, error: 'Failed to fetch current bid' };
 		}
 
-		return { success: true, bid: bid || null };
+		return { success: true, bid: bidList || null };
 	} catch (error) {
 		console.error('Error getting current bid:', error);
 		return { success: false, error: 'Failed to get current bid' };
@@ -211,7 +242,37 @@ export async function getBidHistory(listingId: string, limit: number = 50): Prom
 	error?: string;
 }> {
 	try {
-		const { data: bids, error } = await supabase
+		// Prefer auctions-centric schema if available
+		const { data: auctionRow } = await supabase
+			.from('auctions')
+			.select('id')
+			.eq('listing_id', listingId)
+			.single();
+
+		if (auctionRow?.id) {
+			const { data: bidsAuc, error: errAuc } = await supabase
+				.from('bids')
+				.select(`
+					*,
+					users!bids_bidder_id_fkey (
+						id,
+						legal_name
+					)
+				`)
+				.eq('auction_id', auctionRow.id)
+				.order('placed_at', { ascending: false })
+				.limit(limit);
+
+			if (errAuc) {
+				console.error('Error fetching bid history (auction):', errAuc);
+				return { success: false, error: 'Failed to fetch bid history' };
+			}
+
+			return { success: true, bids: bidsAuc || [] };
+		}
+
+		// Fallback to listing-centric schema
+		const { data: bidsList, error: errList } = await supabase
 			.from('bids')
 			.select(`
 				*,
@@ -224,12 +285,12 @@ export async function getBidHistory(listingId: string, limit: number = 50): Prom
 			.order('created_at', { ascending: false })
 			.limit(limit);
 
-		if (error) {
-			console.error('Error fetching bid history:', error);
+		if (errList) {
+			console.error('Error fetching bid history (listing):', errList);
 			return { success: false, error: 'Failed to fetch bid history' };
 		}
 
-		return { success: true, bids };
+		return { success: true, bids: bidsList || [] };
 	} catch (error) {
 		console.error('Error getting bid history:', error);
 		return { success: false, error: 'Failed to get bid history' };
@@ -245,26 +306,59 @@ export async function getUserBids(userId: string): Promise<{
 	error?: string;
 }> {
 	try {
-		const { data: bids, error } = await supabase
-			.from('bids')
-			.select(`
-				*,
-				listings!bids_listing_id_fkey (
-					id,
-					title,
-					end_at,
-					status
-				)
-			`)
-			.eq('bidder_id', userId)
-			.order('created_at', { ascending: false });
+		// Try auctions-centric join first
+		let bids: any[] | null = null;
+		let err: any = null;
 
-		if (error) {
-			console.error('Error fetching user bids:', error);
-			return { success: false, error: 'Failed to fetch user bids' };
+		try {
+			const resAuc = await supabase
+				.from('bids')
+				.select(`
+					*,
+					auctions!inner (
+						id,
+						listing_id,
+						listings!inner (
+							id,
+							title,
+							end_at,
+							status
+						)
+					)
+				`)
+				.eq('bidder_id', userId)
+				.order('placed_at', { ascending: false });
+			bids = resAuc.data as any[];
+			err = resAuc.error;
+		} catch (e) {
+			err = e;
 		}
 
-		return { success: true, bids };
+		if (err || !bids) {
+			// Fallback to listing-centric join
+			const { data: bidsList, error: errList } = await supabase
+				.from('bids')
+				.select(`
+					*,
+					listings!bids_listing_id_fkey (
+						id,
+						title,
+						end_at,
+						status
+					)
+				`)
+				.eq('bidder_id', userId)
+				.order('created_at', { ascending: false });
+
+			if (errList) {
+				console.error('Error fetching user bids (listing):', errList);
+				return { success: false, error: 'Failed to fetch user bids' };
+			}
+
+			return { success: true, bids: bidsList || [] };
+		}
+
+		return { success: true, bids: bids || [] };
 	} catch (error) {
 		console.error('Error getting user bids:', error);
 		return { success: false, error: 'Failed to get user bids' };
@@ -280,7 +374,37 @@ export async function isUserWinning(userId: string, listingId: string): Promise<
 	error?: string;
 }> {
 	try {
-		const { data: bid, error } = await supabase
+		// Prefer auctions-centric
+		const { data: auctionRow } = await supabase
+			.from('auctions')
+			.select('id')
+			.eq('listing_id', listingId)
+			.single();
+
+		if (auctionRow?.id) {
+			const { data: bidAuc } = await supabase
+				.from('bids')
+				.select('*')
+				.eq('auction_id', auctionRow.id)
+				.eq('bidder_id', userId)
+				.order('amount_cents', { ascending: false })
+				.limit(1)
+				.single();
+
+			const { data: highestAuc } = await supabase
+				.from('bids')
+				.select('bidder_id')
+				.eq('auction_id', auctionRow.id)
+				.order('amount_cents', { ascending: false })
+				.limit(1)
+				.single();
+
+			const winning = !!highestAuc && (highestAuc as any).bidder_id === userId;
+			return { winning, bid: bidAuc || null };
+		}
+
+		// Fallback to listing-centric
+		const { data: bidList, error: errList } = await supabase
 			.from('bids')
 			.select('*')
 			.eq('listing_id', listingId)
@@ -289,17 +413,12 @@ export async function isUserWinning(userId: string, listingId: string): Promise<
 			.limit(1)
 			.single();
 
-		if (error && error.code !== 'PGRST116') {
-			console.error('Error checking winning status:', error);
+		if (errList && (errList as any).code !== 'PGRST116') {
+			console.error('Error checking winning status (listing):', errList);
 			return { winning: false, error: 'Failed to check winning status' };
 		}
 
-		if (!bid) {
-			return { winning: false };
-		}
-
-		// Check if this is the highest bid
-		const { data: highestBid } = await supabase
+		const { data: highestList } = await supabase
 			.from('bids')
 			.select('bidder_id')
 			.eq('listing_id', listingId)
@@ -307,9 +426,8 @@ export async function isUserWinning(userId: string, listingId: string): Promise<
 			.limit(1)
 			.single();
 
-		const winning = highestBid?.bidder_id === userId;
-
-		return { winning, bid };
+		const winning = !!highestList && (highestList as any).bidder_id === userId;
+		return { winning, bid: bidList || null };
 	} catch (error) {
 		console.error('Error checking winning status:', error);
 		return { winning: false, error: 'Failed to check winning status' };

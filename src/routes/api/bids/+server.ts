@@ -68,20 +68,44 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		// Call the place_bid RPC function
-		const { data: result, error } = await locals.supabase.rpc('place_bid', {
-			p_listing_id: listingId,
-			p_bidder_id: session.user.id,
-			p_amount_cents: amount_cents,
-			p_proxy_max_cents: proxy_max_cents || null
-		});
+		// Prefer auctions-centric RPC; fallback to listing-centric if no auction row
+		let rpcResult: any = null;
+		let rpcError: any = null;
 
-		if (error) {
-			console.error('place_bid RPC error:', error);
+		// Find auction by listing
+		const { data: auctionRow } = await locals.supabase
+			.from('auctions')
+			.select('id')
+			.eq('listing_id', listingId)
+			.single();
+
+		if (auctionRow?.id) {
+			const { data, error } = await locals.supabase.rpc('place_bid', {
+				auction_id: auctionRow.id,
+				amount_cents,
+				max_proxy_cents: proxy_max_cents || null
+			});
+			rpcResult = data;
+			rpcError = error;
+		} else {
+			// Fallback to legacy listing-centric signature
+			const { data, error } = await locals.supabase.rpc('place_bid', {
+				p_listing_id: listingId,
+				p_bidder_id: session.user.id,
+				p_amount_cents: amount_cents,
+				p_proxy_max_cents: proxy_max_cents || null
+			});
+			rpcResult = data;
+			rpcError = error;
+		}
+
+		if (rpcError) {
+			console.error('place_bid RPC error:', rpcError);
 			return json({ error: 'Failed to place bid' }, { status: 500 });
 		}
 
 		// Parse the JSON result
-		const bidResult = typeof result === 'string' ? JSON.parse(result) : result;
+		const bidResult = typeof rpcResult === 'string' ? JSON.parse(rpcResult) : rpcResult;
 
 		if (!bidResult.success) {
 			return json({ error: bidResult.error }, { status: 400 });
