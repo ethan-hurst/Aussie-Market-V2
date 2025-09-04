@@ -3,14 +3,32 @@ name: CI
 on:
   push:
     branches: [ main, develop ]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE/**'
   pull_request:
     branches: [ main, develop ]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE/**'
   schedule:
     - cron: '0 3 * * *'
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
     strategy:
       matrix:
         node-version: [18.x, 20.x]
@@ -42,9 +60,14 @@ jobs:
         with:
           name: coverage-report
           path: coverage
+          retention-days: 7
 
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -62,11 +85,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers (Chromium only)
         run: npx playwright install --with-deps chromium
 
-      - name: Start dev server
-        run: npm run dev &
+      - name: Build app
+        run: npm run build
+
+      - name: Start preview server
+        run: npm run preview -- --port=5173 &
 
       - name: Wait for dev server
         run: npx wait-on http://localhost:5173
@@ -80,3 +114,12 @@ jobs:
         with:
           name: playwright-report-${{ matrix.shard }}
           path: playwright-report
+          retention-days: 7
+
+      - name: Upload Playwright test-results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-${{ matrix.shard }}
+          path: test-results
+          retention-days: 7
