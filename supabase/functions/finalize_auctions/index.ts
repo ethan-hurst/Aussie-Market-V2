@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { createLogger, measureTime } from '../../src/lib/edge-logger.ts';
 import { Metrics, setupMetricsCleanup } from '../../src/lib/edge-metrics.ts';
+import { RetryOperations } from '../../src/lib/retry-strategies.ts';
 
 // Use function-scoped env names (avoid SUPABASE_ prefix per platform rules)
 const supabaseUrl = Deno.env.get('PUBLIC_SUPABASE_URL') || Deno.env.get('SUPABASE_URL')!;
@@ -40,23 +41,30 @@ serve(async (req) => {
 			logger,
 			'fetch_ended_auctions',
 			async () => {
-				return await supabase
-					.from('auctions')
-					.select(`
-						id,
-						listing_id,
-						high_bid_id,
-						current_price_cents,
-						status,
-						listings!inner(
-							id,
-							seller_id,
-							title,
-							end_at
-						)
-					`)
-					.eq('status', 'ended')
-					.lt('listings.end_at', now);
+				return await RetryOperations.database(
+					'fetch_ended_auctions',
+					async () => {
+						return await supabase
+							.from('auctions')
+							.select(`
+								id,
+								listing_id,
+								high_bid_id,
+								current_price_cents,
+								status,
+								listings!inner(
+									id,
+									seller_id,
+									title,
+									end_at
+								)
+							`)
+							.eq('status', 'ended')
+							.lt('listings.end_at', now);
+					},
+					logger,
+					{ timestamp: now }
+				);
 			}
 		);
 
@@ -100,11 +108,18 @@ serve(async (req) => {
 
 				// Idempotency: skip if an order already exists for this auction
 				const existing = await measureTime(auctionLogger, 'check_existing_order', async () => {
-					return await supabase
-						.from('orders')
-						.select('id')
-						.eq('auction_id', auction.id)
-						.maybeSingle();
+					return await RetryOperations.database(
+						'check_existing_order',
+						async () => {
+							return await supabase
+								.from('orders')
+								.select('id')
+								.eq('auction_id', auction.id)
+								.maybeSingle();
+						},
+						auctionLogger,
+						{ auctionId: auction.id }
+					);
 				});
 
 				if (existing.data?.id) {
@@ -127,10 +142,18 @@ serve(async (req) => {
 
 					// Update auction status to finalized
 					await measureTime(auctionLogger, 'update_auction_status', async () => {
-						await supabase
-							.from('auctions')
-							.update({ status: 'finalized' })
-							.eq('id', auction.id);
+						await RetryOperations.critical(
+							'update_auction_status',
+							async () => {
+								const { error } = await supabase
+									.from('auctions')
+									.update({ status: 'finalized' })
+									.eq('id', auction.id);
+								if (error) throw error;
+							},
+							auctionLogger,
+							{ auctionId: auction.id, orderId: orderResult.order_id }
+						);
 					});
 
 					Metrics.auctionFinalized(auction.id, orderResult.order_id);
@@ -221,20 +244,27 @@ async function createOrderFromAuction(auction: AuctionToFinalize, logger: any): 
 	try {
 		// Get the winning bid details
 		const { data: winningBid, error: bidError } = await measureTime(logger, 'fetch_winning_bid', async () => {
-			return await supabase
-				.from('bids')
-				.select(`
-					id,
-					bidder_id,
-					amount_cents,
-					listings!inner(
-						id,
-						seller_id,
-						title
-					)
-				`)
-				.eq('id', auction.high_bid_id)
-				.single();
+			return await RetryOperations.database(
+				'fetch_winning_bid',
+				async () => {
+					return await supabase
+						.from('bids')
+						.select(`
+							id,
+							bidder_id,
+							amount_cents,
+							listings!inner(
+								id,
+								seller_id,
+								title
+							)
+						`)
+						.eq('id', auction.high_bid_id)
+						.single();
+				},
+				logger,
+				{ auctionId: auction.id, bidId: auction.high_bid_id }
+			);
 		});
 
 		if (bidError || !winningBid) {
@@ -254,21 +284,33 @@ async function createOrderFromAuction(auction: AuctionToFinalize, logger: any): 
 
 		// Create order
 		const { data: order, error: orderError } = await measureTime(logger, 'insert_order', async () => {
-			return await supabase
-				.from('orders')
-				.insert({
-					listing_id: auction.listing_id,
-					buyer_id: winningBid.bidder_id,
-					seller_id: winningBid.listings.seller_id,
-					amount_cents: winningBid.amount_cents,
-					platform_fee_cents: platformFeeCents,
-					seller_amount_cents: sellerAmountCents,
-					state: 'pending_payment',
-					auction_id: auction.id,
-					winning_bid_id: winningBid.id
-				})
-				.select()
-				.single();
+			return await RetryOperations.critical(
+				'insert_order',
+				async () => {
+					return await supabase
+						.from('orders')
+						.insert({
+							listing_id: auction.listing_id,
+							buyer_id: winningBid.bidder_id,
+							seller_id: winningBid.listings.seller_id,
+							amount_cents: winningBid.amount_cents,
+							platform_fee_cents: platformFeeCents,
+							seller_amount_cents: sellerAmountCents,
+							state: 'pending_payment',
+							auction_id: auction.id,
+							winning_bid_id: winningBid.id
+						})
+						.select()
+						.single();
+				},
+				logger,
+				{ 
+					auctionId: auction.id, 
+					buyerId: winningBid.bidder_id,
+					sellerId: winningBid.listings.seller_id,
+					amountCents: winningBid.amount_cents
+				}
+			);
 		});
 
 		if (orderError) {
@@ -317,28 +359,44 @@ async function sendAuctionWinNotification(orderResult: OrderResult, logger: any)
 
 		// Send notification to buyer
 		await measureTime(logger, 'send_buyer_notification', async () => {
-			await supabase
-				.from('notifications')
-				.insert({
-					user_id: orderResult.buyer_id,
-					type: 'auction_won',
-					title: 'Congratulations! You won an auction',
-					message: `You won the auction and an order has been created for $${(orderResult.amount_cents / 100).toFixed(2)}. Please complete your payment.`,
-					metadata: { order_id: orderResult.order_id }
-				});
+			await RetryOperations.notification(
+				'send_buyer_notification',
+				async () => {
+					const { error } = await supabase
+						.from('notifications')
+						.insert({
+							user_id: orderResult.buyer_id,
+							type: 'auction_won',
+							title: 'Congratulations! You won an auction',
+							message: `You won the auction and an order has been created for $${(orderResult.amount_cents / 100).toFixed(2)}. Please complete your payment.`,
+							metadata: { order_id: orderResult.order_id }
+						});
+					if (error) throw error;
+				},
+				logger,
+				{ orderId: orderResult.order_id, userId: orderResult.buyer_id, type: 'auction_won' }
+			);
 		});
 
 		// Send notification to seller
 		await measureTime(logger, 'send_seller_notification', async () => {
-			await supabase
-				.from('notifications')
-				.insert({
-					user_id: orderResult.seller_id,
-					type: 'auction_ended',
-					title: 'Your auction has ended',
-					message: `Your auction has ended with a winning bid of $${(orderResult.amount_cents / 100).toFixed(2)}. An order has been created.`,
-					metadata: { order_id: orderResult.order_id }
-				});
+			await RetryOperations.notification(
+				'send_seller_notification',
+				async () => {
+					const { error } = await supabase
+						.from('notifications')
+						.insert({
+							user_id: orderResult.seller_id,
+							type: 'auction_ended',
+							title: 'Your auction has ended',
+							message: `Your auction has ended with a winning bid of $${(orderResult.amount_cents / 100).toFixed(2)}. An order has been created.`,
+							metadata: { order_id: orderResult.order_id }
+						});
+					if (error) throw error;
+				},
+				logger,
+				{ orderId: orderResult.order_id, userId: orderResult.seller_id, type: 'auction_ended' }
+			);
 		});
 
 		// Log notification metrics

@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { createLogger, measureTime } from '../../src/lib/edge-logger.ts';
 import { Metrics, setupMetricsCleanup } from '../../src/lib/edge-metrics.ts';
+import { RetryOperations } from '../../src/lib/retry-strategies.ts';
 
 // Use function-scoped env names (avoid SUPABASE_ prefix per platform rules)
 const supabaseUrl = Deno.env.get('PUBLIC_SUPABASE_URL') || Deno.env.get('SUPABASE_URL')!;
@@ -33,19 +34,26 @@ serve(async (req) => {
 			logger,
 			'fetch_expired_auctions',
 			async () => {
-				return await supabase
-					.from('auctions')
-					.select(`
-						id,
-						listing_id,
-						status,
-						listings!inner(
-							title,
-							end_at
-						)
-					`)
-					.eq('status', 'live')
-					.lt('listings.end_at', now);
+				return await RetryOperations.database(
+					'fetch_expired_auctions',
+					async () => {
+						return await supabase
+							.from('auctions')
+							.select(`
+								id,
+								listing_id,
+								status,
+								listings!inner(
+									title,
+									end_at
+								)
+							`)
+							.eq('status', 'live')
+							.lt('listings.end_at', now);
+					},
+					logger,
+					{ timestamp: now }
+				);
 			}
 		);
 
@@ -84,9 +92,16 @@ serve(async (req) => {
 					auctionLogger,
 					'end_auction_rpc',
 					async () => {
-						return await supabase.rpc('end_auction', {
-							auction_id: auction.id
-						});
+						return await RetryOperations.critical(
+							'end_auction_rpc',
+							async () => {
+								return await supabase.rpc('end_auction', {
+									auction_id: auction.id
+								});
+							},
+							auctionLogger,
+							{ auctionId: auction.id, title: auction.listings.title }
+						);
 					}
 				);
 
