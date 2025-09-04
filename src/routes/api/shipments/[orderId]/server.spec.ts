@@ -49,5 +49,3 @@ describe('Shipments API', () => {
     expect(res.status).toBe(403);
   });
 });
-
-

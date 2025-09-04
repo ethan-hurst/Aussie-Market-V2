@@ -1,7 +1,12 @@
 import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
-import sharp from 'sharp';
-import { ExifReader } from 'exifr';
+let sharp: any;
+try {
+	// Sharp is node-only; guard import for environments where it isn't available
+	// eslint-disable-next-line @typescript-eslint/no-var-requires
+	sharp = require('sharp');
+} catch {}
+import ExifReader from 'exifr';
 import { bmvbhash } from 'blockhash-core';
 
 // Storage bucket names
@@ -59,6 +64,7 @@ export async function generateImageHash(file: File): Promise<string> {
 		const buffer = await file.arrayBuffer();
 		
 		// Use Sharp to process the image and get a consistent format
+		if (!sharp) throw new Error('sharp unavailable');
 		const processedBuffer = await sharp(buffer)
 			.resize(256, 256, { fit: 'cover' })
 			.greyscale()
@@ -100,6 +106,7 @@ export async function stripExifData(file: File): Promise<Blob> {
 		const buffer = await file.arrayBuffer();
 		
 		// Use Sharp to process the image and strip EXIF data
+		if (!sharp) throw new Error('sharp unavailable');
 		const processedBuffer = await sharp(buffer)
 			.rotate() // Auto-rotate based on EXIF orientation, then strip EXIF
 			.jpeg({ 
@@ -131,6 +138,7 @@ export async function resizeImage(
 		const buffer = await file.arrayBuffer();
 		
 		// Use Sharp to resize and optimize the image
+		if (!sharp) throw new Error('sharp unavailable');
 		const processedBuffer = await sharp(buffer)
 			.resize(maxWidth, maxHeight, {
 				fit: 'inside', // Maintain aspect ratio
@@ -173,7 +181,7 @@ export async function resizeImage(
 				
 				// Draw and compress image
 				ctx.drawImage(img, 0, 0, width, height);
-				canvas.toBlob(resolve, 'image/jpeg', quality);
+				canvas.toBlob((blob) => resolve(blob as Blob), 'image/jpeg', quality);
 			};
 			
 			img.src = URL.createObjectURL(file);
@@ -316,6 +324,7 @@ export async function validateImageFile(file: File): Promise<{
 	try {
 		// Use Sharp to get image metadata and validate
 		const buffer = await file.arrayBuffer();
+		if (!sharp) throw new Error('sharp unavailable');
 		const metadata = await sharp(buffer).metadata();
 		
 		if (!metadata.width || !metadata.height) {

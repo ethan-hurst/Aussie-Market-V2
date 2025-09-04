@@ -5,12 +5,12 @@ import { supabase as anonClient } from '$lib/supabase';
 
 // Server-side only import to optionally use service role for privileged reads
 import { createClient } from '@supabase/supabase-js';
-import { PUBLIC_SUPABASE_URL } from '$env/static/public';
+import { env as publicEnv } from '$env/dynamic/public';
 
 function getClient() {
 	const serviceKey = (typeof process !== 'undefined' && process.env && process.env.SUPABASE_SERVICE_ROLE_KEY) || undefined;
 	if (serviceKey) {
-		return createClient(PUBLIC_SUPABASE_URL, serviceKey);
+		return createClient(publicEnv.PUBLIC_SUPABASE_URL as string, serviceKey);
 	}
 	return anonClient;
 }

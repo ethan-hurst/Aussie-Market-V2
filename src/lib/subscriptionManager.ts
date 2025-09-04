@@ -1,4 +1,4 @@
-import { subscribeToAuction, BidUpdate, AuctionUpdate, AuctionStatusUpdate } from './auctions';
+import { subscribeToAuction, type BidUpdate, type AuctionUpdate, type AuctionStatusUpdate } from './auctions';
 
 export interface AuctionSubscriptionCallbacks {
 	onUpdate?: (update: AuctionUpdate) => void;

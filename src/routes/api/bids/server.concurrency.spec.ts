@@ -51,5 +51,3 @@ describe('POST /api/bids concurrency', () => {
     expect(statuses).toEqual([200, 400]);
   });
 });
-
-

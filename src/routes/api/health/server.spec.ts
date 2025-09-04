@@ -34,5 +34,3 @@ describe('GET /api/health', () => {
     expect(body.errors).toContain('missing env');
   });
 });
-
-

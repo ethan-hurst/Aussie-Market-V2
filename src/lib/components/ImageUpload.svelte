@@ -179,8 +179,8 @@
 								class="w-full h-32 object-cover rounded-lg"
 							/>
 						{:else}
+							{@const FileIcon = getFileIcon(file.type)}
 							<div class="w-full h-32 bg-gray-100 rounded-lg flex items-center justify-center">
-								{@const FileIcon = getFileIcon(file.type)}
 								<FileIcon class="w-8 h-8 text-gray-400" />
 							</div>
 						{/if}

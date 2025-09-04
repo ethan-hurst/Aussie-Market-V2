@@ -31,5 +31,3 @@ describe('POST /api/storage/upload (address_proof)', () => {
     expect(body.path).toContain('u1/');
   });
 });
-
-

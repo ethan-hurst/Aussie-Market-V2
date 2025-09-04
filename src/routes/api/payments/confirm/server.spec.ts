@@ -99,5 +99,3 @@ describe('POST /api/payments/confirm', () => {
     expect(res.status).toBe(400);
   });
 });
-
-

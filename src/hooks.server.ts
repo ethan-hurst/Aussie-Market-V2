@@ -1,6 +1,6 @@
 import pkg from '@supabase/ssr';
 const { createServerClient } = pkg;
-import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
+import { env as publicEnv } from '$env/dynamic/public';
 import { initializeApplication } from '$lib/startup';
 import type { Handle } from '@sveltejs/kit';
 import { isCsrfRequestValid } from '$lib/security';
@@ -26,8 +26,8 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 	
 	event.locals.supabase = createServerClient(
-		PUBLIC_SUPABASE_URL,
-		PUBLIC_SUPABASE_ANON_KEY,
+		publicEnv.PUBLIC_SUPABASE_URL as string,
+		publicEnv.PUBLIC_SUPABASE_ANON_KEY as string,
 		{
 			cookies: {
 				get: (key) => event.cookies.get(key),
@@ -67,19 +67,19 @@ export const handle: Handle = async ({ event, resolve }) => {
 };
 
 export const handleError = ({ error, event }) => {
-  // Generate a simple correlation id
-  const correlationId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
-  // Centralized error logging
-  console.error('SvelteKit error:', {
-    path: event.url.pathname,
-    method: event.request.method,
-    message: (error as any)?.message,
-    correlationId
-  });
+	// Generate a simple correlation id
+	const correlationId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+	// Centralized error logging
+	console.error('SvelteKit error:', {
+		path: event.url.pathname,
+		method: event.request.method,
+		message: (error as any)?.message,
+		correlationId
+	});
 
-  // Sanitize message for client
-  const message = dev ? (error as any)?.message : `Something went wrong (ref: ${correlationId})`;
-  return {
-    message
-  };
+	// Sanitize message for client
+	const message = dev ? (error as any)?.message : `Something went wrong (ref: ${correlationId})`;
+	return {
+		message
+	};
 };

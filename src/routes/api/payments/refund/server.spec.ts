@@ -109,5 +109,3 @@ describe('POST /api/payments/refund', () => {
     expect(ledgerArgs).toMatchObject({ amount_cents: 500 });
   });
 });
-
-

@@ -5,7 +5,7 @@ import { env } from '$lib/env';
 import type { RequestHandler } from './$types';
 
 const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here', {
-	apiVersion: '2024-06-20'
+	apiVersion: '2023-10-16'
 });
 
 const endpointSecret = env.STRIPE_WEBHOOK_SECRET || 'whsec_your_webhook_secret_here';
@@ -83,7 +83,7 @@ async function handleVerificationFailed(session: Stripe.Identity.VerificationSes
 
 async function updateKYCStatus(
 	sessionId: string, 
-	status: string, 
+	status: 'verified' | 'requires_input' | 'processing' | 'canceled' | 'verification_failed', 
 	verifiedOutputs: any, 
 	lastError: any
 ) {

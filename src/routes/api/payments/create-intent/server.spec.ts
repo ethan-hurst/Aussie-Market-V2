@@ -98,5 +98,3 @@ describe('POST /api/payments/create-intent', () => {
     expect(res.status).toBe(400);
   });
 });
-
-

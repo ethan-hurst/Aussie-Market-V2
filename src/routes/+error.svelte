@@ -1,26 +1,11 @@
 <script lang="ts">
-  import Fallback from '$lib/components/Fallback.svelte';
-  import { page } from '$app/stores';
-  export let error: any;
-  export let status: number;
-
-  $: message = error?.message || 'Unexpected error';
-  $: code = status || 500;
-</script>
-
-<svelte:head>
-  <title>{code} Error</title>
-</svelte:head>
-
-<div class="px-4 py-10">
-  <Fallback title={`Error ${code}`} description={message} />
-</div>
-
-<script lang="ts">
 	import { page } from '$app/stores';
 	import { dev } from '$app/environment';
 	import { AlertTriangle, RefreshCw, Home, Settings } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
+
+	let error: any;
+	let status: number;
 
 	$: error = $page.error;
 	$: status = $page.status;

@@ -85,5 +85,3 @@ describe('Orders actions API', () => {
     expect(body.state).toBe('cancelled');
   });
 });
-
-

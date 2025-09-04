@@ -556,13 +556,15 @@ export function subscribeToAuction(
 				const timeRemaining = Math.max(0, Math.floor((endTime.getTime() - now.getTime()) / 1000));
 
 				// Create bid update
+				const newRow: any = (payload as any).new || {};
+				const oldRow: any = (payload as any).old || {};
 				const bidUpdate: BidUpdate = {
-					bid_id: payload.new?.id || payload.old?.id,
+					bid_id: (newRow.id || oldRow.id) as string,
 					auction_id: auctionId,
-					bidder_id: payload.new?.bidder_id,
-					amount_cents: payload.new?.amount_cents || payload.old?.amount_cents,
-					placed_at: payload.new?.placed_at,
-					event_type: payload.eventType,
+					bidder_id: newRow.bidder_id as string,
+					amount_cents: (newRow.amount_cents ?? oldRow.amount_cents) as number,
+					placed_at: (newRow.placed_at ?? new Date().toISOString()) as string,
+					event_type: (payload as any).eventType as string,
 					current_price_cents: auction.current_price_cents,
 					high_bidder_id: auction.high_bid_id,
 					bid_count: auction.bids?.length || 0,
@@ -606,18 +608,20 @@ export function subscribeToAuction(
 		},
 		async (payload) => {
 			try {
+				const newRow2: any = (payload as any).new || {};
+				const oldRow2: any = (payload as any).old || {};
 				const statusUpdate: AuctionStatusUpdate = {
 					auction_id: auctionId,
-					old_status: payload.old?.status,
-					new_status: payload.new?.status,
+					old_status: oldRow2.status as string,
+					new_status: newRow2.status as string,
 					changed_at: new Date().toISOString(),
-					current_price_cents: payload.new?.current_price_cents || payload.old?.current_price_cents
+					current_price_cents: (newRow2.current_price_cents ?? oldRow2.current_price_cents) as number
 				};
 
 				callbacks.onStatusChange?.(statusUpdate);
 
 				// If auction ended, stop the time remaining updates
-				if (payload.new?.status === 'ended' || payload.new?.status === 'finalized') {
+				if (newRow2.status === 'ended' || newRow2.status === 'finalized') {
 					if (timeRemainingInterval) {
 						clearInterval(timeRemainingInterval);
 						timeRemainingInterval = null;

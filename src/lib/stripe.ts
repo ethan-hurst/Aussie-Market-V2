@@ -3,7 +3,7 @@ import { env } from './env';
 
 // Initialize Stripe with validated configuration
 export const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here', {
-	apiVersion: '2024-06-20',
+	apiVersion: '2023-10-16',
 	typescript: true
 });
 

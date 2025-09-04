@@ -42,5 +42,3 @@ describe('Shipment Events API', () => {
     expect(body.success).toBe(true);
   });
 });
-
-

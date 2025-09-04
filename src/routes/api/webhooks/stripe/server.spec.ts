@@ -80,5 +80,3 @@ describe('POST /api/webhooks/stripe', () => {
     expect(res.status).toBe(400);
   });
 });
-
-

@@ -61,5 +61,3 @@ describe('Pickup API', () => {
     expect(res.status).toBe(400);
   });
 });
-
-

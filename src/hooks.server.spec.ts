@@ -7,15 +7,13 @@ vi.mock('$env/static/public', () => ({ PUBLIC_SUPABASE_URL: 'http://localhost', 
 vi.mock('$app/environment', () => ({ dev: false }));
 
 describe('Global error boundary', () => {
-  it('handleError returns sanitized message in prod', async () => {
-    const mod = await import('../hooks.server');
-    const result = (mod as any).handleError({
-      error: new Error('Sensitive details'),
-      event: { url: new URL('http://localhost/foo'), request: { method: 'GET' } }
-    });
-    expect(result.message).toBeTypeOf('string');
-    expect(result.message).toContain('Something went wrong');
-  });
+	it('handleError returns sanitized message in prod', async () => {
+		const mod = await import('./hooks.server');
+		const result = (mod as any).handleError({
+			error: new Error('Sensitive details'),
+			event: { url: new URL('http://localhost/foo'), request: { method: 'GET' } }
+		});
+		expect(result.message).toBeTypeOf('string');
+		expect(result.message).toContain('Something went wrong');
+	});
 });
-
-
