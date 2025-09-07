@@ -119,8 +119,8 @@ export async function canEditListing(userId: string, listingId: string): Promise
 			return { allowed: false, reason: 'Listing not found or access denied' };
 		}
 
-		// Check if listing is in editable state
-		if (listing.status !== 'draft' && listing.status !== 'scheduled') {
+		// Check if listing is in editable state (scheduled only)
+		if (listing.status !== 'scheduled') {
 			return { 
 				allowed: false, 
 				reason: 'Listing cannot be edited in current state',
@@ -156,10 +156,10 @@ export async function canDeleteListing(userId: string, listingId: string): Promi
 		}
 
 		// Check if listing can be deleted
-		if (listing.status === 'active' || listing.status === 'ended') {
+		if (listing.status === 'live' || listing.status === 'ended') {
 			return { 
 				allowed: false, 
-				reason: 'Cannot delete active or ended listings',
+				reason: 'Cannot delete live or ended listings',
 				listing 
 			};
 		}
@@ -240,7 +240,7 @@ export async function createListing(userId: string, data: ListingData): Promise<
 			.insert({
 				seller_id: userId,
 				...data,
-				status: 'draft'
+				status: 'scheduled'
 			})
 			.select()
 			.single();
@@ -458,7 +458,7 @@ export async function searchListings(filters: {
 					kyc
 				)
 			`)
-			.eq('status', 'active')
+			.eq('status', 'live')
 			.order('created_at', { ascending: false });
 
 		// Apply filters
