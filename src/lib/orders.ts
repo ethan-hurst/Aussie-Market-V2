@@ -7,7 +7,7 @@ export interface Order {
 	buyer_id: string;
 	seller_id: string;
 	amount_cents: number;
-	state: 'pending_payment' | 'paid' | 'ready_for_handover' | 'shipped' | 'delivered' | 'released' | 'refunded' | 'cancelled';
+	state: 'pending_payment' | 'paid' | 'ready_for_handover' | 'shipped' | 'delivered' | 'released' | 'refunded' | 'cancelled' | 'disputed';
 	payment_intent_id: string | null;
 	created_at: string;
 	updated_at: string;
@@ -214,6 +214,13 @@ export async function getUserOrders(userId: string): Promise<OrderWithDetails[]>
 
 // Get order details
 export async function getOrderDetails(orderId: string): Promise<OrderWithDetails | null> {
+	try {
+		const res = await fetch(`/api/orders/${orderId}`);
+		if (res.ok) {
+			return await res.json();
+		}
+	} catch {}
+
 	const { data, error } = await supabase
 		.from('orders')
 		.select(`
@@ -348,14 +355,15 @@ async function createLedgerEntry(orderId: string, type: string, description: str
 // Get order status color
 export function getOrderStatusColor(state: Order['state']): string {
 	const colors = {
-		pending: 'text-yellow-600 bg-yellow-100',
+		pending_payment: 'text-yellow-600 bg-yellow-100',
 		paid: 'text-blue-600 bg-blue-100',
 		ready_for_handover: 'text-purple-600 bg-purple-100',
 		shipped: 'text-indigo-600 bg-indigo-100',
 		delivered: 'text-green-600 bg-green-100',
 		released: 'text-green-600 bg-green-100',
 		refunded: 'text-red-600 bg-red-100',
-		cancelled: 'text-gray-600 bg-gray-100'
+		cancelled: 'text-gray-600 bg-gray-100',
+		disputed: 'text-orange-600 bg-orange-100'
 	};
 	return colors[state] || 'text-gray-600 bg-gray-100';
 }
@@ -363,14 +371,15 @@ export function getOrderStatusColor(state: Order['state']): string {
 // Get order status label
 export function getOrderStatusLabel(state: Order['state']): string {
 	const labels = {
-		pending: 'Pending Payment',
+		pending_payment: 'Pending Payment',
 		paid: 'Payment Received',
 		ready_for_handover: 'Ready for Handover',
 		shipped: 'Shipped',
 		delivered: 'Delivered',
 		released: 'Funds Released',
 		refunded: 'Refunded',
-		cancelled: 'Cancelled'
+		cancelled: 'Cancelled',
+		disputed: 'Disputed'
 	};
 	return labels[state] || state;
 }

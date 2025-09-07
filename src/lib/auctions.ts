@@ -100,9 +100,9 @@ export async function canBidOnListing(userId: string, listingId: string): Promis
 			return { allowed: false, reason: 'Listing not found' };
 		}
 
-		// Check if listing is active
-		if (listing.status !== 'active') {
-			return { allowed: false, reason: 'Auction is not active', listing };
+		// Check if listing is live (align with canonical states)
+		if (listing.status !== 'live') {
+			return { allowed: false, reason: 'Auction is not live', listing };
 		}
 
 		// Check if auction has ended

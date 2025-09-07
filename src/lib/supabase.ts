@@ -17,9 +17,29 @@ export const supabase = createClient(PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_K
 // Test-only: allow Playwright to override the realtime channel factory to simulate events
 if (typeof window !== 'undefined') {
   const anyWin: any = window as any;
-  if (anyWin.__TEST_OVERRIDE_SUPABASE_CHANNEL && typeof anyWin.__TEST_OVERRIDE_SUPABASE_CHANNEL === 'function') {
-    (supabase as any).channel = (...args: any[]) => anyWin.__TEST_OVERRIDE_SUPABASE_CHANNEL(...args);
-  }
+  const originalChannel = (supabase as any).channel?.bind?.(supabase) || (supabase as any).channel;
+  (supabase as any).channel = (...args: any[]) => {
+    if (anyWin.__TEST_OVERRIDE_SUPABASE_CHANNEL && typeof anyWin.__TEST_OVERRIDE_SUPABASE_CHANNEL === 'function') {
+      const ch = anyWin.__TEST_OVERRIDE_SUPABASE_CHANNEL(...args);
+      anyWin.__LATEST_SUPABASE_CHANNEL__ = ch;
+      return ch;
+    }
+    return originalChannel(...args);
+  };
+}
+
+// Test-friendly client session shim for E2E: if sb-session exists in localStorage,
+// surface it via auth.getSession() so client pages render as authenticated in tests
+if (typeof window !== 'undefined') {
+  try {
+    const raw = window.localStorage ? window.localStorage.getItem('sb-session') : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.user && parsed.user.id) {
+        (supabase.auth as any).getSession = async () => ({ data: { session: { user: parsed.user } } });
+      }
+    }
+  } catch {}
 }
 
 // Database types
