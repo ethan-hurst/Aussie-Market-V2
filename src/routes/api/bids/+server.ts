@@ -67,37 +67,28 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			}, { status: 400 });
 		}
 
-		// Call the place_bid RPC function
-		// Prefer auctions-centric RPC; fallback to listing-centric if no auction row
+		// Call the canonical auctions-centric place_bid RPC
 		let rpcResult: any = null;
 		let rpcError: any = null;
 
-		// Find auction by listing
-		const { data: auctionRow } = await locals.supabase
+		// Lookup auction by listing_id; if missing, treat as error
+		const { data: auctionRow, error: auctionLookupError } = await locals.supabase
 			.from('auctions')
 			.select('id')
 			.eq('listing_id', listingId)
 			.single();
 
-		if (auctionRow?.id) {
-			const { data, error } = await locals.supabase.rpc('place_bid', {
-				auction_id: auctionRow.id,
-				amount_cents,
-				max_proxy_cents: proxy_max_cents || null
-			});
-			rpcResult = data;
-			rpcError = error;
-		} else {
-			// Fallback to legacy listing-centric signature
-			const { data, error } = await locals.supabase.rpc('place_bid', {
-				p_listing_id: listingId,
-				p_bidder_id: session.user.id,
-				p_amount_cents: amount_cents,
-				p_proxy_max_cents: proxy_max_cents || null
-			});
-			rpcResult = data;
-			rpcError = error;
+		if (auctionLookupError || !auctionRow?.id) {
+			return json({ error: 'Auction not found for listing' }, { status: 400 });
 		}
+
+		const { data, error } = await locals.supabase.rpc('place_bid', {
+			auction_id: auctionRow.id,
+			amount_cents,
+			max_proxy_cents: proxy_max_cents || null
+		});
+		rpcResult = data;
+		rpcError = error;
 
 		if (rpcError) {
 			console.error('place_bid RPC error:', rpcError);
