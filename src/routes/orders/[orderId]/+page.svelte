@@ -379,7 +379,7 @@ import { safeFetch } from '$lib/http';
 								</div>
 							</div>
 
-							{#if order.state !== 'pending'}
+							{#if order.state !== 'pending_payment'}
 								<div class="flex items-center space-x-3">
 									<div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
 										<CreditCard class="w-5 h-5 text-blue-600" />
@@ -541,7 +541,9 @@ import { safeFetch } from '$lib/http';
 											</button>
 											{#if pickupCode}
 												<span class="ml-2 font-mono text-lg">{pickupCode}</span>
-												<button class="ml-2 text-sm text-primary-600 hover:underline" on:click={() => copyText(pickupCode)}>
+												<button class="ml-2 text-sm text-primary-600 hover:underline" on:click={() => copyText(pickupCode)}
+													aria-label="Copy pickup code"
+												>
 													<Copy class="w-4 h-4 inline-block mr-1" /> Copy
 												</button>
 											{/if}

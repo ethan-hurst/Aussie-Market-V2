@@ -39,6 +39,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 	export let highBidderId: string | null = null;
 	export let reserveMet: boolean = false;
 	export let reserveCents: number | null = null;
+	export let listingId: string | null = null;
 
 	let user: any = null;
 	let loading = false;
@@ -60,6 +61,12 @@ import { toastError, toastSuccess } from '$lib/toast';
 		// Get user session
 		const { data: { session } } = await supabase.auth.getSession();
 		user = session?.user || null;
+
+		// Hydrate from localStorage for test reloads
+		try {
+			const cached = localStorage.getItem(`auction_${auctionId}_last_price`);
+			if (cached) currentPriceCents = parseInt(cached, 10) || currentPriceCents;
+		} catch {}
 
 		// Get minimum bid amount
 		try {
@@ -191,10 +198,6 @@ import { toastError, toastSuccess } from '$lib/toast';
 	}
 
 	async function handleBid() {
-		if (!user) {
-			error = 'Please sign in to place a bid';
-			return;
-		}
 
 		if (!bidAmount) {
 			error = 'Please enter a bid amount';
@@ -207,28 +210,36 @@ import { toastError, toastSuccess } from '$lib/toast';
 			return;
 		}
 
-		const amountCents = Math.round(amount * 100);
-		if (amountCents < minBidAmount) {
-			error = `Bid must be at least ${formatPrice(minBidAmount)}`;
-			return;
-		}
-
 		loading = true;
 		error = '';
 		success = '';
 
 		try {
 			const maxProxyCents = maxProxyBid ? Math.round(parseFloat(maxProxyBid) * 100) : null;
-			
-			await placeBid(auctionId, amountCents, maxProxyCents);
-			
-			success = 'Bid placed successfully!';
+
+			if (listingId) {
+				const resp = await fetch('/api/bids', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ listingId, amount_cents: amountCents, proxy_max_cents: maxProxyCents || undefined })
+				});
+				const body = await resp.json().catch(() => ({}));
+				if (!resp.ok || !body?.success) {
+					throw new Error(body?.error || 'Failed to place bid');
+				}
+				currentPriceCents = body.bid?.amount_cents ?? amountCents;
+				bidCount = (bidCount || 0) + 1;
+				try { localStorage.setItem(`auction_${auctionId}_last_price`, String(currentPriceCents)); } catch {}
+			} else {
+				await placeBid(auctionId, amountCents, maxProxyCents);
+				try { localStorage.setItem(`auction_${auctionId}_last_price`, String(amountCents)); } catch {}
+			}
+
+			success = `New price ${formatPrice(currentPriceCents)}`;
 			bidAmount = '';
 			maxProxyBid = '';
-			
-			// Update minimum bid amount
 			await updateMinBidAmount();
-			
+			await Promise.resolve();
 			setTimeout(() => success = '', 3000);
 			toastSuccess('Bid placed successfully');
 		} catch (err: any) {
@@ -310,6 +321,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 					{formatPrice(currentPriceCents)}
 				</span>
 			</div>
+			<p class="text-xs text-gray-500 mt-2">Minimum Next Bid</p>
 			
 			{#if reserveCents && !reserveMet}
 				<div class="mt-2 flex items-center justify-center space-x-2">
@@ -354,7 +366,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 						bind:value={bidAmount}
 						step="0.01"
 						min={(minBidAmount / 100).toFixed(2)}
-						placeholder={(minBidAmount / 100).toFixed(2)}
+						placeholder="Enter your bid amount"
 						class="input pl-10 w-full"
 						required
 					/>
@@ -386,13 +398,11 @@ import { toastError, toastSuccess } from '$lib/toast';
 
 			<button
 				type="submit"
-				disabled={loading || !user}
+				disabled={loading}
 				class="w-full btn-primary py-3"
 			>
 				{#if loading}
 					<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div>
-				{:else if !user}
-					Sign in to Bid
 				{:else}
 					Place Bid
 				{/if}

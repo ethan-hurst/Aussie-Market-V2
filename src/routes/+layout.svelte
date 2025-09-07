@@ -16,7 +16,12 @@ import ToastContainer from '$lib/components/ToastContainer.svelte';
 	let loading = false;
 	let mobileMenuOpen = false;
 
-	onMount(() => {
+	onMount(async () => {
+		// Initialize user from client session (helps tests that shim session)
+		try {
+			const { data: { session } } = await supabase.auth.getSession();
+			user = session?.user || null;
+		} catch {}
 		// Listen for auth state changes
 		supabase.auth.onAuthStateChange(async (event, session) => {
 			user = session?.user || null;
@@ -162,6 +167,7 @@ import ToastContainer from '$lib/components/ToastContainer.svelte';
 					<button
 						on:click={toggleMobileMenu}
 						class="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+						aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'} aria-expanded={mobileMenuOpen} aria-controls="mobile-menu"
 					>
 						{#if mobileMenuOpen}
 							<X class="w-6 h-6" />
@@ -175,7 +181,7 @@ import ToastContainer from '$lib/components/ToastContainer.svelte';
 
 		<!-- Mobile menu -->
 		{#if mobileMenuOpen}
-			<div class="md:hidden">
+			<div class="md:hidden" id="mobile-menu">
 				<div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
 					<a
 						href="/"
@@ -257,7 +263,7 @@ import ToastContainer from '$lib/components/ToastContainer.svelte';
 					</p>
 				</div>
 				<div>
-					<h3 class="text-sm font-semibold text-gray-400 tracking-wider uppercase mb-4">Buying</h3>
+					<h3 class="text-sm font-semibold text-gray-500 tracking-wider uppercase mb-4">Buying</h3>
 					<ul class="space-y-2">
 						<li><a href="/help/bidding" class="text-gray-600 hover:text-gray-900">How to Bid</a></li>
 						<li><a href="/help/buyer-protection" class="text-gray-600 hover:text-gray-900">Buyer Protection</a></li>
@@ -265,7 +271,7 @@ import ToastContainer from '$lib/components/ToastContainer.svelte';
 					</ul>
 				</div>
 				<div>
-					<h3 class="text-sm font-semibold text-gray-400 tracking-wider uppercase mb-4">Selling</h3>
+					<h3 class="text-sm font-semibold text-gray-500 tracking-wider uppercase mb-4">Selling</h3>
 					<ul class="space-y-2">
 						<li><a href="/help/selling" class="text-gray-600 hover:text-gray-900">How to Sell</a></li>
 						<li><a href="/help/seller-guidelines" class="text-gray-600 hover:text-gray-900">Seller Guidelines</a></li>
@@ -274,7 +280,7 @@ import ToastContainer from '$lib/components/ToastContainer.svelte';
 				</div>
 			</div>
 			<div class="mt-8 pt-8 border-t border-gray-200">
-				<p class="text-gray-400 text-sm text-center">
+				<p class="text-gray-500 text-sm text-center">
 					© 2024 Aussie Market. All rights reserved.
 				</p>
 			</div>

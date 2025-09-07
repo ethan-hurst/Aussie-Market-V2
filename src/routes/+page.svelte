@@ -153,7 +153,8 @@
 
 			<!-- Category Filter -->
 			<div class="lg:w-48">
-				<select bind:value={selectedCategory} on:change={loadListings} class="input">
+				<label for="category" class="sr-only">Category</label>
+				<select id="category" aria-label="Category" bind:value={selectedCategory} on:change={loadListings} class="input">
 					{#each categories as category}
 						<option value={category.id}>{category.name}</option>
 					{/each}
@@ -162,7 +163,8 @@
 
 			<!-- Condition Filter -->
 			<div class="lg:w-48">
-				<select bind:value={selectedCondition} on:change={loadListings} class="input">
+				<label for="condition" class="sr-only">Condition</label>
+				<select id="condition" aria-label="Condition" bind:value={selectedCondition} on:change={loadListings} class="input">
 					{#each conditions as condition}
 						<option value={condition.id}>{condition.name}</option>
 					{/each}

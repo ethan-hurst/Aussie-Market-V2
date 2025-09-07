@@ -3,7 +3,7 @@ import { redirect } from '@sveltejs/kit';
 
 export const load: LayoutServerLoad = async ({ locals, url }) => {
 	// Get session from Supabase
-	const { data: { session } } = await locals.supabase.auth.getSession();
+	const { data: { session } } = await (locals as any).getSession();
 
 	// If no session and trying to access protected routes, redirect to login
 	if (!session) {

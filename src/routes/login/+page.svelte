@@ -102,6 +102,7 @@
 							type="button"
 							on:click={togglePassword}
 							class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+							aria-label={showPassword ? 'Hide password' : 'Show password'}
 						>
 							{#if showPassword}
 								<EyeOff class="w-5 h-5" />
@@ -152,9 +153,9 @@
 			<div class="text-center">
 				<p class="text-xs text-gray-500">
 					By signing in or creating an account, you agree to our
-					<a href="/terms" class="text-primary-600 hover:text-primary-500">Terms of Service</a>
+					<a href="/terms" class="text-primary-600 hover:text-primary-500 underline">Terms of Service</a>
 					and
-					<a href="/privacy" class="text-primary-600 hover:text-primary-500">Privacy Policy</a>
+					<a href="/privacy" class="text-primary-600 hover:text-primary-500 underline">Privacy Policy</a>
 				</p>
 			</div>
 		</form>
