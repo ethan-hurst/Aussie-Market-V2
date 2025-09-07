@@ -9,14 +9,15 @@ test('notifications bell shows unread badge and mark-as-read clears it', async (
   // Stub notifications endpoints used by NotificationBell
   let unread = 2;
   await page.route('**/rest/v1/notifications*', async (route) => {
-    const url = new URL(route.request().url());
-    const method = route.request().method();
+    const req = route.request();
+    const method = req.method();
+    const headers = req.headers();
+    const prefer = (headers['prefer'] || headers['Prefer'] || '').toString();
+    if (method === 'HEAD' || prefer.includes('count=exact')) {
+      // count query (HEAD or GET with Prefer: count=exact)
+      return route.fulfill({ status: 200, headers: { 'Content-Range': `0-0/${unread}` } as any, body: '' });
+    }
     if (method === 'GET') {
-      const head = url.searchParams.get('head');
-      if (head === 'true') {
-        // count query
-        return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Content-Range': `0-0/${unread}` }, body: '' });
-      }
       // list notifications
       const list = [
         { id: 'n1', user_id: 'u1', type: 'order_paid', title: 'Payment Received', message: 'Payment completed', read: unread === 0, created_at: new Date().toISOString() },
@@ -31,10 +32,17 @@ test('notifications bell shows unread badge and mark-as-read clears it', async (
     }
     return route.continue();
   });
-
-  await page.goto('/');
+  await page.setExtraHTTPHeaders({ 'x-test-user-id': 'u1' });
+  await page.addInitScript(() => {
+    localStorage.setItem('sb-session', JSON.stringify({ access_token: 't', expires_at: Math.floor(Date.now()/1000)+3600, user: { id: 'u1' } }));
+  });
+  // Use a protected route so SSR session is required and user nav renders
+  await page.goto('/orders/buyer');
+  // Ensure count request was issued before asserting badge
+  await page.waitForRequest((req) => req.url().includes('/rest/v1/notifications') && (req.method() === 'HEAD' || ((req.headers()['prefer'] || req.headers()['Prefer'] || '').toString().includes('count=exact'))));
+  await expect(page.getByLabel('Notifications')).toBeVisible();
   // Badge visible with count
-  await expect(page.getByLabel('Notifications').locator('xpath=..').locator('text=/\d+/')).toBeVisible();
+  await expect(page.getByLabel('Notifications').locator('span').filter({ hasText: /\d+/ })).toBeVisible();
 
   // Open dropdown and mark all read
   await page.getByLabel('Notifications').click();
@@ -42,7 +50,7 @@ test('notifications bell shows unread badge and mark-as-read clears it', async (
 
   // Badge should disappear after reload
   await page.reload();
-  await expect(page.getByLabel('Notifications').locator('xpath=..').locator('text=/\d+/')).toHaveCount(0);
+  await expect(page.getByLabel('Notifications').locator('span').filter({ hasText: /\d+/ })).toHaveCount(0);
 });
 
 

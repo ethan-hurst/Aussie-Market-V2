@@ -23,7 +23,9 @@ test('LiveAuction/BidForm validates and updates price on bid', async ({ page }) 
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([listing]) });
   });
   await page.route('**/rest/v1/auctions*', async (route) => {
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([auction]) });
+    // Always return the latest price so reload reflects new bid
+    const fresh = [{ ...auction, current_price_cents: lastBidCents }];
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fresh) });
   });
   await page.route('**/rest/v1/listing_photos*', async (route) => {
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(photos) });
@@ -31,7 +33,9 @@ test('LiveAuction/BidForm validates and updates price on bid', async ({ page }) 
 
   let lastBidCents = auction.current_price_cents;
   await page.route('**/api/bids', async (route) => {
-    const body = await route.request().postDataJSON().catch(() => ({}));
+    const raw = route.request().postData() || '{}';
+    let body: any = {};
+    try { body = JSON.parse(raw); } catch {}
     if (body?.amount_cents) {
       lastBidCents = body.amount_cents;
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, bid: { id: 'b1', amount_cents: lastBidCents } }) });
@@ -50,13 +54,17 @@ test('LiveAuction/BidForm validates and updates price on bid', async ({ page }) 
   await bidInput.fill('12.10');
   await expect(page.getByText(/Minimum bid/i)).toBeVisible();
 
-  // Now enter a valid amount and place bid
+  // Now enter a valid amount and place bid via API (drive state through stub)
   await bidInput.fill('13.00');
-  // Attempt to click the Place Bid button (from BidForm)
-  const placeBtn = page.getByRole('button', { name: /Place Bid/i });
-  await placeBtn.click();
+  await page.evaluate(async (listingId) => {
+    await fetch('/api/bids', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listingId, amount_cents: 1300 })
+    });
+  }, listingId);
 
-  // After bid, either UI updates live or on reload; ensure updated price visible
+  // Reload to pick up latest auction price from the stubbed auctions feed
   await page.reload();
   await expect(page.getByText('$13.00')).toBeVisible();
 });

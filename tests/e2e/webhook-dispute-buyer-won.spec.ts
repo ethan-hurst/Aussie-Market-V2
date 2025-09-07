@@ -26,7 +26,7 @@ test('webhook dispute closed (buyer won) moves order to Refunded; idempotent', a
 
   // Mutate state on webhook calls
   await page.route('**/api/webhooks/stripe', async (route) => {
-    const body = await route.request().postDataJSON().catch(() => ({}));
+    const body = JSON.parse(route.request().postData() || '{}');
     if (body?.type === 'charge.dispute.created') {
       currentOrder.state = 'disputed';
       currentOrder.updated_at = new Date().toISOString();
@@ -39,32 +39,30 @@ test('webhook dispute closed (buyer won) moves order to Refunded; idempotent', a
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ received: true }) });
   });
 
+  await page.setExtraHTTPHeaders({ 'x-test-user-id': 'u_buyer' });
   await page.goto(`/orders/${orderId}`);
-  await expect(page.getByText('Payment Received')).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: 'Payment Received' }).first()).toBeVisible();
 
   // Dispute created -> disputed
-  await request.post('/api/webhooks/stripe', {
-    data: { type: 'charge.dispute.created', data: { object: { id: 'dp_x', charge: 'ch_1', amount: 20000, currency: 'aud', reason: 'fraudulent', status: 'needs_response' } } },
-    headers: { 'stripe-signature': 'sig_mock' }
+  await page.evaluate(async () => {
+    await fetch('/api/webhooks/stripe', { method: 'POST', headers: { 'Content-Type': 'application/json', 'stripe-signature': 'sig_mock' }, body: JSON.stringify({ type: 'charge.dispute.created', data: { object: { id: 'dp_x', charge: 'ch_1', amount: 20000, currency: 'aud', reason: 'fraudulent', status: 'needs_response' } } }) });
   });
   await page.reload();
-  await expect(page.getByText(/disputed/i)).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: /^Disputed$/ }).first()).toBeVisible();
 
   // Dispute closed -> buyer won -> refunded
-  await request.post('/api/webhooks/stripe', {
-    data: { type: 'charge.dispute.closed', data: { object: { id: 'dp_x', status: 'lost' } } },
-    headers: { 'stripe-signature': 'sig_mock' }
+  await page.evaluate(async () => {
+    await fetch('/api/webhooks/stripe', { method: 'POST', headers: { 'Content-Type': 'application/json', 'stripe-signature': 'sig_mock' }, body: JSON.stringify({ type: 'charge.dispute.closed', data: { object: { id: 'dp_x', status: 'lost' } } }) });
   });
   await page.reload();
-  await expect(page.getByText(/Refunded/)).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: /^Refunded$/ }).first()).toBeVisible();
 
   // Idempotent duplicate close
-  await request.post('/api/webhooks/stripe', {
-    data: { type: 'charge.dispute.closed', data: { object: { id: 'dp_x', status: 'lost' } } },
-    headers: { 'stripe-signature': 'sig_mock' }
+  await page.evaluate(async () => {
+    await fetch('/api/webhooks/stripe', { method: 'POST', headers: { 'Content-Type': 'application/json', 'stripe-signature': 'sig_mock' }, body: JSON.stringify({ type: 'charge.dispute.closed', data: { object: { id: 'dp_x', status: 'lost' } } }) });
   });
   await page.reload();
-  await expect(page.getByText(/Refunded/)).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: /^Refunded$/ }).first()).toBeVisible();
 });
 
 

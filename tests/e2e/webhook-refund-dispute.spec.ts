@@ -25,7 +25,7 @@ test('webhook refund updates order UI to Refunded (idempotent)', async ({ page, 
   });
 
   await page.route('**/api/webhooks/stripe', async (route) => {
-    const body = await route.request().postDataJSON().catch(() => ({}));
+    const body = JSON.parse(route.request().postData() || '{}');
     if (body?.type === 'charge.refund.updated') {
       currentOrder.state = 'refunded';
       currentOrder.updated_at = new Date().toISOString();
@@ -33,31 +33,24 @@ test('webhook refund updates order UI to Refunded (idempotent)', async ({ page, 
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ received: true }) });
   });
 
+  await page.setExtraHTTPHeaders({ 'x-test-user-id': 'u_buyer' });
   await page.goto(`/orders/${orderId}`);
-  await expect(page.getByText('Payment Received')).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: 'Payment Received' }).first()).toBeVisible();
 
   // Send refund webhook (simulated)
-  await request.post('/api/webhooks/stripe', {
-    data: {
-      type: 'charge.refund.updated',
-      data: { object: { id: 're_1', amount: 500, currency: 'aud', payment_intent: 'pi_123' } }
-    },
-    headers: { 'stripe-signature': 'sig_mock' }
+  await page.evaluate(async () => {
+    await fetch('/api/webhooks/stripe', { method: 'POST', headers: { 'Content-Type': 'application/json', 'stripe-signature': 'sig_mock' }, body: JSON.stringify({ type: 'charge.refund.updated', data: { object: { id: 're_1', amount: 500, currency: 'aud', payment_intent: 'pi_123' } } }) });
   });
 
   await page.reload();
-  await expect(page.getByText('Refunded')).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: /^Refunded$/ }).first()).toBeVisible();
 
   // Duplicate webhook should keep state Refunded
-  await request.post('/api/webhooks/stripe', {
-    data: {
-      type: 'charge.refund.updated',
-      data: { object: { id: 're_1', amount: 500, currency: 'aud', payment_intent: 'pi_123' } }
-    },
-    headers: { 'stripe-signature': 'sig_mock' }
+  await page.evaluate(async () => {
+    await fetch('/api/webhooks/stripe', { method: 'POST', headers: { 'Content-Type': 'application/json', 'stripe-signature': 'sig_mock' }, body: JSON.stringify({ type: 'charge.refund.updated', data: { object: { id: 're_1', amount: 500, currency: 'aud', payment_intent: 'pi_123' } } }) });
   });
   await page.reload();
-  await expect(page.getByText('Refunded')).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: /^Refunded$/ }).first()).toBeVisible();
 });
 
 

@@ -5,6 +5,8 @@ test('pickup redeem moves order to Delivered (idempotent)', async ({ page, reque
   const currentOrder: any = {
     id: orderId,
     amount_cents: 10000,
+    buyer_id: 'u_buyer',
+    seller_id: 'u_seller',
     total_amount_cents: 10000,
     platform_fee_cents: 300,
     winning_bid_amount_cents: 9700,
@@ -26,7 +28,7 @@ test('pickup redeem moves order to Delivered (idempotent)', async ({ page, reque
 
   // Intercept pickup API to update state
   await page.route(`**/api/pickup/${orderId}`, async (route) => {
-    const body = await route.request().postDataJSON().catch(() => ({}));
+    const body = JSON.parse(route.request().postData() || '{}');
     if (body?.action === 'redeem') {
       currentOrder.state = 'delivered';
       currentOrder.updated_at = new Date().toISOString();
@@ -38,18 +40,26 @@ test('pickup redeem moves order to Delivered (idempotent)', async ({ page, reque
     return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Unsupported action' }) });
   });
 
+  await page.setExtraHTTPHeaders({ 'x-test-user-id': 'u_buyer' });
+  await page.addInitScript(() => {
+    localStorage.setItem('sb-session', JSON.stringify({ access_token: 't', expires_at: Math.floor(Date.now()/1000)+3600, user: { id: 'u_buyer' } }));
+  });
   await page.goto(`/orders/${orderId}`);
-  await expect(page.getByText('Ready for Handover')).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: 'Ready for Handover' }).first()).toBeVisible();
 
-  // Perform redeem via direct POST (simulating buyer entering code)
-  await request.post(`/api/pickup/${orderId}`, { data: { action: 'redeem', code6: '123456' } });
+  // Perform redeem via page fetch so our route stub applies
+  await page.evaluate(async (orderId) => {
+    await fetch(`/api/pickup/${orderId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'redeem', code6: '123456' }) });
+  }, orderId);
   await page.reload();
-  await expect(page.getByText('Delivered')).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: 'Delivered' }).first()).toBeVisible();
 
   // Idempotent second redeem
-  await request.post(`/api/pickup/${orderId}`, { data: { action: 'redeem', code6: '123456' } });
+  await page.evaluate(async (orderId) => {
+    await fetch(`/api/pickup/${orderId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'redeem', code6: '123456' }) });
+  }, orderId);
   await page.reload();
-  await expect(page.getByText('Delivered')).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: 'Delivered' }).first()).toBeVisible();
 });
 
 

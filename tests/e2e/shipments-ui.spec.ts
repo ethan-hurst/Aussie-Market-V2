@@ -5,6 +5,8 @@ test('seller can add shipment and tracking event; timeline updates', async ({ pa
   const currentOrder: any = {
     id: orderId,
     amount_cents: 15000,
+    buyer_id: 'u_buyer',
+    seller_id: 'u_seller',
     state: 'paid',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -46,15 +48,20 @@ test('seller can add shipment and tracking event; timeline updates', async ({ pa
     return route.continue();
   });
 
+  await page.setExtraHTTPHeaders({ 'x-test-user-id': 'u_seller' });
+  // Ensure client sees session too
+  await page.addInitScript(() => {
+    localStorage.setItem('sb-session', JSON.stringify({ access_token: 't', expires_at: Math.floor(Date.now()/1000)+3600, user: { id: 'u_seller' } }));
+  });
   await page.goto(`/orders/${orderId}`);
-  await expect(page.getByText('Payment Received')).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: 'Payment Received' }).first()).toBeVisible();
 
   // Fill shipping form and mark shipped
-  await page.getByPlaceholder('Carrier (e.g. AusPost)').fill('AUSPOST');
-  await page.getByPlaceholder('Tracking number').fill('T123');
+  await page.getByPlaceholder('Carrier (e.g. AusPost)').first().fill('AUSPOST');
+  await page.getByPlaceholder('Tracking number').first().fill('T123');
   await page.getByRole('button', { name: /Save & Mark Shipped/i }).click();
   await page.reload();
-  await expect(page.getByText('Shipped')).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: 'Shipped' }).first()).toBeVisible();
 
   // Add tracking event
   await page.getByPlaceholder('Status (e.g. in_transit)').fill('in_transit');

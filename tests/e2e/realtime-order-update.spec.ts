@@ -5,6 +5,8 @@ test('realtime order update refreshes UI when channel event fires', async ({ pag
   const currentOrder: any = {
     id: orderId,
     amount_cents: 1000,
+    buyer_id: 'u_buyer',
+    seller_id: 'u_seller',
     state: 'paid',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -15,6 +17,7 @@ test('realtime order update refreshes UI when channel event fires', async ({ pag
 
   // Stub initial fetch
   await page.route(`**/api/orders/${orderId}`, async (route) => {
+    // Always return currentOrder snapshot
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(currentOrder) });
   });
   await page.route(`**/api/shipments/${orderId}/events`, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ events: [] }) }));
@@ -32,24 +35,26 @@ test('realtime order update refreshes UI when channel event fires', async ({ pag
     };
   });
 
+  await page.setExtraHTTPHeaders({ 'x-test-user-id': 'u_buyer' });
+  await page.addInitScript(() => {
+    localStorage.setItem('sb-session', JSON.stringify({ access_token: 't', expires_at: Math.floor(Date.now()/1000)+3600, user: { id: 'u_buyer' } }));
+  });
   await page.goto(`/orders/${orderId}`);
-  await expect(page.getByText('Payment Received')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Order #/ })).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: 'Payment Received' }).first()).toBeVisible();
 
-  // Update stubbed order endpoint to reflect delivery after realtime event
-  await page.unroute(`**/api/orders/${orderId}`);
+  // Update in-memory order state to reflect delivery after realtime event
   currentOrder.state = 'delivered';
-  await page.route(`**/api/orders/${orderId}`, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(currentOrder) }));
 
-  // Fire the realtime callback to simulate a DB change
+  // Allow subscribe to attach; verify latest channel is present
+  await page.waitForFunction(() => Boolean((window as any).__LATEST_SUPABASE_CHANNEL__), undefined, { timeout: 2000 });
   await page.evaluate(() => {
-    // supabase.channel(...) returned by override exposes __fire
-    // We can fetch any last created channel; for simplicity, recreate and fire.
-    const ch = (window as any).__TEST_OVERRIDE_SUPABASE_CHANNEL('order-rt');
-    ch.__fire();
+    const ch = (window as any).__LATEST_SUPABASE_CHANNEL__;
+    if (ch && ch.__fire) ch.__fire();
   });
 
   // Expect UI to reflect new state after handler refetches
-  await expect(page.getByText('Delivered')).toBeVisible();
+  await expect(page.locator('span.inline-block', { hasText: 'Delivered' }).first()).toBeVisible();
 });
 
 
