@@ -167,7 +167,7 @@ export class SentryValidator {
       } as any;
 
       // This would normally return a Response, but we're just testing the error handling logic
-      const apiError = ApiErrorHandler['categorizeError'](testError, 'test-correlation-id');
+      const apiError = ApiErrorHandler.categorizeError(testError, 'test-correlation-id');
       
       if (apiError.status === 500 && apiError.code === 'INTERNAL_ERROR') {
         this.addResult('api_error_handling', 'error_categorization', true, {

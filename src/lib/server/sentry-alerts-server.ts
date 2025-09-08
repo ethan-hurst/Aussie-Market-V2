@@ -441,13 +441,122 @@ async function sendEmailAlert(config: any, alert: Alert): Promise<void> {
     return;
   }
 
-  // This would integrate with your email service (SendGrid, SES, etc.)
-  // For now, just log the email content
-  console.log(`📧 EMAIL ALERT [${alert.severity.toUpperCase()}]`);
-  console.log(`To: ${config.recipients.join(', ')}`);
-  console.log(`From: ${config.from}`);
-  console.log(`Subject: ${alert.title}`);
-  console.log(`Body: ${alert.message}`);
+  // Email service implementation
+  try {
+    await sendEmailAlert(config, alert);
+  } catch (error) {
+    console.error('Failed to send email alert:', error);
+    // Fallback to console logging if email service fails
+    console.log(`📧 EMAIL ALERT [${alert.severity.toUpperCase()}]`);
+    console.log(`To: ${config.recipients.join(', ')}`);
+    console.log(`From: ${config.from}`);
+    console.log(`Subject: ${alert.title}`);
+    console.log(`Body: ${alert.message}`);
+  }
+}
+
+/**
+ * Send email alert using configured email service
+ */
+async function sendEmailAlert(config: EmailChannelConfig, alert: SentryAlert): Promise<void> {
+  // Check if email service is configured
+  const emailServiceUrl = process.env.EMAIL_SERVICE_URL;
+  const emailServiceKey = process.env.EMAIL_SERVICE_KEY;
+  
+  if (!emailServiceUrl || !emailServiceKey) {
+    throw new Error('Email service not configured. Set EMAIL_SERVICE_URL and EMAIL_SERVICE_KEY environment variables.');
+  }
+
+  // Construct email payload
+  const emailPayload = {
+    to: config.recipients,
+    from: config.from,
+    subject: `[${alert.severity.toUpperCase()}] ${alert.title}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: ${getSeverityColorForEmail(alert.severity)}; color: white; padding: 20px; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px;">🚨 ${alert.severity.toUpperCase()} ALERT</h1>
+        </div>
+        <div style="padding: 20px; background-color: #f9f9f9;">
+          <h2 style="color: #333; margin-top: 0;">${alert.title}</h2>
+          <p style="color: #666; font-size: 16px; line-height: 1.5;">${alert.message}</p>
+          
+          <div style="background-color: white; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3 style="color: #333; margin-top: 0;">Alert Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Severity:</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${alert.severity.toUpperCase()}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Source:</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${alert.source.functionName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Time:</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">${new Date(alert.triggeredAt).toLocaleString()}</td>
+              </tr>
+            </table>
+          </div>
+          
+          ${alert.context ? `
+            <div style="background-color: white; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="color: #333; margin-top: 0;">Context</h3>
+              <pre style="background-color: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto; font-size: 12px;">${JSON.stringify(alert.context, null, 2)}</pre>
+            </div>
+          ` : ''}
+        </div>
+        <div style="background-color: #333; color: white; padding: 15px; text-align: center; font-size: 12px;">
+          Sent by Sentry Alerts System
+        </div>
+      </div>
+    `,
+    text: `
+${alert.severity.toUpperCase()} ALERT: ${alert.title}
+
+${alert.message}
+
+Alert Details:
+- Severity: ${alert.severity.toUpperCase()}
+- Source: ${alert.source.functionName}
+- Time: ${new Date(alert.triggeredAt).toLocaleString()}
+
+${alert.context ? `Context:\n${JSON.stringify(alert.context, null, 2)}` : ''}
+
+---
+Sent by Sentry Alerts System
+    `.trim()
+  };
+
+  // Send email via configured service
+  const response = await fetch(emailServiceUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${emailServiceKey}`
+    },
+    body: JSON.stringify(emailPayload)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Email service returned ${response.status}: ${errorText}`);
+  }
+
+  console.log(`Email alert sent successfully to ${config.recipients.join(', ')}`);
+}
+
+/**
+ * Get severity color for email HTML
+ */
+function getSeverityColorForEmail(severity: string): string {
+  switch (severity) {
+    case 'critical': return '#dc3545'; // Red
+    case 'high': return '#fd7e14'; // Orange
+    case 'medium': return '#ffc107'; // Yellow
+    case 'low': return '#28a745'; // Green
+    default: return '#6c757d'; // Gray
+  }
 }
 
 /**

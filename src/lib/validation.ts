@@ -124,4 +124,28 @@ export const StorageUploadSchema = z.object({
   return true;
 }, { message: 'Missing required identifier for upload type' });
 
+// KPI Alerts
+export const KPIAlertRuleSchema = z.object({
+  name: z.string().min(1).max(100).transform(sanitizeInline),
+  metric: z.string().min(1).max(50).transform(sanitizeInline),
+  category: z.enum(['financial', 'business', 'performance', 'operational']),
+  threshold: z.number().finite(),
+  operator: z.enum(['greater_than', 'less_than', 'equals', 'not_equals']),
+  severity: z.enum(['low', 'medium', 'high', 'critical']),
+  enabled: z.boolean().default(true),
+  cooldownMinutes: z.number().int().min(1).max(1440).default(60)
+});
+
+export const KPIAlertActionSchema = z.object({
+  action: z.enum(['create', 'update', 'delete', 'toggle']),
+  ruleId: z.string().uuid().optional(),
+  ruleData: KPIAlertRuleSchema.optional()
+}).refine((data) => {
+  if (data.action === 'create') return !!data.ruleData;
+  if (data.action === 'update') return !!data.ruleId && !!data.ruleData;
+  if (data.action === 'delete') return !!data.ruleId;
+  if (data.action === 'toggle') return !!data.ruleId;
+  return true;
+}, { message: 'Missing required fields for action' });
+
 

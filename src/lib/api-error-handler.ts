@@ -118,7 +118,7 @@ export class ApiErrorHandler {
   /**
    * Categorize and convert Error to ApiError
    */
-  private static categorizeError(error: Error, correlationId: string): ApiError {
+  static categorizeError(error: Error, correlationId: string): ApiError {
     // Database errors
     if (error.message.includes('duplicate key') || error.message.includes('unique constraint')) {
       return {

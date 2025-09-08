@@ -91,8 +91,8 @@ export class LogAggregator {
   private async routeToPerformanceMonitoring(logEntry: any): Promise<void> {
     if (!this.config.enablePerformanceMonitoring) return;
 
-    // Check for performance issues
-    if (logEntry.level === 'info' && logEntry.message?.includes('Performance:')) {
+    // Check for performance issues using structured metadata
+    if (logEntry.type === 'performance' || logEntry.context?.performance === true) {
       const operation = logEntry.context?.operation;
       const duration = logEntry.context?.duration_ms;
       

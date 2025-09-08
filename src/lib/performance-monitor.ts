@@ -227,13 +227,40 @@ export class PerformanceMonitor {
   }
 
   /**
-   * Force garbage collection if available
+   * Force garbage collection if available (private method)
    */
-  static forceGarbageCollection(): void {
+  private static forceGarbageCollection(): void {
     if (global.gc) {
       global.gc();
       console.log('Garbage collection forced');
     }
+  }
+
+  /**
+   * Controlled garbage collection with safeguards
+   */
+  private static lastGcTime = 0;
+  private static readonly GC_COOLDOWN_MS = 30000; // 30 seconds cooldown
+
+  static requestGarbageCollection(): boolean {
+    const now = Date.now();
+    
+    // Rate limiting: only allow GC every 30 seconds
+    if (now - this.lastGcTime < this.GC_COOLDOWN_MS) {
+      console.log('Garbage collection request ignored due to cooldown');
+      return false;
+    }
+
+    // Validate that global.gc exists
+    if (!global.gc) {
+      console.log('Garbage collection not available (Node.js not started with --expose-gc)');
+      return false;
+    }
+
+    // Perform controlled garbage collection
+    this.forceGarbageCollection();
+    this.lastGcTime = now;
+    return true;
   }
 }
 

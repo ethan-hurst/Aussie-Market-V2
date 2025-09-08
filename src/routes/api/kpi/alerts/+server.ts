@@ -9,12 +9,15 @@ import { KPIReportingService } from '$lib/kpi-reporting';
 import { getSessionUserOrThrow } from '$lib/session';
 import { ApiErrorHandler } from '$lib/api-error-handler';
 import { PerformanceMonitor } from '$lib/performance-monitor';
+import { KPIAlertActionSchema, validate } from '$lib/validation';
+import { isCsrfRequestValid } from '$lib/security';
 
 export const GET: RequestHandler = async ({ request, locals, url }) => {
   return PerformanceMonitor.monitorApiRoute('kpi-alerts', 'GET', async () => {
+    let user: any = undefined;
     try {
       // Check authentication
-      const user = await getSessionUserOrThrow({ request, locals } as any);
+      user = await getSessionUserOrThrow({ request, locals } as any);
       
       // Check if user has admin privileges for KPI access
       if (!user.app_metadata?.role || user.app_metadata.role !== 'admin') {
@@ -99,11 +102,20 @@ export const GET: RequestHandler = async ({ request, locals, url }) => {
   });
 };
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async ({ request, locals, url }) => {
   return PerformanceMonitor.monitorApiRoute('kpi-alerts', 'POST', async () => {
+    let user: any = undefined;
     try {
+      // CSRF validation for state-changing operations
+      if (!isCsrfRequestValid({ request, url })) {
+        return json(
+          { error: 'Invalid request origin' },
+          { status: 403 }
+        );
+      }
+
       // Check authentication
-      const user = await getSessionUserOrThrow({ request, locals } as any);
+      user = await getSessionUserOrThrow({ request, locals } as any);
       
       // Check if user has admin privileges for KPI access
       if (!user.app_metadata?.role || user.app_metadata.role !== 'admin') {
@@ -113,54 +125,23 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         );
       }
 
-      // Parse request body
+      // Parse and validate request body
       const body = await request.json();
-      const { action, ruleId, ruleData } = body;
+      const validation = validate(KPIAlertActionSchema, body);
+      
+      if (!validation.ok) {
+        return json(
+          { error: 'Invalid request data', details: validation.error },
+          { status: 400 }
+        );
+      }
+      
+      const { action, ruleId, ruleData } = validation.value;
 
       switch (action) {
         case 'create':
           // Create new alert rule
-          if (!ruleData) {
-            return json(
-              { error: 'Rule data is required' },
-              { status: 400 }
-            );
-          }
-
-          // Validate required fields
-          const requiredFields = ['name', 'metric', 'category', 'threshold', 'operator', 'severity'];
-          for (const field of requiredFields) {
-            if (!ruleData[field]) {
-              return json(
-                { error: `Missing required field: ${field}` },
-                { status: 400 }
-              );
-            }
-          }
-
-          // Validate category
-          if (!['financial', 'business', 'performance', 'operational'].includes(ruleData.category)) {
-            return json(
-              { error: 'Invalid category. Must be one of: financial, business, performance, operational' },
-              { status: 400 }
-            );
-          }
-
-          // Validate severity
-          if (!['low', 'medium', 'high', 'critical'].includes(ruleData.severity)) {
-            return json(
-              { error: 'Invalid severity. Must be one of: low, medium, high, critical' },
-              { status: 400 }
-            );
-          }
-
-          // Validate operator
-          if (!['greater_than', 'less_than', 'equals', 'not_equals'].includes(ruleData.operator)) {
-            return json(
-              { error: 'Invalid operator. Must be one of: greater_than, less_than, equals, not_equals' },
-              { status: 400 }
-            );
-          }
+          // ruleData is already validated by Zod schema
 
           const newRuleId = KPIReportingService.addAlertRule({
             name: ruleData.name,

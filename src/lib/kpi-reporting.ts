@@ -360,7 +360,13 @@ export class KPIReportingService {
           });
 
           // Only update last triggered time after successful alert
-          rule.lastTriggered = new Date().toISOString();
+          // Create new rule object with updated lastTriggered to maintain immutability
+          const updatedRule = { ...rule, lastTriggered: new Date().toISOString() };
+          // Update the static array with the new rule
+          const ruleIndex = this.alertRules.findIndex(r => r.id === rule.id);
+          if (ruleIndex !== -1) {
+            this.alertRules[ruleIndex] = updatedRule;
+          }
         } catch (error) {
           console.error(`Failed to send KPI alert for rule ${rule.id}:`, error);
           // Do not update lastTriggered to allow retry on next check
@@ -375,7 +381,7 @@ export class KPIReportingService {
    * Generate recommendations based on metrics and trends
    */
   private static generateRecommendations(
-    metrics: any,
+    metrics: KPIReport['summary'],
     trends: KPIReport['trends'],
     alerts: KPIReport['alerts']
   ): string[] {

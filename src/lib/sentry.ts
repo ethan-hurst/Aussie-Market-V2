@@ -4,6 +4,7 @@
  */
 
 import * as Sentry from '@sentry/sveltekit';
+import type { Transaction } from '@sentry/types';
 import { dev } from '$app/environment';
 import { env } from './env.js';
 
@@ -174,7 +175,7 @@ export function captureMessage(message: string, level: Sentry.SeverityLevel = 'i
 /**
  * Start a transaction for performance monitoring
  */
-export function startTransaction(name: string, op: string = 'custom'): Sentry.Transaction {
+export function startTransaction(name: string, op: string = 'custom'): Transaction {
   return Sentry.startTransaction({
     name,
     op
