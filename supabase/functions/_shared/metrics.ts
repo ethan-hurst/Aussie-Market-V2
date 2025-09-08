@@ -107,7 +107,7 @@ export class MetricsCollector {
     });
   }
 
-  // Flush metrics to database
+  // Flush metrics to database with enhanced error handling
   async flush(): Promise<void> {
     if (this.metrics.length === 0) return;
 
@@ -115,19 +115,34 @@ export class MetricsCollector {
     this.metrics = [];
 
     try {
+      // Use structured_metrics table (created by Supabase Specialist)
       const { error } = await supabase
-        .from('metrics')
+        .from('structured_metrics')
         .insert(metricsToFlush);
 
       if (error) {
-        console.error('Failed to flush metrics:', error);
+        console.error('Failed to flush metrics:', JSON.stringify({
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          metricsCount: metricsToFlush.length
+        }));
         // Re-add metrics to retry later
         this.metrics.unshift(...metricsToFlush);
       } else {
-        console.log(`Flushed ${metricsToFlush.length} metrics to database`);
+        console.log(JSON.stringify({
+          type: 'metrics_flush_success',
+          count: metricsToFlush.length,
+          timestamp: new Date().toISOString()
+        }));
       }
     } catch (error) {
-      console.error('Error flushing metrics:', error);
+      console.error('Error flushing metrics:', JSON.stringify({
+        error: error instanceof Error ? error.message : 'Unknown error',
+        metricsCount: metricsToFlush.length,
+        timestamp: new Date().toISOString()
+      }));
       // Re-add metrics to retry later
       this.metrics.unshift(...metricsToFlush);
     }
@@ -230,6 +245,76 @@ export const Metrics = {
       duration_ms: duration,
       success,
       context: { function_name: functionName }
+    });
+  },
+
+  // Enhanced function metrics with memory usage
+  functionExecutedWithMemory: (functionName: string, duration: number, success: boolean, memoryUsage?: any) => {
+    metricsCollector.addPerformanceMetric({
+      operation: `function_${functionName}`,
+      duration_ms: duration,
+      success,
+      context: { 
+        function_name: functionName,
+        memory_usage: memoryUsage
+      }
+    });
+  },
+
+  // Webhook processing metrics
+  webhookProcessed: (webhookType: string, duration: number, success: boolean, eventId?: string) => {
+    metricsCollector.addPerformanceMetric({
+      operation: `webhook_${webhookType}`,
+      duration_ms: duration,
+      success,
+      context: { 
+        webhook_type: webhookType,
+        event_id: eventId
+      }
+    });
+  },
+
+  // Database operation metrics
+  databaseOperation: (operation: string, duration: number, success: boolean, tableName?: string) => {
+    metricsCollector.addPerformanceMetric({
+      operation: `db_${operation}`,
+      duration_ms: duration,
+      success,
+      context: { 
+        operation,
+        table_name: tableName
+      }
+    });
+  },
+
+  // Error tracking metrics
+  errorTracked: (errorType: string, errorCategory: string, context?: Record<string, any>) => {
+    metricsCollector.addBusinessMetric({
+      event_type: 'error_occurred',
+      entity_type: 'error',
+      entity_id: `${errorType}_${errorCategory}`,
+      value: 1,
+      metadata: {
+        error_type: errorType,
+        error_category: errorCategory,
+        ...context
+      }
+    });
+  },
+
+  // Performance threshold alerts
+  performanceAlert: (operation: string, duration: number, threshold: number) => {
+    metricsCollector.addBusinessMetric({
+      event_type: 'performance_alert',
+      entity_type: 'operation',
+      entity_id: operation,
+      value: duration,
+      metadata: {
+        operation,
+        duration_ms: duration,
+        threshold_ms: threshold,
+        severity: duration > threshold * 2 ? 'critical' : 'warning'
+      }
     });
   }
 };
