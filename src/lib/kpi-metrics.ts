@@ -17,6 +17,7 @@ export interface KPIMetric {
   category: KPICategory;
   metric_name: string;
   metric_value: number;
+  metric_type: 'counter' | 'gauge' | 'rate' | 'percentage' | 'sum' | 'average';
   metric_unit?: string;
   time_period: TimePeriod;
   period_start: string;
@@ -33,6 +34,7 @@ export interface KPIEvent {
   category: KPICategory;
   metric_name: string;
   metric_value: number;
+  metric_type: 'counter' | 'gauge' | 'rate' | 'percentage' | 'sum' | 'average';
   metric_unit?: string;
   user_id?: string;
   order_id?: string;
@@ -109,6 +111,7 @@ export class KPIMetricsCollector {
       category: 'financial',
       metric_name: metricName,
       metric_value: value,
+      metric_type: 'counter',
       metric_unit: unit,
       user_id: context?.userId,
       order_id: context?.orderId,
@@ -141,6 +144,7 @@ export class KPIMetricsCollector {
       category: 'business',
       metric_name: metricName,
       metric_value: value,
+      metric_type: 'counter',
       metric_unit: unit,
       user_id: context?.userId,
       order_id: context?.orderId,
@@ -173,6 +177,7 @@ export class KPIMetricsCollector {
       category: 'performance',
       metric_name: metricName,
       metric_value: value,
+      metric_type: 'gauge',
       metric_unit: unit,
       user_id: context?.userId,
       order_id: context?.orderId,
@@ -205,6 +210,7 @@ export class KPIMetricsCollector {
       category: 'operational',
       metric_name: metricName,
       metric_value: value,
+      metric_type: 'gauge',
       metric_unit: unit,
       user_id: context?.userId,
       order_id: context?.orderId,

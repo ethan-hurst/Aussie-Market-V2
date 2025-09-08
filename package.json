@@ -4,7 +4,7 @@
 	"private": true,
 	"scripts": {
 		"build": "npm run generate:sentry-config && vite build",
-		"build:sentry": "npm run generate:sentry-config && vite build && sentry-cli sourcemaps upload --release $npm_package_version",
+		"build:sentry": "npm run generate:sentry-config && vite build && sentry-cli sourcemaps upload --release $npm_package_version --auth-token $SENTRY_AUTH_TOKEN",
 		"generate:sentry-config": "node scripts/generate-sentry-config.js",
 		"dev": "vite dev",
 		"preview": "vite preview",
@@ -25,7 +25,7 @@
 		"db:diff": "supabase db diff",
 		"db:test": "psql $DATABASE_URL -v ON_ERROR_STOP=1 -f database/tests/001_schema_basics.sql",
 		"sentry:release": "sentry-cli releases new $npm_package_version",
-		"sentry:upload": "sentry-cli sourcemaps upload --release $npm_package_version",
+		"sentry:upload": "sentry-cli sourcemaps upload --release $npm_package_version --auth-token $SENTRY_AUTH_TOKEN",
 		"sentry:finalize": "sentry-cli releases finalize $npm_package_version",
 		"sentry:validate": "node scripts/validate-sentry.js"
 	},

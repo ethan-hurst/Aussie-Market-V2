@@ -15,6 +15,7 @@ if (!dev && !env.SENTRY_DSN) {
 Sentry.init({
   dsn: env.SENTRY_DSN || env.PUBLIC_SENTRY_DSN,
   environment: dev ? 'development' : 'production',
+  release: version, // Match the release used in sentry.properties
   
   // Performance monitoring
   tracesSampleRate: dev ? 1.0 : 0.1,

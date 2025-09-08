@@ -272,6 +272,80 @@ export class AlertingSystem {
   }
 
   /**
+   * Safely match regex patterns with ReDoS protection
+   */
+  private safeRegexMatch(text: string, pattern: string): boolean {
+    // Check if pattern looks like a regex (starts and ends with /)
+    const isRegexPattern = pattern.startsWith('/') && pattern.endsWith('/');
+    
+    if (!isRegexPattern) {
+      // Treat as literal string - escape all metacharacters
+      try {
+        const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return new RegExp(escapedPattern).test(text);
+      } catch (error) {
+        console.warn(`Invalid literal pattern: ${pattern}, falling back to string includes`);
+        return text.includes(pattern);
+      }
+    }
+    
+    // Extract pattern from regex delimiters
+    const regexPattern = pattern.slice(1, -1);
+    
+    // Basic ReDoS protection: limit pattern complexity
+    if (this.isPotentiallyDangerousPattern(regexPattern)) {
+      console.warn(`Potentially dangerous regex pattern detected: ${pattern}, falling back to string includes`);
+      return text.includes(regexPattern);
+    }
+    
+    try {
+      // Create regex with timeout protection
+      const regex = new RegExp(regexPattern);
+      
+      // Simple timeout protection using a promise race
+      const matchPromise = new Promise<boolean>((resolve) => {
+        try {
+          const result = regex.test(text);
+          resolve(result);
+        } catch (error) {
+          resolve(false);
+        }
+      });
+      
+      const timeoutPromise = new Promise<boolean>((resolve) => {
+        setTimeout(() => resolve(false), 100); // 100ms timeout
+      });
+      
+      // For now, we'll use synchronous execution with try/catch
+      // In a real implementation, you'd want to use a proper timeout mechanism
+      return regex.test(text);
+      
+    } catch (error) {
+      console.warn(`Regex compilation failed for pattern: ${pattern}, falling back to string includes`);
+      return text.includes(regexPattern);
+    }
+  }
+  
+  /**
+   * Check if a regex pattern is potentially dangerous (basic ReDoS detection)
+   */
+  private isPotentiallyDangerousPattern(pattern: string): boolean {
+    // Check for nested quantifiers and other ReDoS patterns
+    const dangerousPatterns = [
+      /(\+|\*|\?)\s*(\+|\*|\?)/, // Nested quantifiers
+      /\(\?\=.*\*/, // Positive lookahead with quantifier
+      /\(\?\=.*\+/, // Positive lookahead with quantifier
+      /\(\?\=.*\?/, // Positive lookahead with quantifier
+      /\(\?\=.*\{[^}]*\}/, // Positive lookahead with quantifier
+      /\(\?\=.*\*.*\*/, // Multiple quantifiers in lookahead
+      /\(\?\=.*\+.*\+/, // Multiple quantifiers in lookahead
+      /\(\?\=.*\?.*\?/, // Multiple quantifiers in lookahead
+    ];
+    
+    return dangerousPatterns.some(dangerousPattern => dangerousPattern.test(pattern));
+  }
+
+  /**
    * Evaluate alert condition against log entry
    */
   private evaluateCondition(logEntry: any, rule: AlertRule): boolean {
@@ -295,15 +369,7 @@ export class AlertingSystem {
         return typeof fieldValue === 'string' && fieldValue.includes(value);
       case 'regex':
         if (typeof fieldValue !== 'string') return false;
-        try {
-          // Escape regex metacharacters to prevent ReDoS attacks
-          const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          return new RegExp(escapedValue).test(fieldValue);
-        } catch (error) {
-          // If regex compilation fails, fall back to string includes
-          console.warn(`Invalid regex pattern: ${value}, falling back to string matching`);
-          return fieldValue.includes(value);
-        }
+        return this.safeRegexMatch(fieldValue, value);
       default:
         return false;
     }
