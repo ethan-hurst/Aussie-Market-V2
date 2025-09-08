@@ -5,13 +5,12 @@ import { notifyOrderShipped, notifyOrderDelivered } from '$lib/notifications';
 import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
 import { validate, OrderActionSchema } from '$lib/validation';
+import { getSessionUserOrThrow } from '$lib/session';
 
-export const GET: RequestHandler = async ({ params, locals }) => {
+export const GET: RequestHandler = async ({ params, locals, request }) => {
 	try {
-		const { data: { session } } = await locals.getSession();
-		if (!session) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+		// Get authenticated user with proper error handling
+		const user = await getSessionUserOrThrow({ request, locals } as any);
 
 		const { orderId } = params;
 		if (!orderId) {
@@ -64,7 +63,7 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 		}
 
 		// Check if user is authorized to view this order
-		if (order.buyer_id !== session.user.id && order.seller_id !== session.user.id) {
+		if (order.buyer_id !== user.id && order.seller_id !== user.id) {
 			return json({ error: 'Unauthorized' }, { status: 403 });
 		}
 
@@ -77,13 +76,11 @@ export const GET: RequestHandler = async ({ params, locals }) => {
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	try {
-		const { data: { session } } = await locals.getSession();
-		if (!session) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+		// Get authenticated user with proper error handling
+		const user = await getSessionUserOrThrow({ request, locals } as any);
 
 		// Rate limit order actions per user (e.g., 20 actions per 5 minutes)
-		const rl = rateLimit(`order-actions:${session.user.id}`, 20, 5 * 60_000);
+		const rl = rateLimit(`order-actions:${user.id}`, 20, 5 * 60_000);
 		if (!rl.allowed) {
 			return json(
 				{ error: 'Too many requests. Please slow down.' },
@@ -132,7 +129,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			});
 		}
 
-		const userId = session.user.id;
+		const userId = user.id;
 		const isBuyer = order.buyer_id === userId;
 		const isSeller = order.seller_id === userId;
 		const state: string = order.state;

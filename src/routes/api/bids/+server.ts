@@ -12,22 +12,15 @@ import {
 } from '$lib/auctions';
 import { rateLimit } from '$lib/security';
 import { validate, BidSchema } from '$lib/validation';
+import { getSessionUserOrThrow, validateUserAccess } from '$lib/session';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
-		// Verify user is authenticated
-		const sessionResp = await locals.getSession();
-		const sessionUser = (sessionResp as any)?.data?.session?.user 
-			?? (sessionResp as any)?.session?.user 
-			?? (sessionResp as any)?.user 
-			?? null;
-		const session = sessionUser ? { user: sessionUser } : null;
-		if (!session) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+		// Get authenticated user with proper error handling
+		const user = await getSessionUserOrThrow({ request, locals } as any);
 
 		// Rate limit bid placements per user (e.g., 10 bids per minute)
-		const rl = rateLimit(`bids:${session.user.id}`, 10, 60_000);
+		const rl = rateLimit(`bids:${user.id}`, 10, 60_000);
 		if (!rl.allowed) {
 			return json(
 				{ error: 'Too many requests. Please slow down.' },
@@ -44,7 +37,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		// listingId and amount validated by schema
 
 		// Check if user can bid on this listing
-		const permissionCheck = await canBidOnListing(session.user.id, listingId);
+		const permissionCheck = await canBidOnListing(user.id, listingId);
 		if (!permissionCheck.allowed) {
 			return json({ error: permissionCheck.reason }, { status: 400 });
 		}
@@ -122,22 +115,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 };
 
-export const GET: RequestHandler = async ({ url, locals }) => {
+export const GET: RequestHandler = async ({ url, locals, request }) => {
 	try {
 		const action = url.searchParams.get('action');
 		const listingId = url.searchParams.get('listingId');
 		const userId = url.searchParams.get('userId');
 
-		// Verify user is authenticated
-		const sessionResp = await locals.getSession();
-		const sessionUser = (sessionResp as any)?.data?.session?.user 
-			?? (sessionResp as any)?.session?.user 
-			?? (sessionResp as any)?.user 
-			?? null;
-		const session = sessionUser ? { user: sessionUser } : null;
-		if (!session) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+		// Get authenticated user with proper error handling
+		const user = await getSessionUserOrThrow({ request, locals } as any);
 
 		// Get current bid for a listing
 		if (action === 'current' && listingId) {
@@ -171,9 +156,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		// Get user's bids
 		if (action === 'user' && userId) {
 			// Verify user is requesting their own bids
-			if (session.user.id !== userId) {
-				return json({ error: 'Unauthorized' }, { status: 401 });
-			}
+			await validateUserAccess({ request, locals } as any, userId);
 
 			const result = await getUserBids(userId);
 			
@@ -190,9 +173,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		// Check if user is winning a listing
 		if (action === 'winning' && listingId && userId) {
 			// Verify user is checking their own winning status
-			if (session.user.id !== userId) {
-				return json({ error: 'Unauthorized' }, { status: 401 });
-			}
+			await validateUserAccess({ request, locals } as any, userId);
 
 			const result = await isUserWinning(userId, listingId);
 			

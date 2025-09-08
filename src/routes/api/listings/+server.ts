@@ -13,17 +13,15 @@ import {
 import { rateLimit } from '$lib/security';
 import { mapApiErrorToMessage } from '$lib/errors';
 import { validate, ListingCreateSchema, SearchSchema } from '$lib/validation';
+import { getSessionUserOrThrow, validateUserAccess } from '$lib/session';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
-		// Verify user is authenticated
-		const session = await locals.getSession();
-		if (!session) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+		// Get authenticated user with proper error handling
+		const user = await getSessionUserOrThrow({ request, locals } as any);
 
 		// Rate limit listing creation per user (e.g., 5 creates per hour)
-		const rl = rateLimit(`create-listing:${session.user.id}`, 5, 60 * 60_000);
+		const rl = rateLimit(`create-listing:${user.id}`, 5, 60 * 60_000);
 		if (!rl.allowed) {
 			return json(
 				{ error: 'Too many listing creations. Please try later.' },
@@ -38,7 +36,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		// Create listing
-		const result = await createListing(session.user.id, parsed.value as any);
+		const result = await createListing(user.id, parsed.value as any);
 
 		if (!result.success) {
 			return json({ error: mapApiErrorToMessage(result.error) }, { status: 400 });
@@ -55,7 +53,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 };
 
-export const GET: RequestHandler = async ({ url, locals }) => {
+export const GET: RequestHandler = async ({ url, locals, request }) => {
 	try {
 		const action = url.searchParams.get('action');
 		const listingId = url.searchParams.get('listingId');
@@ -79,10 +77,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		// Get user's listings
 		if (action === 'user' && userId) {
 			// Verify user is authenticated and requesting their own listings
-			const session = await locals.getSession();
-			if (!session || session.user.id !== userId) {
-				return json({ error: 'Unauthorized' }, { status: 401 });
-			}
+			await validateUserAccess({ request, locals } as any, userId);
 
 			const result = await getUserListings(userId, status || undefined);
 			
