@@ -4,67 +4,166 @@ import { supabase } from '$lib/supabase';
 import { env } from '$lib/env';
 import type { RequestHandler } from './$types';
 
+// Production security: Only use real secrets in production
+const isProduction = process.env.NODE_ENV === 'production';
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+// Validate production secrets
+if (isProduction) {
+	if (!env.STRIPE_SECRET_KEY || env.STRIPE_SECRET_KEY.includes('test') || env.STRIPE_SECRET_KEY.includes('your_stripe_secret_key_here')) {
+		throw new Error('Production requires real Stripe secret key');
+	}
+	if (!env.STRIPE_WEBHOOK_SECRET || env.STRIPE_WEBHOOK_SECRET.includes('your_webhook_secret_here')) {
+		throw new Error('Production requires real Stripe webhook secret');
+	}
+}
+
 const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here', {
 	apiVersion: '2023-10-16'
 });
 
 const endpointSecret = env.STRIPE_WEBHOOK_SECRET || 'whsec_your_webhook_secret_here';
 const WEBHOOK_TOLERANCE_SECONDS = 300; // 5 minutes
+const MAX_EVENT_AGE_SECONDS = 3600; // 1 hour - reject very old events
+
+/**
+ * Extract order ID from Stripe event based on event type
+ */
+function getOrderIdFromEvent(event: Stripe.Event): string | null {
+	try {
+		switch (event.type) {
+			case 'payment_intent.succeeded':
+			case 'payment_intent.payment_failed':
+			case 'payment_intent.canceled':
+			case 'payment_intent.amount_capturable_updated':
+				return (event.data.object as Stripe.PaymentIntent).metadata?.order_id || null;
+			
+			case 'charge.dispute.created':
+			case 'charge.dispute.closed':
+			case 'charge.dispute.updated':
+				// For disputes, we'll need to look up the order via charge ID
+				return null; // Will be resolved in handler
+			
+			case 'charge.refund.updated':
+			case 'charge.refunded':
+				// For refunds, we'll need to look up the order via payment intent
+				return null; // Will be resolved in handler
+			
+			default:
+				return null;
+		}
+	} catch (error) {
+		console.error('Error extracting order ID from event:', error);
+		return null;
+	}
+}
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.text();
 	const sig = request.headers.get('stripe-signature');
 
+	// Enhanced security: Reject requests without signature in production
+	if (isProduction && !sig) {
+		console.error('Production webhook request missing signature');
+		return json({ error: 'Missing signature' }, { status: 400 });
+	}
+
 	let event: Stripe.Event;
 
 	try {
-		if (sig === 'sig_mock' && process.env.NODE_ENV !== 'production') {
+		// Enhanced signature validation
+		if (sig === 'sig_mock' && isDevelopment) {
+			// Only allow mock signatures in development
 			event = JSON.parse(body) as any;
+		} else if (sig && endpointSecret) {
+			// Production: Always validate real signatures
+			event = stripe.webhooks.constructEvent(body, sig, endpointSecret);
 		} else {
-			event = stripe.webhooks.constructEvent(body, sig!, endpointSecret);
+			throw new Error('Invalid signature configuration');
 		}
 	} catch (err) {
 		console.error('Webhook signature verification failed:', err);
 		return json({ error: 'Invalid signature' }, { status: 400 });
 	}
 
-	// Basic timestamp drift protection (in addition to Stripe signature tolerance)
+	// Enhanced event age validation
 	try {
 		if (event?.created) {
 			const nowSec = Math.floor(Date.now() / 1000);
-			const drift = Math.abs(nowSec - event.created);
-			if (drift > WEBHOOK_TOLERANCE_SECONDS) {
-				return json({ error: 'Stale event' }, { status: 400 });
+			const eventAge = nowSec - event.created;
+			
+			// Reject events that are too old (potential replay attacks)
+			if (eventAge > MAX_EVENT_AGE_SECONDS) {
+				console.error(`Rejecting old event: ${event.id}, age: ${eventAge}s`);
+				return json({ error: 'Event too old' }, { status: 400 });
+			}
+			
+			// Reject events from the future (clock skew protection)
+			if (eventAge < -WEBHOOK_TOLERANCE_SECONDS) {
+				console.error(`Rejecting future event: ${event.id}, age: ${eventAge}s`);
+				return json({ error: 'Event from future' }, { status: 400 });
 			}
 		}
 	} catch (e) {
-		// If event.created missing or malformed, continue – signature check already passed
+		console.error('Event age validation failed:', e);
+		return json({ error: 'Invalid event timestamp' }, { status: 400 });
 	}
 
-	// Idempotency: drop duplicate events by event.id
+	// Enhanced idempotency: Check by (event_id, order_id, event_type)
 	try {
 		if (event?.id) {
+			// First check: Global event idempotency
 			const existing = await supabase
 				.from('webhook_events')
-				.select('event_id, processed_at')
+				.select('event_id, processed_at, order_id, event_type')
 				.eq('event_id', event.id)
 				.single();
+			
 			if (existing && (existing as any).data) {
+				console.log(`Event ${event.id} already processed`);
 				return json({ received: true, idempotent: true });
 			}
+
+			// Second check: Order-specific idempotency for payment events
+			const orderId = getOrderIdFromEvent(event);
+			if (orderId) {
+				const orderEvent = await supabase
+					.from('webhook_events')
+					.select('event_id, processed_at')
+					.eq('order_id', orderId)
+					.eq('event_type', event.type)
+					.eq('processed_at', null)
+					.single();
+				
+				if (orderEvent && (orderEvent as any).data) {
+					console.log(`Order ${orderId} already has pending ${event.type} event`);
+					return json({ received: true, idempotent: true });
+				}
+			}
+
+			// Record the event
 			await supabase
 				.from('webhook_events')
 				.insert({
 					event_id: event.id,
 					type: event.type,
+					order_id: orderId,
+					event_type: event.type,
 					created_at: event.created ? new Date(event.created * 1000).toISOString() : new Date().toISOString()
 				});
 		}
 	} catch (e) {
-		// Best-effort idempotency. If storage not available, continue processing.
+		console.error('Idempotency check failed:', e);
+		// In production, fail fast on idempotency errors
+		if (isProduction) {
+			return json({ error: 'Idempotency check failed' }, { status: 500 });
+		}
 	}
 
 	try {
+		// Enhanced event processing with comprehensive error handling
+		console.log(`Processing webhook event: ${event.type} (${event.id})`);
+		
 		switch (event.type) {
 			case 'payment_intent.succeeded':
 				await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
@@ -94,7 +193,8 @@ export const POST: RequestHandler = async ({ request }) => {
 				await handleChargeRefunded(event.data.object as Stripe.Charge);
 				break;
 			default:
-				console.log(`Unhandled event type: ${event.type}`);
+				console.log(`Unhandled event type: ${event.type} (${event.id})`);
+				// Don't fail for unhandled events - just log and continue
 		}
 
 		// Mark event processed for idempotency
@@ -102,15 +202,48 @@ export const POST: RequestHandler = async ({ request }) => {
 			if (event?.id) {
 				await supabase
 					.from('webhook_events')
-					.update({ processed_at: new Date().toISOString() })
+					.update({ 
+						processed_at: new Date().toISOString(),
+						processing_status: 'success'
+					})
 					.eq('event_id', event.id);
 			}
-		} catch {}
+		} catch (markError) {
+			console.error('Error marking event as processed:', markError);
+			// Don't fail the webhook for this
+		}
 
-		return json({ received: true });
+		console.log(`Successfully processed webhook event: ${event.type} (${event.id})`);
+		return json({ received: true, processed: true });
 	} catch (error) {
-		console.error('Error processing webhook:', error);
-		return json({ error: 'Webhook processing failed' }, { status: 500 });
+		console.error(`Error processing webhook event ${event.type} (${event.id}):`, error);
+		
+		// Mark event as failed for monitoring
+		try {
+			if (event?.id) {
+				await supabase
+					.from('webhook_events')
+					.update({ 
+						processed_at: new Date().toISOString(),
+						processing_status: 'failed',
+						error_message: error instanceof Error ? error.message : 'Unknown error'
+					})
+					.eq('event_id', event.id);
+			}
+		} catch (markError) {
+			console.error('Error marking event as failed:', markError);
+		}
+
+		// Return appropriate error response
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		const statusCode = errorMessage.includes('not found') ? 404 : 500;
+		
+		return json({ 
+			error: 'Webhook processing failed', 
+			details: isDevelopment ? errorMessage : undefined,
+			event_id: event.id,
+			event_type: event.type
+		}, { status: statusCode });
 	}
 };
 
@@ -119,22 +252,40 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 	
 	if (!orderId) {
 		console.error('No order_id in payment intent metadata');
-		return;
+		throw new Error('Missing order_id in payment intent metadata');
 	}
 
-	// Prevent downgrade or duplicate transition
-	const { data: existingOrder } = await supabase
+	// Enhanced state validation: Only allow transitions from pending states
+	const { data: existingOrder, error: fetchError } = await supabase
 		.from('orders')
-		.select('state')
+		.select('state, stripe_payment_intent_id')
 		.eq('id', orderId)
 		.single();
-	if (existingOrder && existingOrder.state && existingOrder.state !== 'pending') {
-		console.log(`Order ${orderId} already processed to state ${existingOrder.state}; skipping.`);
-		return;
+
+	if (fetchError) {
+		console.error('Error fetching order for payment success:', fetchError);
+		throw new Error(`Order ${orderId} not found`);
 	}
 
-	// Update order state to paid
-	const { error } = await supabase
+	if (!existingOrder) {
+		throw new Error(`Order ${orderId} not found`);
+	}
+
+	// Prevent state downgrades and duplicate processing
+	const validFromStates = ['pending', 'pending_payment'];
+	if (!validFromStates.includes(existingOrder.state)) {
+		console.log(`Order ${orderId} in state ${existingOrder.state}, cannot transition to paid`);
+		return; // Idempotent: already processed
+	}
+
+	// Prevent duplicate payment intent processing
+	if (existingOrder.stripe_payment_intent_id && existingOrder.stripe_payment_intent_id !== paymentIntent.id) {
+		console.error(`Order ${orderId} already has different payment intent: ${existingOrder.stripe_payment_intent_id}`);
+		throw new Error('Order already has different payment intent');
+	}
+
+	// Atomic update with state validation
+	const { error: updateError } = await supabase
 		.from('orders')
 		.update({
 			state: 'paid',
@@ -142,17 +293,18 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 			paid_at: new Date().toISOString(),
 			updated_at: new Date().toISOString()
 		})
-		.eq('id', orderId);
+		.eq('id', orderId)
+		.in('state', validFromStates); // Only update if still in valid state
 
-	if (error) {
-		console.error('Error updating order after payment success:', error);
-		throw error;
+	if (updateError) {
+		console.error('Error updating order after payment success:', updateError);
+		throw new Error(`Failed to update order ${orderId}: ${updateError.message}`);
 	}
 
-	// Create payment record
-	await supabase
+	// Create payment record with idempotency
+	const { error: paymentError } = await supabase
 		.from('payments')
-		.insert({
+		.upsert({
 			order_id: orderId,
 			amount_cents: paymentIntent.amount,
 			currency: paymentIntent.currency,
@@ -160,7 +312,14 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 			stripe_payment_intent_id: paymentIntent.id,
 			status: 'completed',
 			processed_at: new Date().toISOString()
+		}, {
+			onConflict: 'order_id,stripe_payment_intent_id'
 		});
+
+	if (paymentError) {
+		console.error('Error creating payment record:', paymentError);
+		// Don't throw here - order is already updated
+	}
 
 	console.log(`Payment succeeded for order ${orderId}`);
 }
@@ -170,38 +329,58 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
 
 	if (!orderId) {
 		console.error('No order_id in failed payment intent metadata');
-		return;
+		throw new Error('Missing order_id in payment intent metadata');
 	}
 
-	// Only mark failed if order still pending
-	const { data: existingOrder } = await supabase
+	// Enhanced state validation: Only allow transitions from pending states
+	const { data: existingOrder, error: fetchError } = await supabase
 		.from('orders')
-		.select('state')
+		.select('state, stripe_payment_intent_id')
 		.eq('id', orderId)
 		.single();
-	if (existingOrder && existingOrder.state && existingOrder.state !== 'pending_payment') {
-		console.log(`Order ${orderId} already in state ${existingOrder.state}; not downgrading to payment_failed.`);
-		return;
+
+	if (fetchError) {
+		console.error('Error fetching order for payment failure:', fetchError);
+		throw new Error(`Order ${orderId} not found`);
 	}
 
-	// Update order state to payment_failed
-	const { error } = await supabase
+	if (!existingOrder) {
+		throw new Error(`Order ${orderId} not found`);
+	}
+
+	// Prevent state downgrades - only allow from pending states
+	const validFromStates = ['pending', 'pending_payment'];
+	if (!validFromStates.includes(existingOrder.state)) {
+		console.log(`Order ${orderId} in state ${existingOrder.state}, cannot transition to payment_failed`);
+		return; // Idempotent: already processed
+	}
+
+	// Prevent duplicate payment intent processing
+	if (existingOrder.stripe_payment_intent_id && existingOrder.stripe_payment_intent_id !== paymentIntent.id) {
+		console.error(`Order ${orderId} already has different payment intent: ${existingOrder.stripe_payment_intent_id}`);
+		throw new Error('Order already has different payment intent');
+	}
+
+	// Atomic update with state validation
+	const { error: updateError } = await supabase
 		.from('orders')
 		.update({
 			state: 'payment_failed',
+			stripe_payment_intent_id: paymentIntent.id,
 			updated_at: new Date().toISOString()
 		})
-		.eq('id', orderId);
+		.eq('id', orderId)
+		.in('state', validFromStates); // Only update if still in valid state
 
-	if (error) {
-		console.error('Error updating order after payment failure:', error);
-		throw error;
+	if (updateError) {
+		console.error('Error updating order after payment failure:', updateError);
+		throw new Error(`Failed to update order ${orderId}: ${updateError.message}`);
 	}
 
-	// Update payment record
-	await supabase
+	// Create payment record with idempotency
+	const { error: paymentError } = await supabase
 		.from('payments')
-		.insert({
+		.upsert({
 			order_id: orderId,
 			amount_cents: paymentIntent.amount,
 			currency: paymentIntent.currency,
@@ -210,25 +389,39 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
 			status: 'failed',
 			error_message: paymentIntent.last_payment_error?.message || 'Payment failed',
 			processed_at: new Date().toISOString()
+		}, {
+			onConflict: 'order_id,stripe_payment_intent_id'
 		});
 
-	// Send failure notification
-	const { data: order } = await supabase
-		.from('orders')
-		.select('buyer_id')
-		.eq('id', orderId)
-		.single();
+	if (paymentError) {
+		console.error('Error creating payment record:', paymentError);
+		// Don't throw here - order is already updated
+	}
 
-	if (order) {
-		await supabase
-			.from('notifications')
-			.insert({
-				user_id: order.buyer_id,
-				type: 'payment_failed',
-				title: 'Payment Failed',
-				message: `Your payment for order ${orderId} could not be processed. Please try again.`,
-				metadata: { order_id: orderId }
-			});
+	// Send failure notification (idempotent)
+	try {
+		const { data: order } = await supabase
+			.from('orders')
+			.select('buyer_id')
+			.eq('id', orderId)
+			.single();
+
+		if (order) {
+			await supabase
+				.from('notifications')
+				.upsert({
+					user_id: order.buyer_id,
+					type: 'payment_failed',
+					title: 'Payment Failed',
+					message: `Your payment for order ${orderId} could not be processed. Please try again.`,
+					metadata: { order_id: orderId, payment_intent_id: paymentIntent.id }
+				}, {
+					onConflict: 'user_id,type,metadata'
+				});
+		}
+	} catch (notificationError) {
+		console.error('Error sending payment failure notification:', notificationError);
+		// Don't throw - notification failure shouldn't fail the webhook
 	}
 
 	console.log(`Payment failed for order ${orderId}: ${paymentIntent.last_payment_error?.message}`);
@@ -239,21 +432,52 @@ async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) 
 
 	if (!orderId) {
 		console.error('No order_id in canceled payment intent metadata');
-		return;
+		throw new Error('Missing order_id in payment intent metadata');
 	}
 
-	// Update order state to cancelled
-	const { error } = await supabase
+	// Enhanced state validation: Only allow transitions from pending states
+	const { data: existingOrder, error: fetchError } = await supabase
+		.from('orders')
+		.select('state, stripe_payment_intent_id')
+		.eq('id', orderId)
+		.single();
+
+	if (fetchError) {
+		console.error('Error fetching order for payment cancellation:', fetchError);
+		throw new Error(`Order ${orderId} not found`);
+	}
+
+	if (!existingOrder) {
+		throw new Error(`Order ${orderId} not found`);
+	}
+
+	// Prevent state downgrades - only allow from pending states
+	const validFromStates = ['pending', 'pending_payment'];
+	if (!validFromStates.includes(existingOrder.state)) {
+		console.log(`Order ${orderId} in state ${existingOrder.state}, cannot transition to cancelled`);
+		return; // Idempotent: already processed
+	}
+
+	// Prevent duplicate payment intent processing
+	if (existingOrder.stripe_payment_intent_id && existingOrder.stripe_payment_intent_id !== paymentIntent.id) {
+		console.error(`Order ${orderId} already has different payment intent: ${existingOrder.stripe_payment_intent_id}`);
+		throw new Error('Order already has different payment intent');
+	}
+
+	// Atomic update with state validation
+	const { error: updateError } = await supabase
 		.from('orders')
 		.update({
 			state: 'cancelled',
+			stripe_payment_intent_id: paymentIntent.id,
 			updated_at: new Date().toISOString()
 		})
-		.eq('id', orderId);
+		.eq('id', orderId)
+		.in('state', validFromStates); // Only update if still in valid state
 
-	if (error) {
-		console.error('Error updating order after payment cancellation:', error);
-		throw error;
+	if (updateError) {
+		console.error('Error updating order after payment cancellation:', updateError);
+		throw new Error(`Failed to update order ${orderId}: ${updateError.message}`);
 	}
 
 	console.log(`Payment canceled for order ${orderId}`);
