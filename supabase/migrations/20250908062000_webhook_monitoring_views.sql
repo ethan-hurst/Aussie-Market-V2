@@ -3,9 +3,7 @@
 -- Purpose: Create monitoring views and cleanup functions for webhook processing
 -- Dependencies: Requires webhook_events table and process_webhook_atomically function
 
-BEGIN;
-
--- Step 1: Create order state summary view for monitoring
+-- Create order state summary view for monitoring
 CREATE OR REPLACE VIEW public.order_state_summary AS
 SELECT 
     state,
@@ -19,7 +17,7 @@ WHERE created_at >= NOW() - INTERVAL '30 days'
 GROUP BY state
 ORDER BY order_count DESC;
 
--- Step 2: Create webhook processing metrics view
+-- Create webhook processing metrics view
 CREATE OR REPLACE VIEW public.webhook_processing_metrics AS
 SELECT 
     event_type,
@@ -34,11 +32,11 @@ WHERE created_at >= NOW() - INTERVAL '7 days'
 GROUP BY event_type
 ORDER BY total_events DESC;
 
--- Step 3: Add RLS policies for new views
+-- Add RLS policies for new views
 ALTER VIEW public.order_state_summary SET (security_invoker = true);
 ALTER VIEW public.webhook_processing_metrics SET (security_invoker = true);
 
--- Step 4: Create function to clean up old webhook events
+-- Create function to clean up old webhook events
 CREATE OR REPLACE FUNCTION cleanup_old_webhook_events(
     p_retention_days INTEGER DEFAULT 30
 ) RETURNS INTEGER AS $$
@@ -54,21 +52,3 @@ BEGIN
     RETURN deleted_count;
 END;
 $$ LANGUAGE plpgsql;
-
--- Step 5: Add helpful comments
-COMMENT ON FUNCTION validate_order_for_webhook(UUID, TEXT) IS 
-'Validates if an order is in the correct state for a specific webhook event type';
-
-COMMENT ON FUNCTION process_webhook_atomically(TEXT, UUID, TEXT, JSONB) IS 
-'Atomically processes webhook events with idempotency and state validation';
-
-COMMENT ON VIEW public.order_state_summary IS 
-'Summary statistics of order states for monitoring and analytics';
-
-COMMENT ON VIEW public.webhook_processing_metrics IS 
-'Metrics on webhook processing performance and success rates';
-
-COMMENT ON FUNCTION cleanup_old_webhook_events(INTEGER) IS 
-'Cleans up old processed webhook events to maintain performance';
-
-COMMIT;

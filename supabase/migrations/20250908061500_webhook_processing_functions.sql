@@ -1,11 +1,8 @@
--- Webhook processing functions and views
+-- Webhook processing functions
 -- Migration: 20250908061500_webhook_processing_functions.sql
--- Purpose: Create webhook processing functions and monitoring views
+-- Purpose: Create webhook processing function with atomic operations
 -- Dependencies: Requires validate_order_for_webhook function
 
-BEGIN;
-
--- Step 1: Create webhook processing function with atomic operations
 CREATE OR REPLACE FUNCTION process_webhook_atomically(
     p_event_id TEXT,
     p_order_id UUID,
@@ -114,5 +111,3 @@ EXCEPTION
         RAISE;
 END;
 $$ LANGUAGE plpgsql;
-
-COMMIT;
