@@ -113,13 +113,13 @@ describe('Admin Finalize Auctions API', () => {
 							data: {
 								id: 'auction-123',
 								listing_id: 'listing-456',
-								status: 'active',
-								end_at: '2023-01-01T00:00:00Z',
+								status: 'live',
 								high_bid_id: 'bid-789',
 								listings: {
 									id: 'listing-456',
 									title: 'Test Item',
-									seller_id: 'seller-123'
+									seller_id: 'seller-123',
+									end_at: '2023-01-01T00:00:00Z'
 								}
 							},
 							error: null
@@ -188,13 +188,13 @@ describe('Admin Finalize Auctions API', () => {
 							data: {
 								id: 'auction-123',
 								listing_id: 'listing-456',
-								status: 'active',
-								end_at: '2030-01-01T00:00:00Z', // Future date
+								status: 'live',
 								high_bid_id: 'bid-789',
 								listings: {
 									id: 'listing-456',
 									title: 'Test Item',
-									seller_id: 'seller-123'
+									seller_id: 'seller-123',
+									end_at: '2030-01-01T00:00:00Z' // Future date
 								}
 							},
 							error: null
@@ -249,25 +249,25 @@ describe('Admin Finalize Auctions API', () => {
 								{
 									id: 'auction-1',
 									listing_id: 'listing-1',
-									status: 'active',
-									end_at: '2023-01-01T00:00:00Z',
+									status: 'live',
 									high_bid_id: 'bid-1',
 									listings: {
 										id: 'listing-1',
 										title: 'Expired Item 1',
-										seller_id: 'seller-1'
+										seller_id: 'seller-1',
+										end_at: '2023-01-01T00:00:00Z'
 									}
 								},
 								{
 									id: 'auction-2',
 									listing_id: 'listing-2',
-									status: 'active',
-									end_at: '2023-01-01T00:00:00Z',
+									status: 'live',
 									high_bid_id: 'bid-2',
 									listings: {
 										id: 'listing-2',
 										title: 'Expired Item 2',
-										seller_id: 'seller-2'
+										seller_id: 'seller-2',
+										end_at: '2023-01-01T00:00:00Z'
 									}
 								}
 							],

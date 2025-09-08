@@ -103,12 +103,12 @@ async function finalizeSpecificAuction(auctionId: string, force: boolean, reason
 				id,
 				listing_id,
 				status,
-				end_at,
 				high_bid_id,
 				listings!inner(
 					id,
 					title,
-					seller_id
+					seller_id,
+					end_at
 				)
 			`)
 			.eq('id', auctionId)
@@ -134,13 +134,13 @@ async function finalizeSpecificAuction(auctionId: string, force: boolean, reason
 
 		// Check if auction has expired (unless force is true)
 		const now = new Date();
-		const endAt = new Date(auction.end_at);
+		const endAt = new Date(auction.listings.end_at);
 		if (!force && now < endAt) {
 			return {
 				success: false,
 				error: 'Auction has not expired yet. Use force=true to override.',
 				auctionId,
-				endAt: auction.end_at,
+				endAt: auction.listings.end_at,
 				now: now.toISOString()
 			};
 		}
@@ -239,16 +239,16 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 					id,
 					listing_id,
 					status,
-					end_at,
 					high_bid_id,
 					listings!inner(
 						id,
 						title,
-						seller_id
+						seller_id,
+						end_at
 					)
 				`)
-				.eq('status', 'active')
-				.lt('end_at', new Date().toISOString());
+				.eq('status', 'live')
+				.lt('listings.end_at', new Date().toISOString());
 
 			if (error) {
 				return json({ error: 'Failed to fetch expired auctions' }, { status: 500 });

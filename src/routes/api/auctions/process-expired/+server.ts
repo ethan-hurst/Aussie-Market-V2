@@ -71,9 +71,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 export const GET: RequestHandler = async () => {
 	try {
 		// Get count of expired auctions that need processing
-		const { data: expiredCount, error: countError } = await supabase
+		const { count: expiredCount, error: countError } = await supabase
 			.from('auctions')
-			.select('id', { count: 'exact' })
+			.select('id, listings!inner(end_at)', { count: 'exact', head: true })
 			.eq('status', 'live')
 			.lt('listings.end_at', new Date().toISOString());
 
@@ -91,7 +91,7 @@ export const GET: RequestHandler = async () => {
 			.limit(5);
 
 		return json({
-			expired_auctions_pending: expiredCount?.length || 0,
+			expired_auctions_pending: expiredCount || 0,
 			recent_processing: recentMetrics || [],
 			last_checked: new Date().toISOString()
 		});
