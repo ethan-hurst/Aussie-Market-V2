@@ -232,3 +232,51 @@ export async function getOptionalSessionUser(event: RequestEvent): Promise<Sessi
 		return null;
 	}
 }
+
+/**
+ * Standardized API route authentication helper
+ * Provides consistent session handling with proper error responses
+ * 
+ * @param event - SvelteKit request event
+ * @returns Promise<{ user: SessionUser; session: Session }> - Authenticated user and session
+ * @throws Response - 401 JSON response if not authenticated
+ */
+export async function authenticateApiRequest(event: RequestEvent): Promise<{ user: SessionUser; session: Session }> {
+	try {
+		// First check if session exists
+		const session = await event.locals.getSession();
+		if (!session) {
+			throw json({ error: 'Not authenticated' }, { status: 401 });
+		}
+
+		// Get user from session
+		const user = await getSessionUserOrThrow(event);
+		
+		return { user, session };
+	} catch (error) {
+		// Re-throw JSON responses from getSessionUserOrThrow
+		if (error instanceof Response) {
+			throw error;
+		}
+		throw json({ error: 'Authentication failed' }, { status: 500 });
+	}
+}
+
+/**
+ * Standardized API route authentication helper with admin check
+ * Provides consistent session handling with admin privilege validation
+ * 
+ * @param event - SvelteKit request event
+ * @returns Promise<{ user: SessionUser; session: Session }> - Authenticated admin user and session
+ * @throws Response - 401 JSON response if not authenticated, 403 if not admin
+ */
+export async function authenticateAdminApiRequest(event: RequestEvent): Promise<{ user: SessionUser; session: Session }> {
+	const { user, session } = await authenticateApiRequest(event);
+	
+	// Check admin privileges
+	if (!user.app_metadata?.role || user.app_metadata.role !== 'admin') {
+		throw json({ error: 'Insufficient permissions' }, { status: 403 });
+	}
+	
+	return { user, session };
+}

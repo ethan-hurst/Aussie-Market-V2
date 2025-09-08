@@ -52,37 +52,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       amount: refundAmount
     });
 
-    // Record refund payment row (best-effort)
-    await supabase
-      .from('payments')
-      .insert({
-        order_id: orderId,
-        amount_cents: refundAmount,
-        currency: 'aud',
-        payment_method: 'stripe_refund',
-        stripe_payment_intent_id: order.stripe_payment_intent_id,
-        stripe_refund_id: refund.id,
-        status: 'completed',
-        processed_at: new Date().toISOString()
-      });
+    // Use database transaction for atomic refund processing
+    const { data: transactionResult, error: transactionError } = await supabase.rpc('process_refund_transaction', {
+      order_id: orderId,
+      refund_amount_cents: refundAmount,
+      refund_reason: 'Manual refund via API',
+      user_id: session.user.id
+    });
 
-    // Update order state
-    await supabase
-      .from('orders')
-      .update({ state: 'refunded', refunded_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq('id', orderId);
+    if (transactionError) {
+      console.error('Error in refund transaction:', transactionError);
+      return json({ error: 'Failed to process refund' }, { status: 500 });
+    }
 
-    // Ledger entry for refund
-    await supabase
-      .from('ledger_entries')
-      .insert({
-        order_id: orderId,
-        user_id: session.user.id,
-        amount_cents: refundAmount,
-        entry_type: 'REFUND',
-        description: `Refund issued for order ${orderId}`,
-        created_at: new Date().toISOString()
-      });
+    // If transaction failed, return error
+    if (!transactionResult || !transactionResult.success) {
+      return json({ 
+        error: transactionResult?.error || 'Refund processing failed' 
+      }, { status: 400 });
+    }
 
     return json({ success: true, refund_id: refund.id });
   } catch (error) {

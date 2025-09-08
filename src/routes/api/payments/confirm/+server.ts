@@ -16,7 +16,7 @@ const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_k
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals } as any);
+		const user = await getSessionUserOrThrow({ request, locals });
 
 		// Rate limit payment confirmations per user
 		const rl = rateLimit(`pay-confirm:${user.id}`, 20, 10 * 60_000);
@@ -51,55 +51,24 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Payment not completed' }, { status: 400 });
 		}
 
-		// Update order state to paid (idempotent safe)
-		const { error: updateError } = await supabase
-			.from('orders')
-			.update({
-				state: 'paid',
-				stripe_payment_intent_id: paymentIntentId,
-				paid_at: new Date().toISOString(),
-				updated_at: new Date().toISOString()
-			})
-			.eq('id', orderId);
+		// Use database transaction for atomic payment confirmation
+		const { data: transactionResult, error: transactionError } = await supabase.rpc('confirm_payment_transaction', {
+			order_id: orderId,
+			payment_intent_id: paymentIntentId,
+			amount_cents: order.amount_cents,
+			user_id: user.id
+		});
 
-		if (updateError) {
-			console.error('Error updating order:', updateError);
-			return json({ error: 'Failed to update order' }, { status: 500 });
+		if (transactionError) {
+			console.error('Error in payment confirmation transaction:', transactionError);
+			return json({ error: 'Failed to confirm payment' }, { status: 500 });
 		}
 
-		// Create payment record
-		const { error: paymentError } = await supabase
-			.from('payments')
-			.insert({
-				order_id: orderId,
-				amount_cents: order.amount_cents,
-				currency: 'aud',
-				payment_method: 'stripe',
-				stripe_payment_intent_id: paymentIntentId,
-				status: 'completed',
-				processed_at: new Date().toISOString()
-			});
-
-		if (paymentError) {
-			console.error('Error creating payment record:', paymentError);
-			// Don't fail the whole request if payment record creation fails
-		}
-
-		// Create ledger entry for the payment
-		const { error: ledgerError } = await supabase
-			.from('ledger_entries')
-			.insert({
-				order_id: orderId,
-				user_id: user.id,
-				amount_cents: order.amount_cents,
-				entry_type: 'CAPTURE',
-				description: `Payment received for order ${orderId}`,
-				created_at: new Date().toISOString()
-			});
-
-		if (ledgerError) {
-			console.error('Error creating ledger entry:', ledgerError);
-			// Don't fail the whole request if ledger entry creation fails
+		// If transaction failed, return error
+		if (!transactionResult || !transactionResult.success) {
+			return json({ 
+				error: transactionResult?.error || 'Payment confirmation failed' 
+			}, { status: 400 });
 		}
 
 		// Send notifications

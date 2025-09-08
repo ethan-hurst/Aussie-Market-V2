@@ -20,7 +20,7 @@ function hash(text: string): string {
 export const POST: RequestHandler = async ({ params, request, locals }) => {
     try {
         // Get authenticated user with proper error handling
-        const user = await getSessionUserOrThrow({ request, locals } as any);
+        const user = await getSessionUserOrThrow({ request, locals });
 
         const { orderId } = params;
         if (!orderId) return json({ error: 'Order ID required' }, { status: 400 });

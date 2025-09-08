@@ -3,11 +3,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { withEnhancedLogging, withDatabaseLogging } from '../_shared/logger.ts';
 import { Metrics, setupMetricsCleanup } from '../_shared/metrics.ts';
 import { initSentry, captureException, captureMessage } from '../_shared/sentry.ts';
+import { Webhook } from 'https://esm.sh/stripe@14.21.0';
 
 // Use function-scoped env names (avoid SUPABASE_ prefix per platform rules)
 const supabaseUrl = Deno.env.get('PUBLIC_SUPABASE_URL') || Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const stripeWebhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Initialize Stripe webhook for signature validation
+const webhook = new Webhook(stripeWebhookSecret);
 
 // Setup metrics cleanup
 const cleanup = setupMetricsCleanup();
@@ -52,35 +57,10 @@ serve(async (req) => {
       const body = await req.text();
       logger.debug('Webhook request body received', { bodyLength: body.length });
 
-      // Parse webhook event
-      let event: StripeWebhookEvent;
-      try {
-        event = JSON.parse(body);
-        logger.info('Webhook event parsed successfully', {
-          eventId: event.id,
-          eventType: event.type,
-          livemode: event.livemode
-        });
-      } catch (error) {
-        logger.logError('Failed to parse webhook event', error as Error);
-        Metrics.errorTracked('webhook_parse_error', 'parsing', { bodyLength: body.length });
-        captureException(error as Error, {
-          tags: {
-            operation: 'webhook_parse',
-            function: 'stripe_webhook'
-          },
-          extra: {
-            bodyLength: body.length,
-            contentType: req.headers.get('content-type')
-          }
-        });
-        return {
-          error: 'Invalid JSON payload',
-          requestId: logger.getRequestId()
-        };
-      }
+      // Note: Event parsing is now handled by Stripe's signature validation
+      // which ensures both authenticity and proper JSON structure
 
-      // Validate webhook signature (in production)
+      // Validate webhook signature (CRITICAL SECURITY FIX)
       const signature = req.headers.get('stripe-signature');
       if (!signature) {
         logger.warn('Missing Stripe signature header');
@@ -90,6 +70,106 @@ serve(async (req) => {
           requestId: logger.getRequestId()
         };
       }
+
+      // Validate webhook signature using Stripe's official method
+      let validatedEvent: StripeWebhookEvent;
+      try {
+        validatedEvent = webhook.constructEvent(body, signature, stripeWebhookSecret);
+        logger.info('Webhook signature validated successfully', {
+          eventId: validatedEvent.id,
+          eventType: validatedEvent.type
+        });
+      } catch (error) {
+        logger.logError('Webhook signature validation failed', error as Error, {
+          signature: signature.substring(0, 20) + '...', // Log partial signature for debugging
+          bodyLength: body.length
+        });
+        Metrics.errorTracked('webhook_signature_invalid', 'authentication', {
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        captureException(error as Error, {
+          tags: {
+            operation: 'webhook_signature_validation',
+            function: 'stripe_webhook',
+            severity: 'critical'
+          },
+          extra: {
+            signature: signature.substring(0, 20) + '...',
+            bodyLength: body.length
+          }
+        });
+        return {
+          error: 'Invalid signature',
+          requestId: logger.getRequestId()
+        };
+      }
+
+      // Use the validated event instead of the parsed one
+      event = validatedEvent;
+
+      // Additional security: Check event age (prevent replay attacks)
+      const eventAge = Date.now() - (event.created * 1000);
+      const maxEventAge = 5 * 60 * 1000; // 5 minutes
+      
+      if (eventAge > maxEventAge) {
+        logger.warn('Webhook event too old, potential replay attack', {
+          eventId: event.id,
+          eventAge: eventAge,
+          maxAge: maxEventAge,
+          created: new Date(event.created * 1000).toISOString()
+        });
+        Metrics.errorTracked('webhook_event_too_old', 'security', {
+          eventId: event.id,
+          eventAge: eventAge
+        });
+        return {
+          error: 'Event too old',
+          requestId: logger.getRequestId()
+        };
+      }
+
+      // Additional security: Rate limiting by event type
+      const rateLimitKey = `webhook_rate_limit:${event.type}`;
+      const rateLimitWindow = 60 * 1000; // 1 minute
+      const rateLimitMax = 100; // Max 100 events per type per minute
+      
+      // Simple in-memory rate limiting (in production, use Redis or similar)
+      const now = Date.now();
+      const rateLimitData = (globalThis as any).webhookRateLimit || {};
+      
+      if (!rateLimitData[rateLimitKey]) {
+        rateLimitData[rateLimitKey] = { count: 0, windowStart: now };
+      }
+      
+      const rateLimit = rateLimitData[rateLimitKey];
+      
+      // Reset window if expired
+      if (now - rateLimit.windowStart > rateLimitWindow) {
+        rateLimit.count = 0;
+        rateLimit.windowStart = now;
+      }
+      
+      // Check rate limit
+      if (rateLimit.count >= rateLimitMax) {
+        logger.warn('Webhook rate limit exceeded', {
+          eventType: event.type,
+          count: rateLimit.count,
+          limit: rateLimitMax,
+          windowStart: new Date(rateLimit.windowStart).toISOString()
+        });
+        Metrics.errorTracked('webhook_rate_limit_exceeded', 'security', {
+          eventType: event.type,
+          count: rateLimit.count
+        });
+        return {
+          error: 'Rate limit exceeded',
+          requestId: logger.getRequestId()
+        };
+      }
+      
+      // Increment rate limit counter
+      rateLimit.count++;
+      (globalThis as any).webhookRateLimit = rateLimitData;
 
       // Process the webhook event
       const result = await processWebhookEvent(event, logger);
@@ -157,35 +237,59 @@ async function processWebhookEvent(event: StripeWebhookEvent, logger: any): Prom
       created: new Date(event.created * 1000).toISOString()
     });
 
-    // Check for duplicate processing
+    // Enhanced idempotency check with race condition protection
     const isDuplicate = await withDatabaseLogging(
       logger,
       'check_duplicate_webhook',
       async () => {
+        // Use a more robust check that includes event type and processing status
         const { data, error } = await supabase
           .from('webhook_events')
-          .select('id')
+          .select('id, processed_at, processing_status')
           .eq('event_id', event.id)
           .maybeSingle();
         
         if (error) throw error;
-        return !!data;
+        
+        // If event exists and was successfully processed, it's a duplicate
+        if (data && data.processing_status === 'completed') {
+          return { isDuplicate: true, status: 'completed' };
+        }
+        
+        // If event exists but is still processing, it might be a race condition
+        if (data && data.processing_status === 'processing') {
+          return { isDuplicate: true, status: 'processing' };
+        }
+        
+        return { isDuplicate: false, status: 'new' };
       },
       { eventId: event.id }
     );
 
-    if (isDuplicate) {
-      logger.warn('Duplicate webhook event detected', { eventId: event.id });
-      Metrics.errorTracked('webhook_duplicate', 'idempotency', { eventId: event.id });
-      return {
-        success: true,
-        eventId: event.id,
-        eventType: event.type,
-        processedAt: new Date().toISOString()
-      };
+    if (isDuplicate.isDuplicate) {
+      if (isDuplicate.status === 'completed') {
+        logger.warn('Duplicate webhook event detected (already completed)', { eventId: event.id });
+        Metrics.errorTracked('webhook_duplicate_completed', 'idempotency', { eventId: event.id });
+        return {
+          success: true,
+          eventId: event.id,
+          eventType: event.type,
+          processedAt: new Date().toISOString()
+        };
+      } else if (isDuplicate.status === 'processing') {
+        logger.warn('Webhook event already being processed (race condition)', { eventId: event.id });
+        Metrics.errorTracked('webhook_race_condition', 'idempotency', { eventId: event.id });
+        return {
+          success: false,
+          eventId: event.id,
+          eventType: event.type,
+          processedAt: new Date().toISOString(),
+          error: 'Event already being processed'
+        };
+      }
     }
 
-    // Record webhook event for idempotency
+    // Record webhook event for idempotency with processing status
     await withDatabaseLogging(
       logger,
       'record_webhook_event',
@@ -196,6 +300,7 @@ async function processWebhookEvent(event: StripeWebhookEvent, logger: any): Prom
             event_id: event.id,
             event_type: event.type,
             processed_at: new Date().toISOString(),
+            processing_status: 'processing',
             livemode: event.livemode,
             created_at: new Date(event.created * 1000).toISOString()
           });
@@ -232,6 +337,25 @@ async function processWebhookEvent(event: StripeWebhookEvent, logger: any): Prom
           processedAt: new Date().toISOString()
         };
     }
+
+    // Update processing status based on result
+    await withDatabaseLogging(
+      logger,
+      'update_webhook_processing_status',
+      async () => {
+        const { error } = await supabase
+          .from('webhook_events')
+          .update({ 
+            processing_status: result.success ? 'completed' : 'failed',
+            completed_at: new Date().toISOString(),
+            error_message: result.error || null
+          })
+          .eq('event_id', event.id);
+        
+        if (error) throw error;
+      },
+      { eventId: event.id, success: result.success }
+    );
 
     const duration = Date.now() - startTime;
     logger.logPerformance(`webhook_${event.type}`, duration, {
@@ -280,21 +404,57 @@ async function handlePaymentIntentSucceeded(event: StripeWebhookEvent, logger: a
   });
 
   try {
-    // Update order status to paid
+    // Validate order state transition before processing
+    const { data: stateValidation, error: stateError } = await supabase.rpc('validate_order_state_transition', {
+      order_id: orderId,
+      new_state: 'paid',
+      user_id: paymentIntent.metadata?.buyer_id
+    });
+
+    if (stateError) {
+      logger.logError('State validation failed', stateError, { orderId });
+      throw new Error('State validation failed');
+    }
+
+    if (!stateValidation?.valid) {
+      logger.warn('Invalid state transition for payment', {
+        orderId,
+        currentState: stateValidation?.current_state,
+        newState: stateValidation?.new_state,
+        error: stateValidation?.error
+      });
+      return {
+        success: false,
+        eventId: event.id,
+        eventType: event.type,
+        processedAt: new Date().toISOString(),
+        error: `Invalid state transition: ${stateValidation?.error}`
+      };
+    }
+
+    // Update order status to paid with enhanced error handling
     await withDatabaseLogging(
       logger,
       'update_order_paid',
       async () => {
-        const { error } = await supabase
+        const { data: updateResult, error } = await supabase
           .from('orders')
           .update({ 
             state: 'paid',
             paid_at: new Date().toISOString(),
-            payment_intent_id: paymentIntent.id
+            payment_intent_id: paymentIntent.id,
+            updated_at: new Date().toISOString()
           })
-          .eq('id', orderId);
+          .eq('id', orderId)
+          .eq('state', stateValidation.current_state) // Ensure state hasn't changed
+          .select('id');
         
         if (error) throw error;
+        
+        // Check if any rows were updated (prevents race conditions)
+        if (!updateResult || updateResult.length === 0) {
+          throw new Error('Order state changed during processing - possible race condition');
+        }
       },
       { orderId, paymentIntentId: paymentIntent.id }
     );
