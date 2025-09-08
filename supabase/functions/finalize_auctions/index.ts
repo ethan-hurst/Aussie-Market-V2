@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { createLogger, measureTime } from '../../src/lib/edge-logger.ts';
 import { Metrics, setupMetricsCleanup } from '../../src/lib/edge-metrics.ts';
 import { RetryOperations } from '../../src/lib/retry-strategies.ts';
+import { initSentry, captureException, captureMessage } from '../_shared/sentry.ts';
 
 // Use function-scoped env names (avoid SUPABASE_ prefix per platform rules)
 const supabaseUrl = Deno.env.get('PUBLIC_SUPABASE_URL') || Deno.env.get('SUPABASE_URL')!;
@@ -11,6 +12,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Setup metrics cleanup
 const cleanup = setupMetricsCleanup();
+
+// Initialize Sentry
+initSentry();
 
 interface AuctionToFinalize {
 	id: string;
@@ -71,6 +75,16 @@ serve(async (req) => {
 		if (auctionError) {
 			logger.error('Failed to fetch ended auctions', auctionError);
 			Metrics.errorOccurred('fetch_ended_auctions', auctionError);
+			captureException(auctionError, {
+				tags: {
+					operation: 'fetch_ended_auctions',
+					function: 'finalize_auctions'
+				},
+				extra: {
+					requestId: logger.getRequestId(),
+					timestamp: now
+				}
+			});
 			return new Response(
 				JSON.stringify({ 
 					error: 'Failed to fetch ended auctions',
@@ -171,6 +185,18 @@ serve(async (req) => {
 				auctionLogger.error('Failed to process auction', error as Error);
 				errors.push(errorMsg);
 				Metrics.errorOccurred('process_auction', error as Error, { auctionId: auction.id });
+				captureException(error as Error, {
+					tags: {
+						operation: 'process_auction',
+						function: 'finalize_auctions',
+						auctionId: auction.id
+					},
+					extra: {
+						auctionId: auction.id,
+						listingId: auction.listing_id,
+						requestId: logger.getRequestId()
+					}
+				});
 			}
 		}
 
@@ -224,6 +250,19 @@ serve(async (req) => {
 		logger.error('Auction finalization failed', error as Error);
 		Metrics.errorOccurred('finalize_auctions', error as Error);
 		Metrics.functionExecuted('finalize_auctions', Date.now() - logger['startTime'], false);
+		
+		// Capture critical error in Sentry
+		captureException(error as Error, {
+			tags: {
+				operation: 'finalize_auctions',
+				function: 'finalize_auctions',
+				severity: 'critical'
+			},
+			extra: {
+				requestId: logger.getRequestId(),
+				timestamp: new Date().toISOString()
+			}
+		});
 		
 		return new Response(
 			JSON.stringify({

@@ -1,6 +1,6 @@
 /**
  * Enhanced structured logging and metrics system for Supabase Edge Functions
- * Includes correlation ID tracking, request/response logging, and performance monitoring
+ * Includes correlation ID tracking, request/response logging, performance monitoring, and Sentry integration
  */
 
 export interface LogContext {
@@ -255,7 +255,7 @@ export class StructuredLogger {
     console.log(JSON.stringify(entry));
   }
 
-  // Enhanced error logging with categorization
+  // Enhanced error logging with categorization and Sentry integration
   logError(message: string, error: Error, additionalContext: Record<string, any> = {}) {
     // Categorize error types
     let errorCategory = 'unknown';
@@ -275,6 +275,42 @@ export class StructuredLogger {
     }, error);
     
     console.error(JSON.stringify(entry));
+
+    // Send to Sentry if available (async, don't await)
+    this.sendToSentry(error, {
+      message,
+      errorCategory,
+      additionalContext
+    }).catch(sentryError => {
+      console.warn('Failed to send error to Sentry:', sentryError);
+    });
+  }
+
+  // Private method to send error to Sentry
+  private async sendToSentry(error: Error, context: {
+    message: string;
+    errorCategory: string;
+    additionalContext: Record<string, any>;
+  }) {
+    try {
+      const { captureException } = await import('./sentry.ts');
+      captureException(error, {
+        tags: {
+          function_name: this.context.functionName,
+          error_category: context.errorCategory,
+          error_type: error.name,
+          ...context.additionalContext
+        },
+        extra: {
+          message: context.message,
+          context: this.context,
+          ...context.additionalContext
+        }
+      });
+    } catch (sentryError) {
+      // Sentry not available or failed to import
+      throw sentryError;
+    }
   }
 
   // Performance monitoring

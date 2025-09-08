@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { withEnhancedLogging, withDatabaseLogging } from '../_shared/logger.ts';
 import { Metrics, setupMetricsCleanup } from '../_shared/metrics.ts';
+import { initSentry, captureException, captureMessage } from '../_shared/sentry.ts';
 
 // Use function-scoped env names (avoid SUPABASE_ prefix per platform rules)
 const supabaseUrl = Deno.env.get('PUBLIC_SUPABASE_URL') || Deno.env.get('SUPABASE_URL')!;
@@ -10,6 +11,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Setup metrics cleanup
 const cleanup = setupMetricsCleanup();
+
+// Initialize Sentry
+initSentry();
 
 interface StripeWebhookEvent {
   id: string;
@@ -60,6 +64,16 @@ serve(async (req) => {
       } catch (error) {
         logger.logError('Failed to parse webhook event', error as Error);
         Metrics.errorTracked('webhook_parse_error', 'parsing', { bodyLength: body.length });
+        captureException(error as Error, {
+          tags: {
+            operation: 'webhook_parse',
+            function: 'stripe_webhook'
+          },
+          extra: {
+            bodyLength: body.length,
+            contentType: req.headers.get('content-type')
+          }
+        });
         return {
           error: 'Invalid JSON payload',
           requestId: logger.getRequestId()
@@ -106,6 +120,17 @@ serve(async (req) => {
       logger.logError('Webhook processing failed', error as Error);
       Metrics.errorTracked('webhook_processing_error', 'processing', {
         error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      captureException(error as Error, {
+        tags: {
+          operation: 'webhook_processing',
+          function: 'stripe_webhook',
+          severity: 'critical'
+        },
+        extra: {
+          requestId: logger.getRequestId(),
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
       });
       
       return {

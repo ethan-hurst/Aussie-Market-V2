@@ -16,6 +16,13 @@ interface EnvironmentConfig {
 	STRIPE_PUBLISHABLE_KEY?: string;
 	STRIPE_WEBHOOK_SECRET?: string;
 	
+	// Sentry Configuration
+	PUBLIC_SENTRY_DSN?: string;
+	SENTRY_DSN?: string;
+	SENTRY_ORG?: string;
+	SENTRY_PROJECT?: string;
+	SENTRY_AUTH_TOKEN?: string;
+	
 	// Application Configuration
 	PUBLIC_SITE_URL?: string;
 	
@@ -36,7 +43,8 @@ const REQUIRED_VARS = {
 		'STRIPE_SECRET_KEY',
 		'STRIPE_PUBLISHABLE_KEY',
 		'STRIPE_WEBHOOK_SECRET',
-		'PUBLIC_SITE_URL'
+		'PUBLIC_SITE_URL',
+		'PUBLIC_SENTRY_DSN'
 	]
 } as const;
 
@@ -45,10 +53,15 @@ const RECOMMENDED_VARS = {
 	development: [
 		'STRIPE_SECRET_KEY',
 		'STRIPE_PUBLISHABLE_KEY',
-		'PUBLIC_SITE_URL'
+		'PUBLIC_SITE_URL',
+		'PUBLIC_SENTRY_DSN'
 	],
 	production: [
-		'SUPABASE_DB_PASSWORD'
+		'SUPABASE_DB_PASSWORD',
+		'SENTRY_DSN',
+		'SENTRY_ORG',
+		'SENTRY_PROJECT',
+		'SENTRY_AUTH_TOKEN'
 	]
 } as const;
 
@@ -57,7 +70,8 @@ const DEV_DEFAULTS = {
 	STRIPE_SECRET_KEY: 'sk_test_your_stripe_secret_key_here',
 	STRIPE_PUBLISHABLE_KEY: 'pk_test_your_stripe_publishable_key_here',
 	STRIPE_WEBHOOK_SECRET: 'whsec_your_webhook_secret_here',
-	PUBLIC_SITE_URL: 'http://localhost:5173'
+	PUBLIC_SITE_URL: 'http://localhost:5173',
+	PUBLIC_SENTRY_DSN: 'https://your-sentry-dsn@sentry.io/project-id'
 } as const;
 
 export interface ValidationResult {
@@ -192,6 +206,42 @@ export function validateEnvironment(): ValidationResult {
 		} else if (dbPassword) {
 			config.SUPABASE_DB_PASSWORD = dbPassword;
 		}
+		
+		// Sentry Configuration
+		const sentryDsn = process.env.SENTRY_DSN;
+		if (sentryDsn && !sentryDsn.startsWith('https://')) {
+			errors.push('SENTRY_DSN appears to be invalid (should be a valid Sentry DSN URL)');
+		} else if (sentryDsn) {
+			config.SENTRY_DSN = sentryDsn;
+		}
+		
+		const sentryOrg = process.env.SENTRY_ORG;
+		if (sentryOrg) {
+			config.SENTRY_ORG = sentryOrg;
+		}
+		
+		const sentryProject = process.env.SENTRY_PROJECT;
+		if (sentryProject) {
+			config.SENTRY_PROJECT = sentryProject;
+		}
+		
+		const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
+		if (sentryAuthToken) {
+			config.SENTRY_AUTH_TOKEN = sentryAuthToken;
+		}
+	}
+	
+	// Validate public Sentry DSN
+	const publicSentryDsn = getEnvVar('PUBLIC_SENTRY_DSN');
+	if (!publicSentryDsn && !dev) {
+		errors.push('PUBLIC_SENTRY_DSN is required in production');
+	} else if (publicSentryDsn && !publicSentryDsn.startsWith('https://')) {
+		errors.push('PUBLIC_SENTRY_DSN appears to be invalid (should be a valid Sentry DSN URL)');
+	} else if (publicSentryDsn) {
+		config.PUBLIC_SENTRY_DSN = publicSentryDsn;
+	} else if (dev) {
+		warnings.push('PUBLIC_SENTRY_DSN not set - using development default');
+		config.PUBLIC_SENTRY_DSN = DEV_DEFAULTS.PUBLIC_SENTRY_DSN;
 	}
 	
 	return {

@@ -4,6 +4,7 @@
 	"private": true,
 	"scripts": {
 		"build": "vite build",
+		"build:sentry": "vite build && sentry-cli sourcemaps upload --release $npm_package_version",
 		"dev": "vite dev",
 		"preview": "vite preview",
 		"test": "vitest run",
@@ -21,12 +22,17 @@
 		"db:reset": "supabase db reset",
 		"db:push": "supabase db push",
 		"db:diff": "supabase db diff",
-		"db:test": "psql $DATABASE_URL -v ON_ERROR_STOP=1 -f database/tests/001_schema_basics.sql"
+		"db:test": "psql $DATABASE_URL -v ON_ERROR_STOP=1 -f database/tests/001_schema_basics.sql",
+		"sentry:release": "sentry-cli releases new $npm_package_version",
+		"sentry:upload": "sentry-cli sourcemaps upload --release $npm_package_version",
+		"sentry:finalize": "sentry-cli releases finalize $npm_package_version",
+		"sentry:validate": "node scripts/validate-sentry.js"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "^4.9.0",
 		"@lhci/cli": "^0.13.0",
 		"@playwright/test": "^1.47.2",
+		"@sentry/cli": "^2.53.0",
 		"@sveltejs/adapter-auto": "^3.3.1",
 		"@sveltejs/kit": "^2.0.0",
 		"@sveltejs/vite-plugin-svelte": "^3.0.0",
@@ -54,6 +60,8 @@
 		"wait-on": "^7.2.0"
 	},
 	"dependencies": {
+		"@sentry/node": "^10.10.0",
+		"@sentry/sveltekit": "^10.10.0",
 		"@stripe/stripe-js": "^7.9.0",
 		"@supabase/ssr": "^0.7.0",
 		"@supabase/supabase-js": "^2.39.0",

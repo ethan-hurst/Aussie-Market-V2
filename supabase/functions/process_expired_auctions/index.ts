@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { createLogger, measureTime } from '../../src/lib/edge-logger.ts';
 import { Metrics, setupMetricsCleanup } from '../../src/lib/edge-metrics.ts';
 import { RetryOperations } from '../../src/lib/retry-strategies.ts';
+import { initSentry, captureException, captureMessage } from '../_shared/sentry.ts';
 
 // Use function-scoped env names (avoid SUPABASE_ prefix per platform rules)
 const supabaseUrl = Deno.env.get('PUBLIC_SUPABASE_URL') || Deno.env.get('SUPABASE_URL')!;
@@ -11,6 +12,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Setup metrics cleanup
 const cleanup = setupMetricsCleanup();
+
+// Initialize Sentry
+initSentry();
 
 interface AuctionToProcess {
 	id: string;
