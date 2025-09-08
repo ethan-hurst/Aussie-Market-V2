@@ -337,29 +337,34 @@ export class KPIReportingService {
           threshold: rule.threshold
         });
 
-        // Update last triggered time
-        rule.lastTriggered = new Date().toISOString();
-
         // Send alert via server-only alerting system
-        await sendAlert({
-          id: `kpi-${rule.id}-${Date.now()}`,
-          type: 'custom',
-          severity: rule.severity,
-          title: rule.name,
-          message: `${rule.metric} is ${currentValue} (threshold: ${rule.threshold})`,
-          source: {
-            functionName: 'kpi-reporting',
-            correlationId: `kpi-${rule.id}`
-          },
-          metadata: {
-            metric: rule.metric,
-            value: currentValue,
-            threshold: rule.threshold,
-            category: rule.category
-          },
-          triggeredAt: new Date().toISOString(),
-          status: 'active'
-        });
+        try {
+          await sendAlert({
+            id: `kpi-${rule.id}-${Date.now()}`,
+            type: 'custom',
+            severity: rule.severity,
+            title: rule.name,
+            message: `${rule.metric} is ${currentValue} (threshold: ${rule.threshold})`,
+            source: {
+              functionName: 'kpi-reporting',
+              correlationId: `kpi-${rule.id}`
+            },
+            metadata: {
+              metric: rule.metric,
+              value: currentValue,
+              threshold: rule.threshold,
+              category: rule.category
+            },
+            triggeredAt: new Date().toISOString(),
+            status: 'active'
+          });
+
+          // Only update last triggered time after successful alert
+          rule.lastTriggered = new Date().toISOString();
+        } catch (error) {
+          console.error(`Failed to send KPI alert for rule ${rule.id}:`, error);
+          // Do not update lastTriggered to allow retry on next check
+        }
       }
     }
 

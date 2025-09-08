@@ -43,6 +43,27 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: mapApiErrorToMessage(result.error) }, { status: 400 });
 		}
 
+		// Record KPI metrics for successful listing creation
+		try {
+			await recordListingCreated(
+				'listing_created',
+				'listings_created',
+				1,
+				'count',
+				{
+					userId: user.id,
+					listingId: result.listing?.id,
+					tags: {
+						category: parsed.value.category,
+						condition: parsed.value.condition
+					}
+				}
+			);
+		} catch (error) {
+			console.error('Failed to record listing creation KPI:', error);
+			// Don't fail the request if KPI recording fails
+		}
+
 		return json({
 			success: true,
 			listing: result.listing

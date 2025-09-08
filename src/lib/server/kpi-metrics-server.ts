@@ -4,7 +4,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { env } from '$lib/env';
+import { env } from '$env/dynamic/private';
 
 // Initialize Supabase client with service role key (SERVER-ONLY)
 const supabase = createClient(env.PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
@@ -77,6 +77,7 @@ export class KPIMetricsService {
 
   private constructor() {
     this.startPeriodicFlush();
+    this.setupShutdownHandlers();
   }
 
   public static getInstance(): KPIMetricsService {
@@ -279,6 +280,36 @@ export class KPIMetricsService {
       clearInterval(this.flushTimer);
       this.flushTimer = null;
     }
+  }
+
+  /**
+   * Setup shutdown handlers for graceful cleanup
+   */
+  private setupShutdownHandlers(): void {
+    const cleanup = () => {
+      console.log('Cleaning up KPI metrics service...');
+      this.stopPeriodicFlush();
+      // Flush any remaining events before shutdown
+      this.flushEvents().catch(error => {
+        console.error('Error flushing final KPI events during shutdown:', error);
+      });
+    };
+
+    // Handle various shutdown signals
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
+    process.on('beforeExit', cleanup);
+    
+    // Handle uncaught exceptions and unhandled rejections
+    process.on('uncaughtException', (error) => {
+      console.error('Uncaught exception in KPI metrics service:', error);
+      cleanup();
+    });
+    
+    process.on('unhandledRejection', (reason) => {
+      console.error('Unhandled rejection in KPI metrics service:', reason);
+      cleanup();
+    });
   }
 
   /**

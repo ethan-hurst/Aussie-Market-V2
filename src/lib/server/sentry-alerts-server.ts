@@ -192,17 +192,19 @@ export function getDefaultAlertRules(): AlertRule[] {
  * Get memory threshold from environment variable with fallback
  */
 function getMemoryThreshold(): number {
-  const thresholdEnv = env.MEMORY_THRESHOLD_BYTES || env.MEMORY_THRESHOLD_MB;
-  
-  if (thresholdEnv) {
-    const threshold = parseInt(thresholdEnv, 10);
+  // Check MEMORY_THRESHOLD_BYTES first (preferred)
+  if (env.MEMORY_THRESHOLD_BYTES) {
+    const threshold = parseInt(env.MEMORY_THRESHOLD_BYTES, 10);
     if (!isNaN(threshold)) {
-      // If MEMORY_THRESHOLD_MB is set, convert to bytes
-      if (env.MEMORY_THRESHOLD_MB) {
-        return threshold * 1024 * 1024;
-      }
-      // If MEMORY_THRESHOLD_BYTES is set, use as-is
       return threshold;
+    }
+  }
+  
+  // Check MEMORY_THRESHOLD_MB as fallback
+  if (env.MEMORY_THRESHOLD_MB) {
+    const threshold = parseInt(env.MEMORY_THRESHOLD_MB, 10);
+    if (!isNaN(threshold)) {
+      return threshold * 1024 * 1024; // Convert MB to bytes
     }
   }
   
@@ -231,8 +233,14 @@ export async function sendAlert(alert: Alert): Promise<void> {
  */
 async function sendToChannel(channel: AlertChannel, alert: Alert): Promise<void> {
   switch (channel.type) {
-    case 'console':
-      console.log(`🚨 ALERT [${alert.severity.toUpperCase()}] ${alert.title}: ${alert.message}`);
+    case 'webhook':
+      // Handle console webhook specially
+      if (channel.config.url && channel.config.url.toLowerCase().trim().startsWith('console://')) {
+        console.log(`🚨 ALERT [${alert.severity.toUpperCase()}] ${alert.title}: ${alert.message}`);
+      } else {
+        // Generic webhook handler
+        await sendWebhookAlert(channel.config, alert);
+      }
       break;
       
     case 'slack':
@@ -253,11 +261,82 @@ async function sendToChannel(channel: AlertChannel, alert: Alert): Promise<void>
 }
 
 /**
+ * Send generic webhook alert (server-only)
+ */
+async function sendWebhookAlert(config: any, alert: Alert): Promise<void> {
+  if (!config.url) {
+    console.warn('Webhook URL not configured');
+    return;
+  }
+
+  // Validate webhook URL
+  try {
+    const url = new URL(config.url);
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      console.warn(`Invalid webhook URL protocol: ${url.protocol}. Only http and https are allowed.`);
+      return;
+    }
+  } catch (error) {
+    console.warn(`Invalid webhook URL format: ${config.url}`, error);
+    return;
+  }
+
+  const payload = {
+    alert: {
+      id: alert.id,
+      type: alert.type,
+      severity: alert.severity,
+      title: alert.title,
+      message: alert.message,
+      source: alert.source,
+      metadata: alert.metadata,
+      triggeredAt: alert.triggeredAt,
+      status: alert.status
+    },
+    timestamp: new Date().toISOString()
+  };
+
+  try {
+    const response = await fetch(config.url, {
+      method: config.method || 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...config.headers
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text().catch(() => 'Unable to read response body');
+      throw new Error(`Webhook failed: ${response.status} ${response.statusText}. Response: ${responseText}`);
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Webhook network error: ${error.message}`);
+    } else {
+      throw new Error(`Webhook unknown error: ${String(error)}`);
+    }
+  }
+}
+
+/**
  * Send Slack alert (server-only)
  */
 async function sendSlackAlert(config: any, alert: Alert): Promise<void> {
   if (!config.webhook_url) {
     console.warn('Slack webhook URL not configured');
+    return;
+  }
+
+  // Validate webhook URL
+  try {
+    const url = new URL(config.webhook_url);
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      console.warn(`Invalid Slack webhook URL protocol: ${url.protocol}. Only http and https are allowed.`);
+      return;
+    }
+  } catch (error) {
+    console.warn(`Invalid Slack webhook URL format: ${config.webhook_url}`, error);
     return;
   }
 
@@ -293,16 +372,25 @@ async function sendSlackAlert(config: any, alert: Alert): Promise<void> {
     ]
   };
 
-  const response = await fetch(config.webhook_url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  });
+  try {
+    const response = await fetch(config.webhook_url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
 
-  if (!response.ok) {
-    throw new Error(`Slack webhook failed: ${response.status} ${response.statusText}`);
+    if (!response.ok) {
+      const responseText = await response.text().catch(() => 'Unable to read response body');
+      throw new Error(`Slack webhook failed: ${response.status} ${response.statusText}. Response: ${responseText}`);
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Slack webhook network error: ${error.message}`);
+    } else {
+      throw new Error(`Slack webhook unknown error: ${String(error)}`);
+    }
   }
 }
 
