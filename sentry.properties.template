@@ -1,11 +1,11 @@
 # Sentry configuration for source maps and releases
 defaults.url=https://sentry.io/
-defaults.org=your-org
-defaults.project=aussie-market-v2
+defaults.org=${SENTRY_ORG}
+defaults.project=${SENTRY_PROJECT}
 
 # Authentication token for Sentry CLI
 # Note: Use SENTRY_AUTH_TOKEN environment variable instead of hardcoding
-# auth.token=${SENTRY_AUTH_TOKEN}
+auth.token=${SENTRY_AUTH_TOKEN}
 
 # Release configuration (generated at build time)
 release.name=${VERSION}

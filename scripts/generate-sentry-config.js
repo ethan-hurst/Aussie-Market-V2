@@ -54,8 +54,13 @@ try {
     process.exit(1);
   }
 
-  // Replace ${VERSION} placeholder with actual version
-  const sentryPropertiesContent = sentryPropertiesTemplate.replace(/\$\{VERSION\}/g, version);
+  // Replace placeholders with actual values
+  let sentryPropertiesContent = sentryPropertiesTemplate.replace(/\$\{VERSION\}/g, version);
+  
+  // Replace environment variable placeholders
+  sentryPropertiesContent = sentryPropertiesContent.replace(/\$\{SENTRY_ORG\}/g, process.env.SENTRY_ORG || 'your-org');
+  sentryPropertiesContent = sentryPropertiesContent.replace(/\$\{SENTRY_PROJECT\}/g, process.env.SENTRY_PROJECT || 'aussie-market-v2');
+  sentryPropertiesContent = sentryPropertiesContent.replace(/\$\{SENTRY_AUTH_TOKEN\}/g, process.env.SENTRY_AUTH_TOKEN || '');
 
   // Write the generated sentry.properties file
   try {

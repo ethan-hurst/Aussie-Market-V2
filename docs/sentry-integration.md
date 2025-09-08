@@ -55,6 +55,30 @@ ALERT_EMAIL_RECIPIENTS=admin@example.com,dev@example.com
 ALERT_EMAIL_FROM=alerts@aussie-market.com
 ```
 
+> **🚨 CRITICAL SECURITY WARNING** 🚨
+> 
+> **NEVER commit real tokens or secrets to source control!** The above values are examples only.
+> 
+> **Secure Token Management:**
+> - Store `SENTRY_AUTH_TOKEN` in CI/CD secret stores (GitHub Secrets, GitLab CI Variables, etc.)
+> - Use local `.env` files for development (already gitignored)
+> - Reference tokens via environment variables: `$SENTRY_AUTH_TOKEN`
+> 
+> **If you accidentally commit a real token:**
+> 1. **Immediately rotate/revoke the token** in Sentry dashboard
+> 2. Remove the token from git history using `git filter-branch` or BFG Repo-Cleaner
+> 3. Force push to remove from remote repository
+> 4. Notify your team to update their local copies
+> 
+> **CI/CD Integration:**
+> ```yaml
+> # GitHub Actions example
+> - name: Upload source maps
+>   run: npm run sentry:upload
+>   env:
+>     SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+> ```
+
 ### Sentry Project Setup
 
 1. Create a new Sentry project for your application

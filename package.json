@@ -23,7 +23,7 @@
 		"db:reset": "supabase db reset",
 		"db:push": "supabase db push",
 		"db:diff": "supabase db diff",
-		"db:test": "psql $DATABASE_URL -v ON_ERROR_STOP=1 -f database/tests/001_schema_basics.sql",
+		"db:test": "node scripts/run-db-tests.js",
 		"sentry:release": "sentry-cli releases new $npm_package_version",
 		"sentry:upload": "sentry-cli sourcemaps upload --release $npm_package_version --auth-token $SENTRY_AUTH_TOKEN",
 		"sentry:finalize": "sentry-cli releases finalize $npm_package_version",
