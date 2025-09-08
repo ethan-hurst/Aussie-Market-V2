@@ -6,7 +6,7 @@ import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
 import { validate, OrderActionSchema } from '$lib/validation';
 import { getSessionUserOrThrow } from '$lib/session';
-import { recordOrderCreated, recordPaymentSuccess } from '$lib/kpi-metrics';
+import { recordOrderCreated, recordPaymentSuccess } from '$lib/server/kpi-metrics-server';
 
 export const GET: RequestHandler = async ({ params, locals, request }) => {
 	try {

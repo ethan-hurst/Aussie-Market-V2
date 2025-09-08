@@ -5,7 +5,7 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import { KPIMetricsService } from '$lib/kpi-metrics';
+import { KPIMetricsService } from '$lib/server/kpi-metrics-server';
 import { getSessionUserOrThrow } from '$lib/session';
 import { ApiErrorHandler } from '$lib/api-error-handler';
 import { PerformanceMonitor } from '$lib/performance-monitor';

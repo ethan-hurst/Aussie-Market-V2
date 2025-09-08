@@ -14,7 +14,7 @@ import { rateLimit } from '$lib/security';
 import { mapApiErrorToMessage } from '$lib/errors';
 import { validate, ListingCreateSchema, SearchSchema } from '$lib/validation';
 import { getSessionUserOrThrow, validateUserAccess } from '$lib/session';
-import { recordListingCreated } from '$lib/kpi-metrics';
+import { recordListingCreated } from '$lib/server/kpi-metrics-server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {

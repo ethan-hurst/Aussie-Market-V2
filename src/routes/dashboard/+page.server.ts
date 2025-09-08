@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { KPIMetricsService } from '$lib/kpi-metrics';
+import { KPIMetricsService } from '$lib/server/kpi-metrics-server';
 
 export const load: PageServerLoad = async ({ fetch, url }) => {
   try {

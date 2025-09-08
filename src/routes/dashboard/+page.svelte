@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import type { KPIDashboardData } from '$lib/kpi-metrics';
+  import type { KPIDashboardData } from '$lib/kpi-metrics-types';
   import MetricCard from '$lib/components/MetricCard.svelte';
   import Chart from '$lib/components/Chart.svelte';
   

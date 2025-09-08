@@ -13,7 +13,7 @@ import {
 import { rateLimit } from '$lib/security';
 import { validate, BidSchema } from '$lib/validation';
 import { getSessionUserOrThrow, validateUserAccess } from '$lib/session';
-import { recordBidPlaced } from '$lib/kpi-metrics';
+import { recordBidPlaced } from '$lib/server/kpi-metrics-server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {

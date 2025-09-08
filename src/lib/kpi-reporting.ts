@@ -3,8 +3,8 @@
  * Generates automated reports and alerts based on KPI metrics
  */
 
-import { KPIMetricsService } from '$lib/kpi-metrics';
-import { SentryAlerts } from '$lib/sentry-alerts';
+import { KPIMetricsService } from '$lib/server/kpi-metrics-server';
+import { sendAlert } from '$lib/server/sentry-alerts-server';
 
 export interface KPIMetricsData {
   financial: Record<string, number>;
@@ -340,18 +340,26 @@ export class KPIReportingService {
         // Update last triggered time
         rule.lastTriggered = new Date().toISOString();
 
-        // Send alert via Sentry
-        await SentryAlerts.sendAlert(
-          rule.severity,
-          rule.severity,
-          `${rule.name}: ${rule.metric} is ${currentValue}`,
-          {
+        // Send alert via server-only alerting system
+        await sendAlert({
+          id: `kpi-${rule.id}-${Date.now()}`,
+          type: 'custom',
+          severity: rule.severity,
+          title: rule.name,
+          message: `${rule.metric} is ${currentValue} (threshold: ${rule.threshold})`,
+          source: {
+            functionName: 'kpi-reporting',
+            correlationId: `kpi-${rule.id}`
+          },
+          metadata: {
             metric: rule.metric,
             value: currentValue,
             threshold: rule.threshold,
             category: rule.category
-          }
-        );
+          },
+          triggeredAt: new Date().toISOString(),
+          status: 'active'
+        });
       }
     }
 

@@ -3,7 +3,7 @@
  * Automatically tracks API performance metrics and integrates with KPI system
  */
 
-import { recordAPIPerformance, recordSystemError, kpiMetricsCollector } from '$lib/kpi-metrics';
+import { recordAPIPerformance, recordSystemError, kpiMetricsCollector } from '$lib/server/kpi-metrics-server';
 import { PerformanceMonitor } from '$lib/performance-monitor';
 
 export interface APIPerformanceContext {
