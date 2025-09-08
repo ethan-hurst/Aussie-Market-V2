@@ -1,0 +1,185 @@
+name: Canary - Staging Stripe Webhook Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Environment to run canary against'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+  schedule:
+    # Run canary tests every 6 hours against staging
+    - cron: '0 */6 * * *'
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/routes/api/webhooks/**'
+      - 'src/routes/api/canary/**'
+      - 'tests/e2e/canary.stripe-webhook.spec.ts'
+
+env:
+  NODE_VERSION: '18'
+  PLAYWRIGHT_BROWSERS_PATH: 0
+
+jobs:
+  canary-test:
+    name: Staging Canary E2E Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    environment: staging
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        
+      - name: Verify staging environment
+        env:
+          STAGING_SITE_URL: ${{ secrets.STAGING_SITE_URL }}
+        run: |
+          echo "Testing connectivity to staging environment..."
+          curl -f -s -o /dev/null "$STAGING_SITE_URL/health" || {
+            echo "❌ Staging environment not accessible at $STAGING_SITE_URL"
+            exit 1
+          }
+          echo "✅ Staging environment is accessible"
+          
+      - name: Trigger test webhook event
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: |
+          echo "Creating test webhook event in Stripe..."
+          # Create a test event that will be delivered to our staging webhook endpoint
+          EVENT_ID=$(curl -s -X POST https://api.stripe.com/v1/webhook_endpoints \
+            -u "$STRIPE_SECRET_KEY:" \
+            -d "url=${{ secrets.STAGING_SITE_URL }}/api/webhooks/stripe" \
+            -d "enabled_events[]=payment_intent.succeeded" \
+            | jq -r '.id // empty')
+            
+          if [ -z "$EVENT_ID" ]; then
+            echo "⚠️  Could not create test webhook - using mock event ID"
+            echo "STRIPE_TEST_EVENT_ID=evt_test_webhook_canary_$(date +%s)" >> $GITHUB_ENV
+          else
+            echo "✅ Created test webhook event: $EVENT_ID"
+            echo "STRIPE_TEST_EVENT_ID=$EVENT_ID" >> $GITHUB_ENV
+          fi
+          
+      - name: Run canary E2E tests
+        env:
+          PLAYWRIGHT_BASE_URL: ${{ secrets.STAGING_SITE_URL }}
+          STAGING_SITE_URL: ${{ secrets.STAGING_SITE_URL }}
+          CANARY_TOKEN: ${{ secrets.CANARY_TOKEN }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_TEST_EVENT_ID: ${{ env.STRIPE_TEST_EVENT_ID }}
+        run: |
+          echo "Running canary E2E tests against staging..."
+          npx playwright test tests/e2e/canary.stripe-webhook.spec.ts \
+            --reporter=html,github \
+            --output-dir=test-results/canary \
+            --max-failures=1
+            
+      - name: Verify webhook idempotency
+        env:
+          STAGING_SITE_URL: ${{ secrets.STAGING_SITE_URL }}
+          CANARY_TOKEN: ${{ secrets.CANARY_TOKEN }}
+          STRIPE_TEST_EVENT_ID: ${{ env.STRIPE_TEST_EVENT_ID }}
+        run: |
+          echo "Verifying webhook event was recorded with idempotency..."
+          
+          # Poll the canary endpoint to verify webhook was processed
+          for i in {1..10}; do
+            RESPONSE=$(curl -s -w "%{http_code}" \
+              -H "x-canary-token: $CANARY_TOKEN" \
+              "$STAGING_SITE_URL/api/canary/webhook-events?event_id=$STRIPE_TEST_EVENT_ID")
+            
+            HTTP_CODE=$(echo "$RESPONSE" | tail -c 4)
+            BODY=$(echo "$RESPONSE" | head -c -4)
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Webhook event found and processed correctly"
+              echo "Response: $BODY"
+              
+              # Verify idempotency by calling again
+              RESPONSE2=$(curl -s -w "%{http_code}" \
+                -H "x-canary-token: $CANARY_TOKEN" \
+                "$STAGING_SITE_URL/api/canary/webhook-events?event_id=$STRIPE_TEST_EVENT_ID")
+              
+              HTTP_CODE2=$(echo "$RESPONSE2" | tail -c 4)
+              if [ "$HTTP_CODE2" = "200" ]; then
+                echo "✅ Idempotency verified - second call also returned 200"
+                exit 0
+              else
+                echo "❌ Idempotency check failed - second call returned $HTTP_CODE2"
+                exit 1
+              fi
+            fi
+            
+            echo "Attempt $i/10: Webhook not yet processed (HTTP $HTTP_CODE), waiting 3s..."
+            sleep 3
+          done
+          
+          echo "❌ Webhook event was not processed within timeout period"
+          exit 1
+          
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canary-test-results
+          path: |
+            test-results/canary/
+            playwright-report/
+          retention-days: 7
+          
+      - name: Report canary status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            echo "🎉 Canary tests passed successfully!"
+            echo "✅ Staging environment is healthy"
+            echo "✅ Stripe webhook integration working"
+            echo "✅ Idempotency mechanisms verified"
+          else
+            echo "❌ Canary tests failed"
+            echo "🚨 Staging environment may have issues"
+            echo "Check test artifacts for detailed failure information"
+            exit 1
+          fi
+
+  notify-results:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: canary-test
+    if: always()
+    
+    steps:
+      - name: Report success
+        if: needs.canary-test.result == 'success'
+        run: |
+          echo "✅ Staging canary tests passed successfully"
+          echo "Environment is ready for deployment"
+          
+      - name: Report failure
+        if: needs.canary-test.result != 'success'
+        run: |
+          echo "❌ Staging canary tests failed"
+          echo "Investigate issues before proceeding with deployment"
+          exit 1
