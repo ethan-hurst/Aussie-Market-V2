@@ -20,13 +20,29 @@ vi.mock('$lib/supabase', () => {
   const ordersInsertSelectSingle = vi.fn().mockResolvedValue({ data: { id: 'o1', amount_cents: 5000 }, error: null });
   const ordersInsert = vi.fn(() => ({ select: () => ({ single: ordersInsertSelectSingle }) }));
 
+  // orders select -> eq -> single (for createPaymentIntentForOrder)
+  const ordersSelectSingle = vi.fn().mockResolvedValue({
+    data: {
+      id: 'o1',
+      amount_cents: 5000,
+      buyer: { email: 'buyer@example.com' },
+      listing: { title: 'Test Item' }
+    },
+    error: null
+  });
+  const ordersSelectEq = vi.fn(() => ({ single: ordersSelectSingle }));
+  const ordersSelect = vi.fn(() => ({ eq: ordersSelectEq }));
+
   // payments insert -> select -> single
   const paymentsInsertSelectSingle = vi.fn().mockResolvedValue({ data: { id: 'pay1' }, error: null });
   const paymentsInsert = vi.fn(() => ({ select: () => ({ single: paymentsInsertSelectSingle }) }));
 
   const from = vi.fn((table: string) => {
     if (table === 'auctions') return { select: auctionsSelect } as any;
-    if (table === 'orders') return { insert: ordersInsert } as any;
+    if (table === 'orders') return { 
+      insert: ordersInsert,
+      select: ordersSelect
+    } as any;
     if (table === 'payments') return { insert: paymentsInsert } as any;
     return {} as any;
   });

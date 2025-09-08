@@ -3,10 +3,25 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('$lib/supabase', () => {
   const insert = vi.fn().mockResolvedValue({ error: null });
   const update = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) }));
-  const select = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ data: [{ id: 'n1' }], error: null }) }));
-  const countSelect = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ count: 2, error: null }) }));
+  
+  // For getUnreadNotificationCount: select(*, {count: 'exact', head: true}).eq().eq()
+  const countEq2 = vi.fn().mockResolvedValue({ count: 2, error: null });
+  const countEq1 = vi.fn(() => ({ eq: countEq2 }));
+  
+  // For getUserNotifications: select().eq().order()
+  const orderResult = vi.fn().mockResolvedValue({ data: [{ id: 'n1' }], error: null });
+  const order = vi.fn(() => orderResult);
+  const selectEq = vi.fn(() => ({ order }));
+  
+  const select = vi.fn((_fields?: string, options?: any) => {
+    if (options?.count === 'exact' && options?.head === true) {
+      return { eq: countEq1 };
+    }
+    return { eq: selectEq };
+  });
+  
   const from = vi.fn((table: string) => {
-    if (table === 'notifications') return { insert, update, select, }; // count handled by select(head)
+    if (table === 'notifications') return { insert, update, select };
     return {} as any;
   });
   return { supabase: { from } };
