@@ -17,6 +17,9 @@ dist/
 .env.test.local
 .env.production.local
 
+# Generated configuration files
+sentry.properties
+
 # IDE and editor files
 .vscode/
 .idea/

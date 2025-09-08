@@ -201,7 +201,7 @@ export function getPerformanceStats(): {
   averageResponseTime: number;
   errorRate: number;
 } {
-  const activeRequests = APIPerformanceMonitor.performanceData.size;
+  const activeRequests = APIPerformanceMonitor.getPerformanceData().size;
   
   // This would need to be implemented with actual metrics collection
   // For now, return placeholder values

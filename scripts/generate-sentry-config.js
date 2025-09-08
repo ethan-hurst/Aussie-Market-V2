@@ -4,8 +4,12 @@
  * Generate Sentry configuration file with dynamic version from package.json
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 try {
   // Read package.json to get version
@@ -33,26 +37,27 @@ try {
   }
 
   // Read the sentry.properties template
+  const sentryPropertiesTemplatePath = path.join(__dirname, '..', 'sentry.properties.template');
   const sentryPropertiesPath = path.join(__dirname, '..', 'sentry.properties');
   
-  // Check if sentry.properties exists
-  if (!fs.existsSync(sentryPropertiesPath)) {
-    console.error(`❌ Error: sentry.properties template not found at ${sentryPropertiesPath}`);
+  // Check if sentry.properties.template exists
+  if (!fs.existsSync(sentryPropertiesTemplatePath)) {
+    console.error(`❌ Error: sentry.properties.template not found at ${sentryPropertiesTemplatePath}`);
     process.exit(1);
   }
   
   let sentryPropertiesTemplate;
   try {
-    sentryPropertiesTemplate = fs.readFileSync(sentryPropertiesPath, 'utf8');
+    sentryPropertiesTemplate = fs.readFileSync(sentryPropertiesTemplatePath, 'utf8');
   } catch (error) {
-    console.error(`❌ Error reading sentry.properties template at ${sentryPropertiesPath}:`, error.message);
+    console.error(`❌ Error reading sentry.properties.template at ${sentryPropertiesTemplatePath}:`, error.message);
     process.exit(1);
   }
 
   // Replace ${VERSION} placeholder with actual version
   const sentryPropertiesContent = sentryPropertiesTemplate.replace(/\$\{VERSION\}/g, version);
 
-  // Write the updated sentry.properties file
+  // Write the generated sentry.properties file
   try {
     fs.writeFileSync(sentryPropertiesPath, sentryPropertiesContent);
   } catch (error) {
