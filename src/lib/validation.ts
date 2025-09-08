@@ -148,4 +148,21 @@ export const KPIAlertActionSchema = z.object({
   return true;
 }, { message: 'Missing required fields for action' });
 
+// KPI Calculation
+export const KPICalculationSchema = z.object({
+  startTime: z.string().datetime({ message: 'Invalid start time format. Use ISO 8601 format (YYYY-MM-DDTHH:mm:ss.sssZ)' }),
+  endTime: z.string().datetime({ message: 'Invalid end time format. Use ISO 8601 format (YYYY-MM-DDTHH:mm:ss.sssZ)' }),
+  timePeriod: z.enum(['hourly', 'daily', 'weekly', 'monthly'], { message: 'Invalid time period. Must be one of: hourly, daily, weekly, monthly' })
+}).refine((data) => {
+  const startDate = new Date(data.startTime);
+  const endDate = new Date(data.endTime);
+  return startDate < endDate;
+}, { message: 'Start time must be before end time' }).refine((data) => {
+  const startDate = new Date(data.startTime);
+  const endDate = new Date(data.endTime);
+  const timeDiff = endDate.getTime() - startDate.getTime();
+  const oneYear = 365 * 24 * 60 * 60 * 1000; // 1 year in milliseconds
+  return timeDiff <= oneYear;
+}, { message: 'Time range cannot exceed 1 year' });
+
 

@@ -16,7 +16,12 @@ export const GET: RequestHandler = async ({ request, locals, url }) => {
   return PerformanceMonitor.monitorApiRoute('kpi-alerts', 'GET', async () => {
     let user: any = undefined;
     try {
-      // Check authentication
+      // Check authentication - explicitly read session first
+      const session = await locals.getSession();
+      if (!session) {
+        return json({ error: 'Not authenticated' }, { status: 401 });
+      }
+      
       user = await getSessionUserOrThrow({ request, locals } as any);
       
       // Check if user has admin privileges for KPI access
@@ -114,7 +119,12 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
         );
       }
 
-      // Check authentication
+      // Check authentication - explicitly read session first
+      const session = await locals.getSession();
+      if (!session) {
+        return json({ error: 'Not authenticated' }, { status: 401 });
+      }
+      
       user = await getSessionUserOrThrow({ request, locals } as any);
       
       // Check if user has admin privileges for KPI access

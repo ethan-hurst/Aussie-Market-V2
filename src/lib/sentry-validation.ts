@@ -79,7 +79,7 @@ export class SentryValidator {
       this.addResult('basic', 'context_setting', true);
       
     } catch (error) {
-      this.addResult('basic', 'message_capture', false, error instanceof Error ? error.message : 'Unknown error');
+      this.addResult('basic', 'message_capture', false, undefined, error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -104,7 +104,7 @@ export class SentryValidator {
       this.addResult('error_capturing', 'exception_capture', true);
       
     } catch (error) {
-      this.addResult('error_capturing', 'exception_capture', false, error instanceof Error ? error.message : 'Unknown error');
+      this.addResult('error_capturing', 'exception_capture', false, undefined, error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -149,7 +149,7 @@ export class SentryValidator {
       });
       
     } catch (error) {
-      this.addResult('performance', 'monitoring', false, error instanceof Error ? error.message : 'Unknown error');
+      this.addResult('performance', 'monitoring', false, undefined, error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -180,7 +180,7 @@ export class SentryValidator {
       }
       
     } catch (error) {
-      this.addResult('api_error_handling', 'error_categorization', false, error instanceof Error ? error.message : 'Unknown error');
+      this.addResult('api_error_handling', 'error_categorization', false, undefined, error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -217,7 +217,7 @@ export class SentryValidator {
       }
       
     } catch (error) {
-      this.addResult('alerting', 'configuration', false, error instanceof Error ? error.message : 'Unknown error');
+      this.addResult('alerting', 'configuration', false, undefined, error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -242,7 +242,7 @@ export class SentryValidator {
       });
       
     } catch (error) {
-      this.addResult('edge_functions', 'sentry_module', false, error instanceof Error ? error.message : 'Unknown error');
+      this.addResult('edge_functions', 'sentry_module', false, undefined, error instanceof Error ? error.message : String(error));
     }
   }
 

@@ -96,6 +96,21 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: bidResult.error }, { status: 400 });
 		}
 
+		// Record KPI metrics for successful bid placement
+		try {
+			await recordBidPlaced({
+				bidId: bidResult.bid_id,
+				auctionId: auctionRow.id,
+				amount: bidResult.amount_cents,
+				bidderId: user.id,
+				isProxyBid: bidResult.is_proxy_bid,
+				outbidPrevious: bidResult.outbid_previous
+			});
+		} catch (kpiError) {
+			// Log KPI recording error but don't fail the bid placement
+			console.error('Failed to record bid KPI metrics:', kpiError);
+		}
+
 		return json({
 			success: true,
 			bid: {
