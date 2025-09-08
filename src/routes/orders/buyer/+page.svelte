@@ -63,7 +63,7 @@
 
 	function getStateIcon(state: string) {
 		switch (state) {
-			case 'pending':
+			case 'pending_payment':
 				return Clock;
 			case 'paid':
 				return CheckCircle;
@@ -82,7 +82,7 @@
 
 	function getStateColor(state: string): string {
 		switch (state) {
-			case 'pending':
+			case 'pending_payment':
 				return 'text-warning-600 bg-warning-50';
 			case 'paid':
 				return 'text-success-600 bg-success-50';

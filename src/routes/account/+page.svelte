@@ -197,7 +197,7 @@
 
 	function getOrderStatusColor(status: string): string {
 		const colors = {
-			pending: 'text-yellow-600 bg-yellow-100',
+			pending_payment: 'text-yellow-600 bg-yellow-100',
 			paid: 'text-blue-600 bg-blue-100',
 			ready_for_handover: 'text-purple-600 bg-purple-100',
 			shipped: 'text-indigo-600 bg-indigo-100',
