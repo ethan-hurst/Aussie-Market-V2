@@ -6,23 +6,19 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { KPIMetricsService } from '$lib/server/kpi-metrics-server';
-import { getSessionUserOrThrow } from '$lib/session';
+import { authenticateAdminApiRequest } from '$lib/session';
 import { ApiErrorHandler } from '$lib/api-error-handler';
 import { PerformanceMonitor } from '$lib/performance-monitor';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   return PerformanceMonitor.monitorApiRoute('kpi-calculate', 'POST', async () => {
+    // Declare user in outer scope to avoid reference errors in catch
+    let user: any = null;
+    
     try {
-      // Check authentication
-      const user = await getSessionUserOrThrow({ request, locals } as any);
-      
-      // Check if user has admin privileges for KPI calculation
-      if (!user.app_metadata?.role || user.app_metadata.role !== 'admin') {
-        return json(
-          { error: 'Insufficient permissions to trigger KPI calculations' },
-          { status: 403 }
-        );
-      }
+      // Check authentication with admin privileges
+      const { user: authenticatedUser } = await authenticateAdminApiRequest({ request, locals });
+      user = authenticatedUser;
 
       // Parse request body
       const body = await request.json();
@@ -91,7 +87,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       });
 
     } catch (error) {
-      return ApiErrorHandler.handleError(error as Error, { request, locals } as any, {
+      return ApiErrorHandler.handleError(error as Error, { request, locals }, {
         operation: 'calculate_kpis',
         userId: user?.id
       });

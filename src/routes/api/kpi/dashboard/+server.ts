@@ -6,23 +6,19 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { KPIMetricsService } from '$lib/server/kpi-metrics-server';
-import { getSessionUserOrThrow } from '$lib/session';
+import { authenticateAdminApiRequest } from '$lib/session';
 import { ApiErrorHandler } from '$lib/api-error-handler';
 import { PerformanceMonitor } from '$lib/performance-monitor';
 
 export const GET: RequestHandler = async ({ request, locals, url }) => {
   return PerformanceMonitor.monitorApiRoute('kpi-dashboard', 'GET', async () => {
+    // Declare user in outer scope to avoid reference errors in catch
+    let user: any = null;
+    
     try {
-      // Check authentication
-      const user = await getSessionUserOrThrow({ request, locals } as any);
-      
-      // Check if user has admin privileges for KPI access
-      if (!user.app_metadata?.role || user.app_metadata.role !== 'admin') {
-        return json(
-          { error: 'Insufficient permissions to access KPI dashboard' },
-          { status: 403 }
-        );
-      }
+      // Check authentication with admin privileges
+      const { user: authenticatedUser } = await authenticateAdminApiRequest({ request, locals });
+      user = authenticatedUser;
 
       // Get query parameters
       const timeRange = url.searchParams.get('timeRange') || '7d';
@@ -78,7 +74,7 @@ export const GET: RequestHandler = async ({ request, locals, url }) => {
       });
 
     } catch (error) {
-      return ApiErrorHandler.handleError(error as Error, { request, locals } as any, {
+      return ApiErrorHandler.handleError(error as Error, { request, locals }, {
         operation: 'get_kpi_dashboard',
         userId: user?.id
       });

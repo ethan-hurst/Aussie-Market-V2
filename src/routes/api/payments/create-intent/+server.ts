@@ -15,7 +15,7 @@ const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_k
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals } as any);
+		const user = await getSessionUserOrThrow({ request, locals });
 
 		// Rate limit payment intent creation per user (e.g., 10 per 10 minutes)
 		const rl = rateLimit(`pay-create:${user.id}`, 10, 10 * 60_000);

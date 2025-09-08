@@ -18,7 +18,7 @@ import { recordBidPlaced } from '$lib/server/kpi-metrics-server';
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals } as any);
+		const user = await getSessionUserOrThrow({ request, locals });
 
 		// Rate limit bid placements per user (e.g., 10 bids per minute)
 		const rl = rateLimit(`bids:${user.id}`, 10, 60_000);
@@ -123,7 +123,7 @@ export const GET: RequestHandler = async ({ url, locals, request }) => {
 		const userId = url.searchParams.get('userId');
 
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals } as any);
+		const user = await getSessionUserOrThrow({ request, locals });
 
 		// Get current bid for a listing
 		if (action === 'current' && listingId) {
@@ -157,7 +157,7 @@ export const GET: RequestHandler = async ({ url, locals, request }) => {
 		// Get user's bids
 		if (action === 'user' && userId) {
 			// Verify user is requesting their own bids
-			await validateUserAccess({ request, locals } as any, userId);
+			await validateUserAccess({ request, locals }, userId);
 
 			const result = await getUserBids(userId);
 			
@@ -174,7 +174,7 @@ export const GET: RequestHandler = async ({ url, locals, request }) => {
 		// Check if user is winning a listing
 		if (action === 'winning' && listingId && userId) {
 			// Verify user is checking their own winning status
-			await validateUserAccess({ request, locals } as any, userId);
+			await validateUserAccess({ request, locals }, userId);
 
 			const result = await isUserWinning(userId, listingId);
 			

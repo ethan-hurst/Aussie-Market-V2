@@ -11,7 +11,7 @@ import { recordOrderCreated, recordPaymentSuccess } from '$lib/server/kpi-metric
 export const GET: RequestHandler = async ({ params, locals, request }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals } as any);
+		const user = await getSessionUserOrThrow({ request, locals });
 
 		const { orderId } = params;
 		if (!orderId) {
@@ -78,7 +78,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals } as any);
+		const user = await getSessionUserOrThrow({ request, locals });
 
 		// Rate limit order actions per user (e.g., 20 actions per 5 minutes)
 		const rl = rateLimit(`order-actions:${user.id}`, 20, 5 * 60_000);
