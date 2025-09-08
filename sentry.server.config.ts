@@ -5,6 +5,12 @@
 import * as Sentry from '@sentry/sveltekit';
 import { dev } from '$app/environment';
 import { env } from '$lib/env';
+import { version } from '../package.json';
+
+// Validate production credentials
+if (!dev && !env.SENTRY_DSN) {
+  throw new Error('SENTRY_DSN is required in production environment');
+}
 
 Sentry.init({
   dsn: env.SENTRY_DSN || env.PUBLIC_SENTRY_DSN,
@@ -31,7 +37,7 @@ Sentry.init({
     event.tags = {
       ...event.tags,
       component: 'sveltekit-server',
-      version: '1.0.0'
+      version: version
     };
     
     return event;

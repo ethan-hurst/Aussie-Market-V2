@@ -5,6 +5,7 @@
 import * as Sentry from '@sentry/sveltekit';
 import { dev } from '$app/environment';
 import { PUBLIC_SENTRY_DSN } from '$env/static/public';
+import { version } from '../../package.json';
 
 Sentry.init({
   dsn: PUBLIC_SENTRY_DSN,
@@ -31,7 +32,7 @@ Sentry.init({
     event.tags = {
       ...event.tags,
       component: 'sveltekit-client',
-      version: '1.0.0'
+      version: version
     };
     
     return event;

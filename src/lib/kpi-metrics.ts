@@ -247,8 +247,13 @@ export class KPIMetricsCollector {
    * Start periodic flush of events
    */
   private startPeriodicFlush(): void {
-    this.flushTimer = setInterval(() => {
-      this.flushEvents();
+    this.flushTimer = setInterval(async () => {
+      try {
+        await this.flushEvents();
+      } catch (error) {
+        console.error('Error during periodic flush of KPI events:', error);
+        // Continue running the interval even if flush fails
+      }
     }, 30000); // Flush every 30 seconds
   }
 
@@ -420,14 +425,58 @@ export class KPIMetricsService {
       ]);
 
       const summarize = (metrics: KPIMetric[]) => {
-        const summary: Record<string, number> = {};
+        const summary: Record<string, { value: number; count: number; type: string }> = {};
+        
         metrics.forEach(metric => {
-          if (!summary[metric.metric_name]) {
-            summary[metric.metric_name] = 0;
+          const key = metric.metric_name;
+          
+          if (!summary[key]) {
+            summary[key] = { value: 0, count: 0, type: metric.metric_type };
           }
-          summary[metric.metric_name] += metric.metric_value;
+          
+          // Handle different metric types appropriately
+          switch (metric.metric_type) {
+            case 'counter':
+            case 'sum':
+              // For counters and sums, add the values
+              summary[key].value += metric.metric_value;
+              summary[key].count += 1;
+              break;
+              
+            case 'gauge':
+            case 'rate':
+            case 'percentage':
+              // For gauges, rates, and percentages, maintain sum and count for averaging
+              summary[key].value += metric.metric_value;
+              summary[key].count += 1;
+              break;
+              
+            case 'average':
+              // For averages, maintain sum and count
+              summary[key].value += metric.metric_value;
+              summary[key].count += 1;
+              break;
+              
+            default:
+              // Default to summing
+              summary[key].value += metric.metric_value;
+              summary[key].count += 1;
+          }
         });
-        return summary;
+        
+        // Convert to final summary format
+        const finalSummary: Record<string, number> = {};
+        Object.entries(summary).forEach(([key, data]) => {
+          if (data.type === 'gauge' || data.type === 'rate' || data.type === 'percentage' || data.type === 'average') {
+            // Calculate average for these types
+            finalSummary[key] = data.count > 0 ? data.value / data.count : 0;
+          } else {
+            // Use sum for counters and other types
+            finalSummary[key] = data.value;
+          }
+        });
+        
+        return finalSummary;
       };
 
       return {

@@ -3,8 +3,9 @@
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
-		"build": "vite build",
-		"build:sentry": "vite build && sentry-cli sourcemaps upload --release $npm_package_version",
+		"build": "npm run generate:sentry-config && vite build",
+		"build:sentry": "npm run generate:sentry-config && vite build && sentry-cli sourcemaps upload --release $npm_package_version",
+		"generate:sentry-config": "node scripts/generate-sentry-config.js",
 		"dev": "vite dev",
 		"preview": "vite preview",
 		"test": "vitest run",

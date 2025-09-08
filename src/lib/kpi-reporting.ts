@@ -6,6 +6,13 @@
 import { KPIMetricsService } from '$lib/kpi-metrics';
 import { SentryAlerts } from '$lib/sentry-alerts';
 
+export interface KPIMetricsData {
+  financial: Record<string, number>;
+  business: Record<string, number>;
+  performance: Record<string, number>;
+  operational: Record<string, number>;
+}
+
 export interface KPIReport {
   id: string;
   title: string;
@@ -262,8 +269,8 @@ export class KPIReportingService {
    * Calculate trends between current and previous periods
    */
   private static calculateTrends(
-    current: any,
-    previous: any
+    current: KPIMetricsData,
+    previous: KPIMetricsData
   ): KPIReport['trends'] {
     const calculateTrend = (currentValue: number, previousValue: number) => {
       const change = currentValue - previousValue;
@@ -290,7 +297,7 @@ export class KPIReportingService {
   /**
    * Check for alert conditions
    */
-  private static async checkAlerts(metrics: any): Promise<KPIReport['alerts']> {
+  private static async checkAlerts(metrics: KPIMetricsData): Promise<KPIReport['alerts']> {
     const alerts: KPIReport['alerts'] = [];
 
     for (const rule of this.alertRules) {

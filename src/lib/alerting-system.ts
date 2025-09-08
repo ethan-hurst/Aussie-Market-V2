@@ -3,6 +3,31 @@
  * Provides real-time monitoring and notification capabilities
  */
 
+import { v4 as uuidv4 } from 'uuid';
+
+// Module-level sliding window counters for count-based alert rules
+const slidingWindowCounters = new Map<string, number[]>();
+
+// Get memory threshold from environment variable with fallback
+function getMemoryThreshold(): number {
+  const thresholdEnv = process.env.MEMORY_THRESHOLD_BYTES || process.env.MEMORY_THRESHOLD_MB;
+  
+  if (thresholdEnv) {
+    const threshold = parseInt(thresholdEnv, 10);
+    if (!isNaN(threshold)) {
+      // If MEMORY_THRESHOLD_MB is set, convert to bytes
+      if (process.env.MEMORY_THRESHOLD_MB) {
+        return threshold * 1024 * 1024;
+      }
+      // If MEMORY_THRESHOLD_BYTES is set, use as-is
+      return threshold;
+    }
+  }
+  
+  // Default fallback: 200MB
+  return 200 * 1024 * 1024;
+}
+
 export interface Alert {
   id: string;
   type: 'error' | 'performance' | 'availability' | 'custom';
@@ -153,7 +178,7 @@ export class AlertingSystem {
         condition: {
           field: 'memoryUsage.heapUsed',
           operator: 'greater_than',
-          value: 200 * 1024 * 1024 // 200MB
+          value: getMemoryThreshold() // Configurable via MEMORY_THRESHOLD_BYTES or MEMORY_THRESHOLD_MB env var
         },
         severity: 'medium',
         channels: ['console'],
@@ -218,17 +243,43 @@ export class AlertingSystem {
   }
 
   /**
+   * Evaluate count-based condition with sliding window
+   */
+  private evaluateCountCondition(rule: AlertRule, timeWindowMs: number): boolean {
+    const ruleId = rule.id;
+    const now = Date.now();
+    const threshold = rule.condition.value || 1;
+    
+    // Get or create timestamp array for this rule
+    if (!slidingWindowCounters.has(ruleId)) {
+      slidingWindowCounters.set(ruleId, []);
+    }
+    
+    const timestamps = slidingWindowCounters.get(ruleId)!;
+    
+    // Add current timestamp
+    timestamps.push(now);
+    
+    // Prune timestamps older than the time window
+    const cutoffTime = now - timeWindowMs;
+    const validTimestamps = timestamps.filter(ts => ts > cutoffTime);
+    
+    // Update the counter with pruned timestamps
+    slidingWindowCounters.set(ruleId, validTimestamps);
+    
+    // Check if count meets threshold
+    return validTimestamps.length >= threshold;
+  }
+
+  /**
    * Evaluate alert condition against log entry
    */
   private evaluateCondition(logEntry: any, rule: AlertRule): boolean {
     const { field, operator, value, timeWindow } = rule.condition;
     
-    // For count-based conditions, we'd need to implement time-windowed counting
-    // For now, we'll handle simple field-based conditions
+    // Handle count-based conditions with sliding window
     if (operator === 'count') {
-      // This would require implementing time-windowed counting
-      // For simplicity, we'll skip count-based rules for now
-      return false;
+      return this.evaluateCountCondition(rule, timeWindow || 300000); // Default 5 minutes
     }
 
     const fieldValue = this.getNestedValue(logEntry, field);
@@ -243,7 +294,16 @@ export class AlertingSystem {
       case 'contains':
         return typeof fieldValue === 'string' && fieldValue.includes(value);
       case 'regex':
-        return typeof fieldValue === 'string' && new RegExp(value).test(fieldValue);
+        if (typeof fieldValue !== 'string') return false;
+        try {
+          // Escape regex metacharacters to prevent ReDoS attacks
+          const escapedValue = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          return new RegExp(escapedValue).test(fieldValue);
+        } catch (error) {
+          // If regex compilation fails, fall back to string includes
+          console.warn(`Invalid regex pattern: ${value}, falling back to string matching`);
+          return fieldValue.includes(value);
+        }
       default:
         return false;
     }
@@ -261,7 +321,7 @@ export class AlertingSystem {
    */
   private async triggerAlert(rule: AlertRule, logEntry: any): Promise<void> {
     const alert: Alert = {
-      id: crypto.randomUUID(),
+      id: uuidv4(),
       type: this.determineAlertType(rule, logEntry),
       severity: rule.severity,
       title: rule.name,

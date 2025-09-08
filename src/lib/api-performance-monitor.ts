@@ -3,7 +3,7 @@
  * Automatically tracks API performance metrics and integrates with KPI system
  */
 
-import { recordAPIPerformance, recordSystemError } from '$lib/kpi-metrics';
+import { recordAPIPerformance, recordSystemError, kpiMetricsCollector } from '$lib/kpi-metrics';
 import { PerformanceMonitor } from '$lib/performance-monitor';
 
 export interface APIPerformanceContext {
@@ -35,6 +35,35 @@ export class APIPerformanceMonitor {
     });
 
     return requestId;
+  }
+
+  /**
+   * Get performance data (readonly access)
+   */
+  public static getPerformanceData(): ReadonlyMap<string, APIPerformanceContext> {
+    return new Map(this.performanceData);
+  }
+
+  /**
+   * Get performance statistics
+   */
+  public static getPerformanceStats(): {
+    activeRequests: number;
+    averageResponseTime: number;
+    errorRate: number;
+  } {
+    const activeRequests = this.performanceData.size;
+    
+    // Calculate average response time from completed requests
+    // This would need to be implemented with historical data
+    const averageResponseTime = 0; // Placeholder
+    const errorRate = 0; // Placeholder
+    
+    return {
+      activeRequests,
+      averageResponseTime,
+      errorRate
+    };
   }
 
   /**
@@ -76,8 +105,7 @@ export class APIPerformanceMonitor {
    */
   public static recordRequest(endpoint: string, method: string): void {
     // This could be expanded to track request counts, user activity, etc.
-    const collector = require('$lib/kpi-metrics').kpiMetricsCollector;
-    collector.recordOperationalEvent('api_request', 'request_count', 1, 'count', {
+    kpiMetricsCollector.recordOperationalEvent('api_request', 'request_count', 1, 'count', {
       tags: { endpoint, method, event: 'api_request' }
     });
   }
@@ -86,10 +114,9 @@ export class APIPerformanceMonitor {
    * Record API error
    */
   public static recordError(endpoint: string, method: string, error: Error): void {
-    recordSystemError('api_error', 1);
+    // Note: recordSystemError is called by endMonitoring, not here to avoid duplicates
     
-    const collector = require('$lib/kpi-metrics').kpiMetricsCollector;
-    collector.recordOperationalEvent('api_error', 'error_count', 1, 'count', {
+    kpiMetricsCollector.recordOperationalEvent('api_error', 'error_count', 1, 'count', {
       tags: { 
         endpoint, 
         method, 
