@@ -6,6 +6,7 @@ import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
 import { validate } from '$lib/validation';
 import { z } from 'zod';
+import { getSessionUserOrThrow } from '$lib/session';
 
 // Validation schema for manual finalize request
 const ManualFinalizeSchema = z.object({
@@ -16,25 +17,17 @@ const ManualFinalizeSchema = z.object({
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
-		// Verify user is authenticated
-		const sessionResp = await locals.getSession();
-		const sessionUser = (sessionResp as any)?.data?.session?.user 
-			?? (sessionResp as any)?.session?.user 
-			?? (sessionResp as any)?.user 
-			?? null;
-		const session = sessionUser ? { user: sessionUser } : null;
-		if (!session) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+		// Get authenticated user with proper error handling
+		const user = await getSessionUserOrThrow({ request, locals } as any);
 
 		// Check admin privileges
-		const adminCheck = await isAdmin(session.user.id);
+		const adminCheck = await isAdmin(user.id);
 		if (!adminCheck.allowed) {
 			return json({ error: adminCheck.reason }, { status: 403 });
 		}
 
 		// Rate limit admin actions (5 per minute)
-		const rl = rateLimit(`admin-finalize:${session.user.id}`, 5, 60_000);
+		const rl = rateLimit(`admin-finalize:${user.id}`, 5, 60_000);
 		if (!rl.allowed) {
 			return json(
 				{ error: 'Too many admin actions. Please slow down.' },
@@ -51,7 +44,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		// Create audit log entry
 		const auditLog = createAdminAuditLog(
-			session.user.id,
+			user.id,
 			'manual_finalize_auctions',
 			{ auctionId, force, reason },
 			auctionId
@@ -69,7 +62,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		// Log the admin action
 		console.log('Admin manual finalize:', {
-			adminId: session.user.id,
+			adminId: user.id,
 			adminEmail: adminCheck.userProfile?.email,
 			action: 'manual_finalize_auctions',
 			details: { auctionId, force, reason },
@@ -210,21 +203,13 @@ async function finalizeAllExpiredAuctions(force: boolean, reason: string) {
 	}
 }
 
-export const GET: RequestHandler = async ({ url, locals }) => {
+export const GET: RequestHandler = async ({ url, locals, request }) => {
 	try {
-		// Verify user is authenticated
-		const sessionResp = await locals.getSession();
-		const sessionUser = (sessionResp as any)?.data?.session?.user 
-			?? (sessionResp as any)?.session?.user 
-			?? (sessionResp as any)?.user 
-			?? null;
-		const session = sessionUser ? { user: sessionUser } : null;
-		if (!session) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+		// Get authenticated user with proper error handling
+		const user = await getSessionUserOrThrow({ request, locals } as any);
 
 		// Check admin privileges
-		const adminCheck = await isAdmin(session.user.id);
+		const adminCheck = await isAdmin(user.id);
 		if (!adminCheck.allowed) {
 			return json({ error: adminCheck.reason }, { status: 403 });
 		}

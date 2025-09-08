@@ -14,17 +14,15 @@ import {
 import { supabase } from '$lib/supabase';
 import { rateLimit } from '$lib/security';
 import { validate, StorageUploadSchema } from '$lib/validation';
+import { getSessionUserOrThrow } from '$lib/session';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
-		// Verify user is authenticated
-		const { data: { session } } = await locals.getSession();
-		if (!session) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+		// Get authenticated user with proper error handling
+		const user = await getSessionUserOrThrow({ request, locals } as any);
 
 		// Rate limit uploads per user (e.g., 60/minute overall)
-		const rl = rateLimit(`upload:${session.user.id}`, 60, 60_000);
+		const rl = rateLimit(`upload:${user.id}`, 60, 60_000);
 		if (!rl.allowed) {
 			return json(
 				{ error: 'Too many uploads. Please slow down.' },
@@ -76,7 +74,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					.eq('id', listingId)
 					.single();
 
-				if (!listing || listing.seller_id !== session.user.id) {
+				if (!listing || listing.seller_id !== user.id) {
 					return json({ error: 'Unauthorized' }, { status: 403 });
 				}
 
@@ -99,7 +97,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 			case 'address_proof':
 				// Proof of address goes to private bucket under user id
-				uploadResult = await uploadAddressProof(file, session.user.id);
+				uploadResult = await uploadAddressProof(file, user.id);
 				break;
 
 			case 'evidence_file':
@@ -114,15 +112,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 					.eq('id', disputeId)
 					.single();
 
-				if (!dispute || (dispute.buyer_id !== session.user.id && dispute.seller_id !== session.user.id)) {
+				if (!dispute || (dispute.buyer_id !== user.id && dispute.seller_id !== user.id)) {
 					return json({ error: 'Unauthorized' }, { status: 403 });
 				}
 
-				uploadResult = await uploadEvidenceFile(file, disputeId, session.user.id);
+				uploadResult = await uploadEvidenceFile(file, disputeId, user.id);
 				break;
 
 			case 'profile_avatar':
-				uploadResult = await uploadProfileAvatar(file, session.user.id);
+				uploadResult = await uploadProfileAvatar(file, user.id);
 				break;
 
 			default:

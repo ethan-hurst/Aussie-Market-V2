@@ -5,17 +5,15 @@ import { deleteFile, STORAGE_BUCKETS } from '$lib/storage';
 import { supabase } from '$lib/supabase';
 import { rateLimit } from '$lib/security';
 import { validate, StorageDeleteSchema } from '$lib/validation';
+import { getSessionUserOrThrow } from '$lib/session';
 
 export const DELETE: RequestHandler = async ({ request, locals }) => {
 	try {
-		// Verify user is authenticated
-		const session = await locals.getSession();
-		if (!session) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+		// Get authenticated user with proper error handling
+		const user = await getSessionUserOrThrow({ request, locals } as any);
 
 		// Rate limit deletes per user (e.g., 30/minute)
-		const rl = rateLimit(`delete:${session.user.id}`, 30, 60_000);
+		const rl = rateLimit(`delete:${user.id}`, 30, 60_000);
 		if (!rl.allowed) {
 			return json(
 				{ error: 'Too many delete requests. Please slow down.' },
@@ -50,7 +48,7 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 					.eq('id', listingId)
 					.single();
 
-				if (!listing || listing.seller_id !== session.user.id) {
+				if (!listing || listing.seller_id !== user.id) {
 					return json({ error: 'Unauthorized' }, { status: 403 });
 				}
 
@@ -72,7 +70,7 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 			case STORAGE_BUCKETS.ADDRESS_PROOFS:
 				// Only the owner can delete their own proof files
 				const proofUserId = path.split('/')[0];
-				if (proofUserId !== session.user.id) {
+				if (proofUserId !== user.id) {
 					return json({ error: 'Unauthorized' }, { status: 403 });
 				}
 				break;
@@ -85,14 +83,14 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 					const disputeId = pathParts[0];
 					const userId = pathParts[1].split('_')[0];
 
-					if (userId !== session.user.id) {
+					if (userId !== user.id) {
 						const { data: dispute } = await supabase
 							.from('disputes')
 							.select('buyer_id, seller_id')
 							.eq('id', disputeId)
 							.single();
 
-						if (!dispute || (dispute.buyer_id !== session.user.id && dispute.seller_id !== session.user.id)) {
+						if (!dispute || (dispute.buyer_id !== user.id && dispute.seller_id !== user.id)) {
 							return json({ error: 'Unauthorized' }, { status: 403 });
 						}
 					}
@@ -102,7 +100,7 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 			case STORAGE_BUCKETS.PROFILE_AVATARS:
 				// Check if user owns the avatar
 				const pathUserId = path.split('/')[0];
-				if (pathUserId !== session.user.id) {
+				if (pathUserId !== user.id) {
 					return json({ error: 'Unauthorized' }, { status: 403 });
 				}
 				break;

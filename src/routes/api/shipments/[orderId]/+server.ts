@@ -3,12 +3,13 @@ import { mapApiErrorToMessage } from '$lib/errors';
 import { supabase } from '$lib/supabase';
 import type { RequestHandler } from './$types';
 import { validate, ShipmentUpsertSchema } from '$lib/validation';
+import { getSessionUserOrThrow } from '$lib/session';
 
 // Create or update manual shipment info for an order (seller only)
 export const POST: RequestHandler = async ({ params, request, locals }) => {
     try {
-        const { data: { session } } = await locals.getSession();
-        if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
+        // Get authenticated user with proper error handling
+        const user = await getSessionUserOrThrow({ request, locals } as any);
 
         const { orderId } = params;
         if (!orderId) return json({ error: 'Order ID required' }, { status: 400 });
@@ -25,7 +26,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
             .single();
 
         if (orderError || !order) return json({ error: 'Order not found' }, { status: 404 });
-        if (order.seller_id !== session.user.id) return json({ error: 'Forbidden' }, { status: 403 });
+        if (order.seller_id !== user.id) return json({ error: 'Forbidden' }, { status: 403 });
 
         // Upsert shipment
         const { data: shipment, error: shipError } = await supabase

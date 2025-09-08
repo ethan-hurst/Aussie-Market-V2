@@ -5,6 +5,7 @@ import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
 import crypto from 'crypto';
 import { validate, PickupSchema } from '$lib/validation';
+import { getSessionUserOrThrow } from '$lib/session';
 
 function generateCode6(): string {
     // 6-digit numeric code
@@ -18,8 +19,8 @@ function hash(text: string): string {
 // Initialize pickup (seller only). Generates code6 and qr_token
 export const POST: RequestHandler = async ({ params, request, locals }) => {
     try {
-        const { data: { session } } = await locals.getSession();
-        if (!session) return json({ error: 'Unauthorized' }, { status: 401 });
+        // Get authenticated user with proper error handling
+        const user = await getSessionUserOrThrow({ request, locals } as any);
 
         const { orderId } = params;
         if (!orderId) return json({ error: 'Order ID required' }, { status: 400 });
@@ -33,7 +34,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         const action = body?.action || 'init';
 
         // Rate limit init/redeem to prevent brute-force
-        const key = action === 'init' ? `pickup-init:${session.user.id}` : `pickup-redeem:${session.user.id}`;
+        const key = action === 'init' ? `pickup-init:${user.id}` : `pickup-redeem:${user.id}`;
         const windowMs = action === 'init' ? 10 * 60_000 : 60_000; // init less frequent
         const limit = action === 'init' ? 10 : 30; // allow more redeems
         const rl = rateLimit(key, limit, windowMs);
@@ -50,7 +51,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
         if (orderError || !order) return json({ error: 'Order not found' }, { status: 404 });
 
-        const userId = session.user.id;
+        const userId = user.id;
         const isSeller = order.seller_id === userId;
         const isBuyer = order.buyer_id === userId;
 
