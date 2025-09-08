@@ -14,7 +14,7 @@ import { rateLimit } from '$lib/security';
 import { mapApiErrorToMessage } from '$lib/errors';
 import { validate, ListingCreateSchema, SearchSchema } from '$lib/validation';
 import { getSessionUserOrThrow, validateUserAccess } from '$lib/session';
-import { recordListingCreated } from '$lib/server/kpi-metrics-server';
+import { recordBusinessEvent } from '$lib/server/kpi-metrics-server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
@@ -45,7 +45,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		// Record KPI metrics for successful listing creation
 		try {
-			await recordListingCreated(
+			await recordBusinessEvent(
 				'listing_created',
 				'listings_created',
 				1,

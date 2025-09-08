@@ -74,6 +74,8 @@ export class KPIMetricsService {
   private static instance: KPIMetricsService;
   private events: KPIEvent[] = [];
   private flushTimer: NodeJS.Timeout | null = null;
+  private shuttingDown: boolean = false;
+  private shutdownHandlersSetup: boolean = false;
 
   private constructor() {
     this.startPeriodicFlush();
@@ -286,29 +288,55 @@ export class KPIMetricsService {
    * Setup shutdown handlers for graceful cleanup
    */
   private setupShutdownHandlers(): void {
-    const cleanup = () => {
+    // Prevent duplicate handler registration
+    if (this.shutdownHandlersSetup) {
+      return;
+    }
+    this.shutdownHandlersSetup = true;
+
+    const cleanup = async () => {
+      // Make cleanup idempotent
+      if (this.shuttingDown) {
+        return;
+      }
+      this.shuttingDown = true;
+
       console.log('Cleaning up KPI metrics service...');
       this.stopPeriodicFlush();
-      // Flush any remaining events before shutdown
-      this.flushEvents().catch(error => {
+
+      // Flush any remaining events before shutdown with timeout
+      try {
+        const flushPromise = this.flushEvents();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Flush timeout')), 5000)
+        );
+        
+        await Promise.race([flushPromise, timeoutPromise]);
+        console.log('KPI metrics service cleanup completed successfully');
+      } catch (error) {
         console.error('Error flushing final KPI events during shutdown:', error);
-      });
+      }
+    };
+
+    const cleanupAndExit = async (exitCode: number = 0) => {
+      await cleanup();
+      process.exit(exitCode);
     };
 
     // Handle various shutdown signals
-    process.on('SIGINT', cleanup);
-    process.on('SIGTERM', cleanup);
+    process.on('SIGINT', () => cleanupAndExit(0));
+    process.on('SIGTERM', () => cleanupAndExit(0));
     process.on('beforeExit', cleanup);
     
     // Handle uncaught exceptions and unhandled rejections
-    process.on('uncaughtException', (error) => {
+    process.on('uncaughtException', async (error) => {
       console.error('Uncaught exception in KPI metrics service:', error);
-      cleanup();
+      await cleanupAndExit(1);
     });
     
-    process.on('unhandledRejection', (reason) => {
+    process.on('unhandledRejection', async (reason) => {
       console.error('Unhandled rejection in KPI metrics service:', reason);
-      cleanup();
+      await cleanupAndExit(1);
     });
   }
 
