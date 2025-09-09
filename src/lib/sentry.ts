@@ -15,8 +15,8 @@ interface SentryConfig {
   tracesSampleRate: number;
   profilesSampleRate: number;
   beforeSend?: (event: Sentry.Event) => Sentry.Event | null;
-  beforeSendTransaction?: (event: Sentry.Transaction) => Sentry.Transaction | null;
-  integrations: Sentry.Integration[];
+  beforeSendTransaction?: (event: any) => any | null;
+  integrations: any[];
   initialScope?: {
     tags?: Record<string, string>;
     user?: {

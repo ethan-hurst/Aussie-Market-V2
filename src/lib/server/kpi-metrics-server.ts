@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { env } from '$env/dynamic/private';
 
 // Initialize Supabase client with service role key (SERVER-ONLY)
-const supabase = createClient(env.PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(env.PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY || 'fallback-key');
 
 export type KPICategory = 'financial' | 'business' | 'performance' | 'operational';
 export type TimePeriod = 'hourly' | 'daily' | 'weekly' | 'monthly';

@@ -311,7 +311,7 @@ export async function validateExternalServices(): Promise<{
 			if (stripeSecretKey && stripeSecretKey !== DEV_DEFAULTS.STRIPE_SECRET_KEY) {
 				// Only test real Stripe keys, not development defaults
 				const Stripe = (await import('stripe')).default;
-				const stripe = new Stripe(stripeSecretKey, { apiVersion: '2024-06-20' });
+				const stripe = new Stripe(stripeSecretKey, { apiVersion: '2023-10-16' });
 				
 				// Test with a simple API call
 				await stripe.balance.retrieve();
