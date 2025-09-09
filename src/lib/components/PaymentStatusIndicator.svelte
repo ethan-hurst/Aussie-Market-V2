@@ -1,6 +1,6 @@
 <script lang="ts">
   import { CheckCircle, Clock, AlertCircle, XCircle, Loader2, RefreshCw } from 'lucide-svelte';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy, tick } from 'svelte';
   import { goto } from '$app/navigation';
 
   export let status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' = 'pending';
@@ -9,11 +9,118 @@
   export let currentStep: number = 0;
   export let error: string | null = null;
   export let retryable: boolean = false;
+  export let orderId: string | null = null;
+  export let autoUpdateInterval: number = 2000; // Auto-refresh interval in ms
+  export let enableAutoUpdate: boolean = false; // Enable real-time status updates
 
   const dispatch = createEventDispatcher<{
     retry: void;
     cancel: void;
+    statusUpdate: { status: string; timestamp: number };
   }>();
+
+  let previousStatus = status;
+  let statusUpdateTimestamp = Date.now();
+  let updateInterval: number | null = null;
+  let isTransitioning = false;
+
+  // Real-time status synchronization
+  $: if (status !== previousStatus) {
+    handleStatusChange(status, previousStatus);
+    previousStatus = status;
+  }
+
+  async function handleStatusChange(newStatus: string, oldStatus: string) {
+    statusUpdateTimestamp = Date.now();
+    isTransitioning = true;
+    
+    // Update current step based on status
+    if (newStatus === 'processing') {
+      currentStep = 1;
+    } else if (newStatus === 'succeeded') {
+      currentStep = 2;
+    } else if (newStatus === 'failed' || newStatus === 'cancelled') {
+      // Keep current step but don't advance
+    }
+    
+    // Allow UI to update
+    await tick();
+    
+    // Dispatch status update event
+    dispatch('statusUpdate', { 
+      status: newStatus, 
+      timestamp: statusUpdateTimestamp 
+    });
+    
+    // Reset transition flag after animation
+    setTimeout(() => {
+      isTransitioning = false;
+    }, 300);
+  }
+
+  // Auto-update mechanism for real-time status checking
+  onMount(() => {
+    if (enableAutoUpdate && orderId && (status === 'processing' || status === 'pending')) {
+      startAutoUpdate();
+    }
+    
+    return () => {
+      stopAutoUpdate();
+    };
+  });
+
+  onDestroy(() => {
+    stopAutoUpdate();
+  });
+
+  function startAutoUpdate() {
+    if (updateInterval) return;
+    
+    updateInterval = window.setInterval(async () => {
+      if (!orderId || status === 'succeeded' || status === 'failed' || status === 'cancelled') {
+        stopAutoUpdate();
+        return;
+      }
+      
+      try {
+        // Fetch current order status
+        const response = await fetch(`/api/orders/${orderId}`);
+        if (response.ok) {
+          const order = await response.json();
+          const newStatus = mapOrderStateToPaymentStatus(order.state);
+          
+          if (newStatus !== status) {
+            status = newStatus;
+          }
+        }
+      } catch (err) {
+        console.error('Error updating payment status:', err);
+        // Don't stop auto-update on network errors, just log them
+      }
+    }, autoUpdateInterval);
+  }
+
+  function stopAutoUpdate() {
+    if (updateInterval) {
+      clearInterval(updateInterval);
+      updateInterval = null;
+    }
+  }
+
+  function mapOrderStateToPaymentStatus(orderState: string): 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' {
+    switch (orderState) {
+      case 'paid':
+        return 'succeeded';
+      case 'pending_payment':
+        return 'processing';
+      case 'cancelled':
+        return 'cancelled';
+      case 'refunded':
+        return 'failed';
+      default:
+        return 'pending';
+    }
+  }
 
   function getStatusIcon() {
     switch (status) {
@@ -126,24 +233,31 @@
   }
 </script>
 
-<div class="payment-status-indicator" role="status" aria-live="polite">
+<div class="payment-status-indicator" role="status" aria-live="polite" aria-atomic="true">
   <!-- Main status display -->
   {#if status}
     {@const statusClasses = getStatusClasses()}
-    <div class="status-header flex items-center space-x-3 p-4 {statusClasses.bg} border {statusClasses.border} rounded-lg">
+    <div class="status-header flex items-center space-x-3 p-4 {statusClasses.bg} border {statusClasses.border} rounded-lg transition-all duration-300 {isTransitioning ? 'transform scale-105' : ''}">
     <div class="flex-shrink-0">
       <svelte:component 
         this={getStatusIcon()} 
-        class="h-8 w-8 {statusClasses.icon} {status === 'processing' ? 'animate-spin' : ''}" 
+        class="h-8 w-8 {statusClasses.icon} {status === 'processing' ? 'animate-spin' : ''} transition-colors duration-300" 
       />
     </div>
     <div class="flex-1">
-      <h3 class="text-lg font-medium {statusClasses.title}">
+      <h3 class="text-lg font-medium {statusClasses.title} transition-colors duration-300">
         {getStatusText()}
       </h3>
-      <p class="text-sm {statusClasses.description} mt-1">
+      <p class="text-sm {statusClasses.description} mt-1 transition-colors duration-300">
         {getStatusDescription()}
       </p>
+      
+      <!-- Status timestamp for debugging/info -->
+      {#if statusUpdateTimestamp}
+        <p class="text-xs text-gray-500 mt-1">
+          Last updated: {new Date(statusUpdateTimestamp).toLocaleTimeString()}
+        </p>
+      {/if}
     </div>
   </div>
   {/if}

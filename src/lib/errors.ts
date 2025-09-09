@@ -156,12 +156,18 @@ export interface PaymentErrorInfo {
 
 export function categorizePaymentError(error: ApiErrorInput): PaymentErrorInfo {
   const originalMessage = typeof error === 'string' ? error.toLowerCase() : '';
+  const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
   const mappedMessage = mapApiErrorToMessage(error).toLowerCase();
   
-  // Card-related errors - check original message first
-  if (originalMessage.includes('card declined') || originalMessage.includes('insufficient funds') || 
-      originalMessage.includes('expired card') || originalMessage.includes('invalid card') ||
-      originalMessage.includes('card') && (originalMessage.includes('declined') || originalMessage.includes('expired'))) {
+  // Enhanced error message detection
+  const checkMessage = (msg: string) => 
+    originalMessage.includes(msg) || errorMessage.includes(msg) || mappedMessage.includes(msg);
+  
+  // Stripe-specific errors (enhanced detection)
+  if (checkMessage('your card was declined') || checkMessage('card_declined') || 
+      checkMessage('insufficient_funds') || checkMessage('card declined') ||
+      checkMessage('expired_card') || checkMessage('invalid_card_number') ||
+      checkMessage('incorrect_cvc') || checkMessage('card_error')) {
     return {
       type: 'card_error',
       userMessage: mapApiErrorToMessage(error),
@@ -171,33 +177,8 @@ export function categorizePaymentError(error: ApiErrorInput): PaymentErrorInfo {
     };
   }
   
-  // Network errors
-  if (originalMessage.includes('network') || originalMessage.includes('connection') || originalMessage.includes('timeout') ||
-      mappedMessage.includes('network') || mappedMessage.includes('connection') || mappedMessage.includes('timeout')) {
-    return {
-      type: 'network_error',
-      userMessage: mapApiErrorToMessage(error),
-      canRetry: true,
-      requiresNewPayment: false,
-      shouldContactSupport: false
-    };
-  }
-  
-  // Webhook processing errors
-  if (originalMessage.includes('webhook') || originalMessage.includes('processing') ||
-      mappedMessage.includes('webhook') || mappedMessage.includes('processing')) {
-    return {
-      type: 'webhook_error',
-      userMessage: mapApiErrorToMessage(error),
-      canRetry: true,
-      requiresNewPayment: false,
-      shouldContactSupport: true
-    };
-  }
-  
-  // General processing errors
-  if (originalMessage.includes('payment') || originalMessage.includes('confirmation') ||
-      mappedMessage.includes('payment') || mappedMessage.includes('confirmation')) {
+  // Payment Intent specific errors (Stripe)
+  if (checkMessage('payment_intent') && (checkMessage('failed') || checkMessage('canceled'))) {
     return {
       type: 'processing_error',
       userMessage: mapApiErrorToMessage(error),
@@ -207,7 +188,80 @@ export function categorizePaymentError(error: ApiErrorInput): PaymentErrorInfo {
     };
   }
   
-  // Unknown errors
+  // Network and connectivity errors (enhanced)
+  if (checkMessage('network') || checkMessage('connection') || checkMessage('timeout') ||
+      checkMessage('fetch') || checkMessage('cors') || checkMessage('offline') ||
+      checkMessage('net::') || checkMessage('failed to fetch')) {
+    return {
+      type: 'network_error',
+      userMessage: mapApiErrorToMessage(error),
+      canRetry: true,
+      requiresNewPayment: false,
+      shouldContactSupport: false
+    };
+  }
+  
+  // Webhook processing errors (enhanced)
+  if (checkMessage('webhook') || checkMessage('confirmation failed') ||
+      checkMessage('payment processing') || checkMessage('order status') ||
+      checkMessage('stripe webhook')) {
+    return {
+      type: 'webhook_error',
+      userMessage: mapApiErrorToMessage(error),
+      canRetry: true,
+      requiresNewPayment: false,
+      shouldContactSupport: true
+    };
+  }
+  
+  // Authentication and authorization errors
+  if (checkMessage('unauthorized') || checkMessage('forbidden') || 
+      checkMessage('authentication') || checkMessage('not authorized')) {
+    return {
+      type: 'processing_error',
+      userMessage: 'Authentication failed. Please refresh and try again.',
+      canRetry: true,
+      requiresNewPayment: false,
+      shouldContactSupport: true
+    };
+  }
+  
+  // Rate limiting
+  if (checkMessage('rate limit') || checkMessage('too many requests') || checkMessage('429')) {
+    return {
+      type: 'processing_error',
+      userMessage: 'Too many payment attempts. Please wait a moment and try again.',
+      canRetry: true,
+      requiresNewPayment: false,
+      shouldContactSupport: false
+    };
+  }
+  
+  // Server errors (5xx)
+  if (checkMessage('500') || checkMessage('502') || checkMessage('503') || 
+      checkMessage('server error') || checkMessage('internal server')) {
+    return {
+      type: 'processing_error',
+      userMessage: 'Server temporarily unavailable. Please try again in a few minutes.',
+      canRetry: true,
+      requiresNewPayment: false,
+      shouldContactSupport: true
+    };
+  }
+  
+  // General processing errors (enhanced)
+  if (checkMessage('payment') || checkMessage('confirmation') || checkMessage('order') ||
+      checkMessage('stripe') || checkMessage('billing')) {
+    return {
+      type: 'processing_error',
+      userMessage: mapApiErrorToMessage(error),
+      canRetry: true,
+      requiresNewPayment: false,
+      shouldContactSupport: true
+    };
+  }
+  
+  // Unknown errors - be more conservative
   return {
     type: 'unknown',
     userMessage: mapApiErrorToMessage(error),

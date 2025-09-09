@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, createEventDispatcher } from 'svelte';
+  import { onMount, createEventDispatcher, tick } from 'svelte';
   import { AlertTriangle, RefreshCw, CreditCard, Wifi, WifiOff } from 'lucide-svelte';
   import { categorizePaymentError, type PaymentErrorInfo } from '$lib/errors';
   import { mapApiErrorToMessage } from '$lib/errors';
@@ -10,30 +10,112 @@
   export let showRetry: boolean = true;
   export let maxRetries: number = 3;
   export let retryCount: number = 0;
+  export let paymentStatus: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' = 'failed';
 
   const dispatch = createEventDispatcher<{
     retry: { attempt: number };
     contactSupport: { error: Error | null; orderId: string | null };
     newPayment: { orderId: string | null };
+    errorStateChange: { hasError: boolean; errorInfo: PaymentErrorInfo | null };
   }>();
 
   let errorInfo: PaymentErrorInfo | null = null;
   let isRetrying = false;
+  let errorContext: string = '';
+  let previousError: Error | null = null;
+  let errorTimestamp: number = 0;
 
-  $: if (error) {
-    errorInfo = categorizePaymentError(error);
+  // Enhanced error detection and categorization
+  $: if (error !== previousError) {
+    previousError = error;
+    if (error) {
+      errorTimestamp = Date.now();
+      errorInfo = categorizePaymentError(error);
+      
+      // Enhanced error context detection for payment scenarios
+      if (error.message) {
+        const message = error.message.toLowerCase();
+        
+        // Detect Stripe-specific errors that might not be caught properly
+        if (message.includes('stripe')) {
+          errorContext = 'stripe_integration';
+        } else if (message.includes('intent')) {
+          errorContext = 'payment_intent';
+        } else if (message.includes('webhook')) {
+          errorContext = 'webhook_processing';
+        } else if (message.includes('network') || message.includes('fetch')) {
+          errorContext = 'network_error';
+        } else {
+          errorContext = 'general_payment';
+        }
+      }
+      
+      // Dispatch error state change for parent components
+      dispatch('errorStateChange', { hasError: true, errorInfo });
+    } else {
+      errorInfo = null;
+      errorContext = '';
+      dispatch('errorStateChange', { hasError: false, errorInfo: null });
+    }
   }
 
-  function handleRetry() {
-    if (retryCount >= maxRetries) return;
+  // Enhanced error detection for async payment operations
+  onMount(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      // Check if this is a payment-related error
+      const reason = event.reason;
+      if (reason && (
+        reason.message?.includes('payment') ||
+        reason.message?.includes('stripe') ||
+        reason.message?.includes('card') ||
+        reason.code === 'PAYMENT_ERROR'
+      )) {
+        console.error('PaymentErrorBoundary caught unhandled payment rejection:', reason);
+        // If no error is already set, capture this one
+        if (!error) {
+          error = reason instanceof Error ? reason : new Error(String(reason));
+        }
+      }
+    };
+
+    const handleError = (event: ErrorEvent) => {
+      // Check if this is a payment-related error
+      if (event.message && (
+        event.message.includes('payment') ||
+        event.message.includes('stripe') ||
+        event.message.includes('card')
+      )) {
+        console.error('PaymentErrorBoundary caught payment error event:', event);
+        if (!error) {
+          error = new Error(event.message);
+        }
+      }
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    window.addEventListener('error', handleError);
+
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      window.removeEventListener('error', handleError);
+    };
+  });
+
+  async function handleRetry() {
+    if (retryCount >= maxRetries || isRetrying) return;
     
     isRetrying = true;
+    
+    // Clear current error state before retrying
+    error = null;
+    await tick();
+    
     dispatch('retry', { attempt: retryCount + 1 });
     
-    // Reset retrying state after a delay
+    // Reset retrying state after a longer delay to prevent rapid clicks
     setTimeout(() => {
       isRetrying = false;
-    }, 2000);
+    }, 3000);
   }
 
   function handleContactSupport() {

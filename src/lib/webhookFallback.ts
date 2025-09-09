@@ -1,5 +1,6 @@
-import { safeFetch } from './http';
+import { safeFetch, NetworkMonitor } from './http';
 import { mapApiErrorToMessage } from './errors';
+import { notifyNetworkError, notifyWebhookFailure } from './errorNotificationSystem';
 
 export interface OrderStatus {
   id: string;
@@ -32,6 +33,12 @@ export class WebhookFallbackManager {
   private activePollers = new Map<string, number>();
   private pollingAttempts = new Map<string, number>();
   private pollingStartTimes = new Map<string, number>();
+  private networkChangeListeners = new Map<string, () => void>();
+  
+  constructor() {
+    // Initialize network monitoring
+    NetworkMonitor.initialize();
+  }
 
   /**
    * Start polling for order status updates
@@ -58,13 +65,36 @@ export class WebhookFallbackManager {
       let currentInterval = pollingInterval;
       const startTime = Date.now();
       this.pollingStartTimes.set(orderId, startTime);
+      
+      // Set up network change monitoring for this polling session
+      const networkChangeCleanup = NetworkMonitor.onNetworkChange((isOnline) => {
+        if (!isOnline) {
+          // Network lost during polling
+          console.log(`Network lost during polling for order ${orderId}`);
+          notifyNetworkError(
+            new Error('Network connection lost during webhook fallback polling'),
+            { context: `Order ${orderId} status polling`, showPolling: true }
+          );
+        } else {
+          // Network restored - adjust retry strategy
+          console.log(`Network restored during polling for order ${orderId} - reducing retry interval`);
+          currentInterval = Math.max(pollingInterval, currentInterval * 0.5); // Reduce interval on network restore
+        }
+      });
+      
+      // Store cleanup function
+      this.networkChangeListeners.set(orderId, networkChangeCleanup);
 
       const poll = async () => {
         attempts++;
         this.pollingAttempts.set(orderId, attempts);
 
         try {
-          const response = await safeFetch(`/api/orders/${orderId}`);
+          // Enhanced fetch with timeout detection
+          const response = await safeFetch(`/api/orders/${orderId}`, {
+            timeout: 15000, // 15s timeout for polling requests
+            retryOnNetworkChange: true
+          });
           
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);

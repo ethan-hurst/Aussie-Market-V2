@@ -195,7 +195,7 @@ class ErrorNotificationManager {
   }
 
   /**
-   * Add a webhook failure notification
+   * Add a webhook failure notification with enhanced timeout detection
    */
   addWebhookFailureNotification(
     orderId: string,
@@ -203,10 +203,38 @@ class ErrorNotificationManager {
     options: {
       showRetry?: boolean;
       showPolling?: boolean;
+      isTimeout?: boolean;
+      isNetworkError?: boolean;
     } = {}
   ): string {
     const message = mapApiErrorToMessage(error);
     const actions: ErrorNotificationAction[] = [];
+    
+    // Detect timeout scenarios
+    const isTimeout = options.isTimeout || 
+      (error && (error.isTimeout || error.code === 'TIMEOUT')) ||
+      message.toLowerCase().includes('timeout') ||
+      message.toLowerCase().includes('took too long');
+    
+    // Detect network errors
+    const isNetworkError = options.isNetworkError || 
+      (error && (error.isNetworkError || error.code === 'NETWORK_ERROR')) ||
+      message.toLowerCase().includes('network') ||
+      message.toLowerCase().includes('connection');
+
+    // Enhanced title and message based on error type
+    let title = 'Payment Processing Delay';
+    let enhancedMessage = message;
+    
+    if (isTimeout) {
+      title = 'Webhook Timeout';
+      enhancedMessage = `Webhook processing for order ${orderId} timed out. ${message}`;
+    } else if (isNetworkError) {
+      title = 'Network Error During Processing';
+      enhancedMessage = `Network error occurred while processing order ${orderId}. ${message}`;
+    } else {
+      enhancedMessage = `Your payment for order ${orderId} is taking longer than expected. ${message}`;
+    }
 
     if (options.showRetry) {
       actions.push({
@@ -214,7 +242,7 @@ class ErrorNotificationManager {
         action: () => {
           // Dispatch CustomEvent for parent components to handle
           window.dispatchEvent(new CustomEvent('webhook-notification:retry', {
-            detail: { orderId, error }
+            detail: { orderId, error, isTimeout, isNetworkError }
           }));
         },
         variant: 'primary'
@@ -227,7 +255,7 @@ class ErrorNotificationManager {
         action: () => {
           // Dispatch CustomEvent for parent components to handle
           window.dispatchEvent(new CustomEvent('webhook-notification:check-status', {
-            detail: { orderId, error }
+            detail: { orderId, error, isTimeout, isNetworkError }
           }));
         },
         variant: 'secondary'
@@ -235,37 +263,104 @@ class ErrorNotificationManager {
     }
 
     return this.addNotification({
-      type: 'warning',
-      title: 'Payment Processing Delay',
-      message: `Your payment for order ${orderId} is taking longer than expected. ${message}`,
+      type: isTimeout || isNetworkError ? 'error' : 'warning',
+      title,
+      message: enhancedMessage,
       persistent: true,
       actions,
-      metadata: { orderId, errorType: 'webhook_failure' }
+      metadata: { 
+        orderId, 
+        errorType: 'webhook_failure',
+        isTimeout,
+        isNetworkError,
+        originalError: error
+      }
     });
   }
 
   /**
-   * Add a network connectivity notification
+   * Add a network connectivity notification with enhanced detection
    */
-  addNetworkErrorNotification(error: any): string {
+  addNetworkErrorNotification(
+    error: any,
+    options: {
+      isRetryable?: boolean;
+      showPolling?: boolean;
+      context?: string;
+    } = {}
+  ): string {
+    const { isRetryable = true, showPolling = false, context = '' } = options;
+    
+    // Detect specific network error types
+    const isNetworkChange = error && (error.isNetworkChange || error.code === 'NETWORK_CHANGE');
+    const isTimeout = error && (error.isTimeout || error.code === 'TIMEOUT');
+    const isConnectionLost = error && (error.isNetworkError || error.code === 'NETWORK_ERROR');
+    
+    let title = 'Connection Problem';
+    let message = mapApiErrorToMessage(error);
+    
+    if (isNetworkChange) {
+      title = 'Network Conditions Changed';
+      message = 'Network connectivity changed during the request. Please try again.';
+    } else if (isTimeout) {
+      title = 'Request Timeout';
+      message = 'The request took too long to complete. Please check your connection and try again.';
+    } else if (isConnectionLost) {
+      title = 'Connection Lost';
+      message = 'Lost connection to the server. Please check your network and try again.';
+    }
+    
+    if (context) {
+      message = `${context}: ${message}`;
+    }
+    
+    const actions: ErrorNotificationAction[] = [];
+    
+    if (isRetryable) {
+      actions.push({
+        label: 'Retry',
+        action: () => {
+          // Dispatch CustomEvent for parent components to handle
+          window.dispatchEvent(new CustomEvent('network-notification:retry', {
+            detail: { 
+              error, 
+              isNetworkChange, 
+              isTimeout, 
+              isConnectionLost,
+              context
+            }
+          }));
+        },
+        variant: 'primary'
+      });
+    }
+    
+    if (showPolling) {
+      actions.push({
+        label: 'Monitor Status',
+        action: () => {
+          window.dispatchEvent(new CustomEvent('network-notification:monitor', {
+            detail: { error, context }
+          }));
+        },
+        variant: 'secondary'
+      });
+    }
+
     return this.addNotification({
       type: 'error',
-      title: 'Connection Problem',
-      message: mapApiErrorToMessage(error),
-      persistent: false,
-      actions: [
-        {
-          label: 'Retry',
-          action: () => {
-            // Dispatch CustomEvent for parent components to handle
-            window.dispatchEvent(new CustomEvent('network-notification:retry', {
-              detail: { error }
-            }));
-          },
-          variant: 'primary'
-        }
-      ],
-      metadata: { errorType: 'network' }
+      title,
+      message,
+      persistent: isNetworkChange || isConnectionLost, // More persistent for serious network issues
+      actions,
+      metadata: { 
+        errorType: 'network',
+        isNetworkChange,
+        isTimeout,
+        isConnectionLost,
+        context,
+        originalError: error
+      }
     });
   }
 
@@ -338,10 +433,22 @@ export const notifyPaymentError = (
 export const notifyWebhookFailure = (
   orderId: string, 
   error: any, 
-  options?: { showRetry?: boolean; showPolling?: boolean }
+  options?: { 
+    showRetry?: boolean; 
+    showPolling?: boolean;
+    isTimeout?: boolean;
+    isNetworkError?: boolean;
+  }
 ) => errorNotificationManager.addWebhookFailureNotification(orderId, error, options);
 
-export const notifyNetworkError = (error: any) => errorNotificationManager.addNetworkErrorNotification(error);
+export const notifyNetworkError = (
+  error: any, 
+  options?: {
+    isRetryable?: boolean;
+    showPolling?: boolean;
+    context?: string;
+  }
+) => errorNotificationManager.addNetworkErrorNotification(error, options);
 
 export const notifySuccess = (title: string, message: string, persistent?: boolean) => 
   errorNotificationManager.addSuccessNotification(title, message, persistent);

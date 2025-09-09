@@ -222,12 +222,21 @@
 			showRetry={isRetryableError(error)}
 			{maxRetries}
 			{retryCount}
+			{paymentStatus}
 			on:retry={() => handleRetry()}
 			on:contactSupport={() => handleContactSupport()}
 			on:newPayment={() => handleNewPayment()}
+			on:errorStateChange={(e) => {
+				// Handle error state changes for better UI synchronization
+				const { hasError, errorInfo } = e.detail;
+				if (!hasError) {
+					error = '';
+					paymentStatus = 'pending';
+				}
+			}}
 		/>
 	{:else if paymentStatus === 'processing' || paymentStatus === 'succeeded'}
-		<!-- Payment Status Indicator -->
+		<!-- Payment Status Indicator with Real-time Updates -->
 		<PaymentStatusIndicator 
 			status={paymentStatus}
 			showProgress={true}
@@ -235,8 +244,30 @@
 			currentStep={paymentStatus === 'processing' ? 1 : 2}
 			{error}
 			retryable={isRetryableError(error)}
+			orderId={order?.id}
+			enableAutoUpdate={paymentStatus === 'processing'}
+			autoUpdateInterval={2000}
 			on:retry={() => handleRetry()}
 			on:cancel={() => goto(`/orders/${order?.id}`)}
+			on:statusUpdate={(e) => {
+				// Handle real-time status updates
+				const { status: newStatus } = e.detail;
+				if (newStatus !== paymentStatus) {
+					paymentStatus = newStatus;
+					
+					// Update UI based on new status
+					if (newStatus === 'succeeded') {
+						toastSuccess('Payment completed successfully!');
+						setTimeout(() => {
+							if (order) {
+								goto(`/orders/${order.id}`);
+							}
+						}, 2000);
+					} else if (newStatus === 'failed') {
+						error = 'Payment processing failed';
+					}
+				}
+			}}
 		/>
 	{:else if order}
 		<div class="bg-white shadow-lg rounded-lg overflow-hidden">
