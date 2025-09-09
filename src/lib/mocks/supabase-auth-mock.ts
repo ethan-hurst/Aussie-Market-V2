@@ -40,11 +40,54 @@ export interface MockBid {
   created_at: string;
 }
 
+export interface MockWebhookEvent {
+  event_id: string;
+  type: string;
+  order_id: string | null;
+  event_type: string;
+  created_at: string;
+  processed_at: string | null;
+  error_message: string | null;
+  retry_count: number;
+}
+
+export interface MockOrder {
+  id: string;
+  listing_id: string;
+  buyer_id: string;
+  seller_id: string;
+  amount_cents: number;
+  state: 'pending' | 'pending_payment' | 'paid' | 'ready_for_handover' | 'shipped' | 'delivered' | 'released' | 'refunded' | 'cancelled' | 'payment_failed' | 'disputed';
+  stripe_payment_intent_id: string | null;
+  version: number;
+  created_at: string;
+  updated_at: string;
+  paid_at?: string | null;
+  refunded_at?: string | null;
+}
+
+export interface MockPayment {
+  order_id: string;
+  amount_cents: number;
+  currency: string;
+  payment_method: string;
+  stripe_payment_intent_id: string | null;
+  stripe_charge_id?: string | null;
+  stripe_refund_id?: string | null;
+  status: 'pending' | 'completed' | 'failed';
+  processed_at: string;
+  error_message?: string | null;
+  capturable_amount_cents?: number | null;
+}
+
 export class SupabaseAuthMock {
   private users: Map<string, MockUser> = new Map();
   private sessions: Map<string, MockSession> = new Map();
   private listings: Map<string, MockListing> = new Map();
   private bids: Map<string, MockBid> = new Map();
+  private webhookEvents: Map<string, MockWebhookEvent> = new Map();
+  private orders: Map<string, MockOrder> = new Map();
+  private payments: Map<string, MockPayment> = new Map();
   private tokenCounter = 0;
 
   constructor() {
@@ -198,6 +241,138 @@ export class SupabaseAuthMock {
   }
 
   /**
+   * Create or update a webhook event
+   */
+  upsertWebhookEvent(event: Partial<MockWebhookEvent> & { event_id: string }, isInsert = false): MockWebhookEvent {
+    const existing = this.webhookEvents.get(event.event_id);
+    
+    // If this is a strict insert and record already exists, throw unique constraint error
+    if (isInsert && existing) {
+      const error = new Error('duplicate key value violates unique constraint');
+      (error as any).code = '23505';
+      throw error;
+    }
+    
+    const webhookEvent: MockWebhookEvent = {
+      type: existing?.type || event.type || 'payment_intent.succeeded',
+      order_id: existing?.order_id || event.order_id || null,
+      event_type: existing?.event_type || event.event_type || event.type || 'payment_intent.succeeded',
+      created_at: existing?.created_at || event.created_at || new Date().toISOString(),
+      processed_at: event.processed_at !== undefined ? event.processed_at : existing?.processed_at || null,
+      error_message: event.error_message !== undefined ? event.error_message : existing?.error_message || null,
+      retry_count: existing?.retry_count || event.retry_count || 0,
+      ...event
+    };
+    
+    this.webhookEvents.set(event.event_id, webhookEvent);
+    return webhookEvent;
+  }
+
+  /**
+   * Get webhook event by ID
+   */
+  getWebhookEvent(eventId: string): MockWebhookEvent | null {
+    return this.webhookEvents.get(eventId) || null;
+  }
+
+  /**
+   * Get webhook events by order ID and type
+   */
+  getWebhookEventsByOrderAndType(orderId: string, eventType: string, excludeEventId?: string): MockWebhookEvent[] {
+    return Array.from(this.webhookEvents.values()).filter(
+      event => event.order_id === orderId && 
+               event.event_type === eventType && 
+               (!excludeEventId || event.event_id !== excludeEventId)
+    );
+  }
+
+  /**
+   * Create or update an order
+   */
+  upsertOrder(order: Partial<MockOrder> & { id: string }): MockOrder {
+    const existing = this.orders.get(order.id);
+    const mockOrder: MockOrder = {
+      listing_id: existing?.listing_id || order.listing_id || 'test-listing',
+      buyer_id: existing?.buyer_id || order.buyer_id || 'test-buyer',
+      seller_id: existing?.seller_id || order.seller_id || 'test-seller',
+      amount_cents: existing?.amount_cents || order.amount_cents || 1000,
+      state: order.state || existing?.state || 'pending_payment',
+      stripe_payment_intent_id: order.stripe_payment_intent_id !== undefined ? order.stripe_payment_intent_id : existing?.stripe_payment_intent_id || null,
+      version: order.version !== undefined ? order.version : (existing?.version || 0),
+      created_at: existing?.created_at || order.created_at || new Date().toISOString(),
+      updated_at: order.updated_at || new Date().toISOString(),
+      paid_at: order.paid_at !== undefined ? order.paid_at : existing?.paid_at || null,
+      refunded_at: order.refunded_at !== undefined ? order.refunded_at : existing?.refunded_at || null,
+      ...order
+    };
+    
+    this.orders.set(order.id, mockOrder);
+    return mockOrder;
+  }
+
+  /**
+   * Auto-create test orders for webhook testing
+   */
+  ensureTestOrder(orderId: string): void {
+    if (!this.orders.has(orderId)) {
+      this.upsertOrder({
+        id: orderId,
+        listing_id: 'test-listing-' + orderId,
+        buyer_id: 'test-buyer-' + orderId, 
+        seller_id: 'test-seller-' + orderId,
+        amount_cents: 1000,
+        state: 'pending_payment',
+        version: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+  }
+
+  /**
+   * Get order by ID
+   */
+  getOrder(orderId: string): MockOrder | null {
+    return this.orders.get(orderId) || null;
+  }
+
+  /**
+   * Create or update a payment
+   */
+  upsertPayment(payment: MockPayment): MockPayment {
+    const key = `${payment.order_id}_${payment.stripe_payment_intent_id || payment.stripe_charge_id || payment.stripe_refund_id}`;
+    this.payments.set(key, payment);
+    return payment;
+  }
+
+  /**
+   * Get payments by payment intent ID
+   */
+  getPaymentsByIntentId(paymentIntentId: string): MockPayment[] {
+    return Array.from(this.payments.values()).filter(
+      payment => payment.stripe_payment_intent_id === paymentIntentId
+    );
+  }
+
+  /**
+   * Mock PostgreSQL functions
+   */
+  mockRpcCall(functionName: string, params: any): Promise<{ data: any; error: any }> {
+    switch (functionName) {
+      case 'pg_try_advisory_lock':
+        // Simulate successful lock acquisition
+        return Promise.resolve({ data: true, error: null });
+      
+      case 'pg_advisory_unlock':
+        // Simulate successful lock release
+        return Promise.resolve({ data: true, error: null });
+      
+      default:
+        return Promise.resolve({ data: null, error: { message: `Unknown RPC function: ${functionName}` } });
+    }
+  }
+
+  /**
    * Health check
    */
   healthCheck(): { status: 'ok'; service: 'supabase-mock'; timestamp: number; stats: any } {
@@ -222,6 +397,9 @@ export class SupabaseAuthMock {
     this.sessions.clear();
     this.listings.clear();
     this.bids.clear();
+    this.webhookEvents.clear();
+    this.orders.clear();
+    this.payments.clear();
     this.tokenCounter = 0;
     this.seedTestData();
   }
@@ -302,6 +480,286 @@ export async function handleMockSupabaseAuth(event: RequestEvent): Promise<Respo
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       });
+    }
+
+    // RPC calls (PostgreSQL functions)
+    if (url.pathname.includes('/rpc/') && request.method === 'POST') {
+      const functionName = url.pathname.split('/rpc/')[1];
+      const body = await request.json();
+      const result = await supabaseAuthMock.mockRpcCall(functionName, body);
+      
+      return new Response(JSON.stringify(result.data), {
+        status: result.error ? 400 : 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Webhook Events table operations
+    if (url.pathname === '/rest/v1/webhook_events') {
+      if (request.method === 'GET') {
+        // Parse Supabase query parameters
+        const select = url.searchParams.get('select');
+        let eventIdEq = null;
+        let orderIdEq = null;
+        let eventTypeEq = null;
+        let excludeEventId = null;
+        
+        // Parse filter conditions
+        for (const [key, value] of url.searchParams.entries()) {
+          if (key === 'event_id' && value.startsWith('eq.')) {
+            eventIdEq = value.replace('eq.', '');
+          } else if (key === 'order_id' && value.startsWith('eq.')) {
+            orderIdEq = value.replace('eq.', '');
+          } else if (key === 'event_type' && value.startsWith('eq.')) {
+            eventTypeEq = value.replace('eq.', '');
+          } else if (key === 'event_id' && value.startsWith('neq.')) {
+            excludeEventId = value.replace('neq.', '');
+          }
+        }
+        
+        if (eventIdEq) {
+          // Single event lookup for .maybeSingle() calls
+          const event = supabaseAuthMock.getWebhookEvent(eventIdEq);
+          return new Response(JSON.stringify(event), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Content-Range': event ? '0-0/*' : '*/*'
+            }
+          });
+        } else if (orderIdEq && eventTypeEq) {
+          // Order-specific event lookup
+          const events = supabaseAuthMock.getWebhookEventsByOrderAndType(orderIdEq, eventTypeEq, excludeEventId || undefined);
+          return new Response(JSON.stringify(events), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Content-Range': `0-${Math.max(0, events.length - 1)}/*`
+            }
+          });
+        }
+        
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Content-Range': '*/0'
+          }
+        });
+      }
+      
+      if (request.method === 'POST') {
+        const body = await request.json();
+        try {
+          const event = supabaseAuthMock.upsertWebhookEvent(body, true); // true = isInsert
+          return new Response(JSON.stringify(event), {
+            status: 201,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Location': `/webhook_events?event_id=eq.${event.event_id}`
+            }
+          });
+        } catch (error: any) {
+          if (error.message?.includes('unique constraint') || error.code === '23505') {
+            return new Response(JSON.stringify({ 
+              message: 'duplicate key value violates unique constraint', 
+              code: '23505',
+              details: 'Key (event_id) already exists'
+            }), {
+              status: 409,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+          throw error;
+        }
+      }
+      
+      if (request.method === 'PATCH') {
+        const body = await request.json();
+        // Parse the event_id filter from query params
+        let eventIdEq = null;
+        for (const [key, value] of url.searchParams.entries()) {
+          if (key === 'event_id' && value.startsWith('eq.')) {
+            eventIdEq = value.replace('eq.', '');
+            break;
+          }
+        }
+        
+        if (eventIdEq) {
+          const event = supabaseAuthMock.upsertWebhookEvent({ event_id: eventIdEq, ...body });
+          return new Response('', {
+            status: 204,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        
+        return new Response(JSON.stringify({ message: 'No matching records found' }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    // Orders table operations
+    if (url.pathname === '/rest/v1/orders') {
+      if (request.method === 'GET') {
+        // Parse filter conditions
+        let orderIdEq = null;
+        for (const [key, value] of url.searchParams.entries()) {
+          if (key === 'id' && value.startsWith('eq.')) {
+            orderIdEq = value.replace('eq.', '');
+            break;
+          }
+        }
+        
+        if (orderIdEq) {
+          // Auto-create test orders for webhook testing
+          supabaseAuthMock.ensureTestOrder(orderIdEq);
+          const order = supabaseAuthMock.getOrder(orderIdEq);
+          return new Response(JSON.stringify(order), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Content-Range': order ? '0-0/*' : '*/*'
+            }
+          });
+        }
+        
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Content-Range': '*/0'
+          }
+        });
+      }
+      
+      if (request.method === 'PATCH') {
+        const body = await request.json();
+        
+        // Parse filter conditions and requirements for atomic updates
+        let orderIdEq = null;
+        let stateIn = null;
+        let versionEq = null;
+        
+        for (const [key, value] of url.searchParams.entries()) {
+          if (key === 'id' && value.startsWith('eq.')) {
+            orderIdEq = value.replace('eq.', '');
+          } else if (key === 'state' && value.startsWith('in.(')) {
+            stateIn = value.replace('in.(', '').replace(')', '').split(',').map(s => s.trim().replace(/"/g, ''));
+          } else if (key === 'version' && value.startsWith('eq.')) {
+            versionEq = parseInt(value.replace('eq.', ''));
+          }
+        }
+        
+        if (orderIdEq) {
+          const existingOrder = supabaseAuthMock.getOrder(orderIdEq);
+          
+          // Check constraints for atomic updates
+          if (stateIn && existingOrder && !stateIn.includes(existingOrder.state)) {
+            // State constraint violation - return empty result (no rows updated)
+            return new Response(JSON.stringify([]), {
+              status: 200,
+              headers: { 
+                'Content-Type': 'application/json',
+                'Content-Range': '*/0'
+              }
+            });
+          }
+          
+          if (versionEq !== null && existingOrder && existingOrder.version !== versionEq) {
+            // Version mismatch - optimistic locking failure
+            return new Response(JSON.stringify([]), {
+              status: 200,
+              headers: { 
+                'Content-Type': 'application/json',
+                'Content-Range': '*/0'
+              }
+            });
+          }
+          
+          const order = supabaseAuthMock.upsertOrder({ id: orderIdEq, ...body });
+          return new Response(JSON.stringify([order]), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Content-Range': '0-0/*'
+            }
+          });
+        }
+        
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Content-Range': '*/0'
+          }
+        });
+      }
+    }
+
+    // Payments table operations  
+    if (url.pathname === '/rest/v1/payments') {
+      if (request.method === 'POST') {
+        const body = await request.json();
+        
+        // Handle upsert with conflict resolution
+        const onConflict = request.headers.get('prefer')?.includes('resolution=merge-duplicates');
+        if (onConflict) {
+          // This is an upsert operation
+          const payment = supabaseAuthMock.upsertPayment(body);
+          return new Response(JSON.stringify(payment), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } else {
+          // Regular insert
+          const payment = supabaseAuthMock.upsertPayment(body);
+          return new Response(JSON.stringify(payment), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
+      
+      if (request.method === 'PATCH') {
+        const body = await request.json();
+        const payment = supabaseAuthMock.upsertPayment(body);
+        return new Response(JSON.stringify(payment), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+      if (request.method === 'GET') {
+        // Parse filter conditions
+        let paymentIntentIdEq = null;
+        for (const [key, value] of url.searchParams.entries()) {
+          if (key === 'stripe_payment_intent_id' && value.startsWith('eq.')) {
+            paymentIntentIdEq = value.replace('eq.', '');
+            break;
+          }
+        }
+        
+        if (paymentIntentIdEq) {
+          const payments = supabaseAuthMock.getPaymentsByIntentId(paymentIntentIdEq);
+          return new Response(JSON.stringify(payments), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Content-Range': `0-${Math.max(0, payments.length - 1)}/*`
+            }
+          });
+        }
+        
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Content-Range': '*/0'
+          }
+        });
+      }
     }
 
     // Bids

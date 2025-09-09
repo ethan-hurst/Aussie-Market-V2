@@ -135,10 +135,31 @@ export class MockServerCoordinator {
         });
       }
 
-      // Route Stripe-related requests
+      // Handle webhook requests first before other Stripe routes
+      if (url.pathname === '/api/webhooks/stripe') {
+        const sig = request.headers.get('stripe-signature');
+        
+        // Handle specific error cases that the mock should simulate
+        if (sig && (
+          sig.includes('invalidsignature') || 
+          sig === 'invalid_format' || 
+          sig === 't=1234567890' || 
+          sig === 'v1=signature' || 
+          sig === 't=invalid,v1=signature' || 
+          sig === 't=1234567890,v1='
+        )) {
+          console.log(`[MockServer] Intercepting webhook with invalid signature: ${sig}`);
+          return await handleMockStripeWebhook(event);
+        }
+        
+        // For valid webhook signatures (like 'sig_mock'), let the real handler process for idempotency testing
+        console.log(`[MockServer] Allowing webhook to pass through to real handler. Sig: ${sig}`);
+        return null; // Pass through to real handler
+      }
+      
+      // Route other Stripe-related requests to mock
       if (url.pathname.includes('/stripe') || 
-          url.pathname.includes('/payments') ||
-          url.pathname.includes('/webhook')) {
+          url.pathname.includes('/payments')) {
         return await handleMockStripeWebhook(event);
       }
 
