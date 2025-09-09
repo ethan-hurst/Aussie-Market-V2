@@ -1,9 +1,10 @@
 import type { LayoutServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
+import { getOptionalSession } from '$lib/session';
 
-export const load: LayoutServerLoad = async ({ locals, url }) => {
-	// Get session from Supabase
-	const { data: { session } } = await (locals as any).getSession();
+export const load: LayoutServerLoad = async ({ locals, url, request }) => {
+	// Get session using the proper session helper that handles test headers
+	const session = await getOptionalSession({ locals, request, url, params: {}, route: { id: '' } });
 
 	// If no session and trying to access protected routes, redirect to login
 	if (!session) {
