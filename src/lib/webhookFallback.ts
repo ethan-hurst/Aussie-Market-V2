@@ -1,0 +1,236 @@
+import { safeFetch } from './http';
+import { mapApiErrorToMessage } from './errors';
+
+export interface OrderStatus {
+  id: string;
+  state: 'pending' | 'pending_payment' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'refunded';
+  updated_at: string;
+  stripe_payment_intent_id?: string;
+}
+
+export interface WebhookFallbackOptions {
+  maxPollingAttempts?: number;
+  pollingInterval?: number;
+  exponentialBackoff?: boolean;
+  onStatusUpdate?: (status: OrderStatus) => void;
+  onError?: (error: Error) => void;
+  onComplete?: (finalStatus: OrderStatus) => void;
+}
+
+export interface PollingResult {
+  success: boolean;
+  finalStatus?: OrderStatus;
+  error?: string;
+  attempts: number;
+}
+
+/**
+ * Poll for order status updates when webhook fails
+ */
+export class WebhookFallbackManager {
+  private activePollers = new Map<string, NodeJS.Timeout>();
+  private pollingAttempts = new Map<string, number>();
+
+  /**
+   * Start polling for order status updates
+   */
+  async startPolling(
+    orderId: string, 
+    options: WebhookFallbackOptions = {}
+  ): Promise<PollingResult> {
+    const {
+      maxPollingAttempts = 10,
+      pollingInterval = 2000,
+      exponentialBackoff = true,
+      onStatusUpdate,
+      onError,
+      onComplete
+    } = options;
+
+    // Clear any existing poller for this order
+    this.stopPolling(orderId);
+
+    return new Promise((resolve) => {
+      let attempts = 0;
+      let currentInterval = pollingInterval;
+
+      const poll = async () => {
+        attempts++;
+        this.pollingAttempts.set(orderId, attempts);
+
+        try {
+          const response = await safeFetch(`/api/orders/${orderId}`);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const order: OrderStatus = await response.json();
+          
+          // Check if order is in a final state
+          const finalStates = ['paid', 'cancelled', 'refunded', 'delivered'];
+          if (finalStates.includes(order.state)) {
+            this.stopPolling(orderId);
+            onComplete?.(order);
+            resolve({
+              success: true,
+              finalStatus: order,
+              attempts
+            });
+            return;
+          }
+
+          // Notify of status update
+          onStatusUpdate?.(order);
+
+          // Check if we've exceeded max attempts
+          if (attempts >= maxPollingAttempts) {
+            this.stopPolling(orderId);
+            const error = new Error('Maximum polling attempts reached');
+            onError?.(error);
+            resolve({
+              success: false,
+              error: error.message,
+              attempts
+            });
+            return;
+          }
+
+          // Schedule next poll with exponential backoff
+          if (exponentialBackoff) {
+            currentInterval = Math.min(currentInterval * 1.5, 10000); // Max 10 seconds
+          }
+
+          const timeoutId = setTimeout(poll, currentInterval);
+          this.activePollers.set(orderId, timeoutId);
+
+        } catch (error) {
+          console.error(`Error polling order ${orderId}:`, error);
+          
+          // Check if we should retry on error
+          if (attempts < maxPollingAttempts) {
+            const errorObj = new Error(mapApiErrorToMessage(error));
+            onError?.(errorObj);
+            
+            // Schedule retry with longer delay
+            const retryDelay = Math.min(currentInterval * 2, 15000); // Max 15 seconds
+            const timeoutId = setTimeout(poll, retryDelay);
+            this.activePollers.set(orderId, timeoutId);
+          } else {
+            this.stopPolling(orderId);
+            const finalError = new Error(`Failed to get order status after ${attempts} attempts: ${mapApiErrorToMessage(error)}`);
+            onError?.(finalError);
+            resolve({
+              success: false,
+              error: finalError.message,
+              attempts
+            });
+          }
+        }
+      };
+
+      // Start polling immediately
+      poll();
+    });
+  }
+
+  /**
+   * Stop polling for a specific order
+   */
+  stopPolling(orderId: string): void {
+    const timeoutId = this.activePollers.get(orderId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      this.activePollers.delete(orderId);
+    }
+    this.pollingAttempts.delete(orderId);
+  }
+
+  /**
+   * Stop all active polling
+   */
+  stopAllPolling(): void {
+    this.activePollers.forEach((timeoutId) => {
+      clearTimeout(timeoutId);
+    });
+    this.activePollers.clear();
+    this.pollingAttempts.clear();
+  }
+
+  /**
+   * Get polling status for an order
+   */
+  getPollingStatus(orderId: string): { isPolling: boolean; attempts: number } {
+    return {
+      isPolling: this.activePollers.has(orderId),
+      attempts: this.pollingAttempts.get(orderId) || 0
+    };
+  }
+
+  /**
+   * Get all active polling orders
+   */
+  getActivePollingOrders(): string[] {
+    return Array.from(this.activePollers.keys());
+  }
+}
+
+// Export singleton instance
+export const webhookFallbackManager = new WebhookFallbackManager();
+
+/**
+ * Convenience function to start polling with default options
+ */
+export async function pollOrderStatus(
+  orderId: string,
+  options: WebhookFallbackOptions = {}
+): Promise<PollingResult> {
+  return webhookFallbackManager.startPolling(orderId, options);
+}
+
+/**
+ * Enhanced order status checking with webhook fallback
+ */
+export async function checkOrderStatusWithFallback(
+  orderId: string,
+  options: WebhookFallbackOptions = {}
+): Promise<{ order: OrderStatus; fromPolling: boolean }> {
+  try {
+    // First, try to get current status
+    const response = await safeFetch(`/api/orders/${orderId}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const order: OrderStatus = await response.json();
+    
+    // If order is in a pending state, start polling as fallback
+    const pendingStates = ['pending', 'pending_payment'];
+    if (pendingStates.includes(order.state)) {
+      console.log(`Order ${orderId} is in pending state, starting fallback polling`);
+      
+      // Start polling in background (don't await)
+      webhookFallbackManager.startPolling(orderId, {
+        ...options,
+        onStatusUpdate: (updatedOrder) => {
+          console.log(`Order ${orderId} status updated via polling:`, updatedOrder.state);
+          options.onStatusUpdate?.(updatedOrder);
+        },
+        onError: (error) => {
+          console.error(`Polling error for order ${orderId}:`, error);
+          options.onError?.(error);
+        },
+        onComplete: (finalOrder) => {
+          console.log(`Order ${orderId} polling completed:`, finalOrder.state);
+          options.onComplete?.(finalOrder);
+        }
+      });
+    }
+
+    return { order, fromPolling: false };
+  } catch (error) {
+    console.error(`Error checking order ${orderId} status:`, error);
+    throw error;
+  }
+}

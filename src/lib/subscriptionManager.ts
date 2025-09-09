@@ -8,6 +8,8 @@ export interface AuctionSubscriptionCallbacks {
 	onEndingSoon?: (seconds: number) => void;
 	onConnectionStatus?: (status: 'connected' | 'disconnected' | 'reconnecting') => void;
 	onError?: (error: Error) => void;
+	onReconnect?: (attempt: number, maxAttempts: number) => void;
+	onReconnectFailed?: (error: Error) => void;
 }
 
 export interface SubscriptionInfo {
@@ -17,6 +19,9 @@ export interface SubscriptionInfo {
 	unsubscribe: () => void;
 	connectionStatus: 'connected' | 'disconnected' | 'reconnecting' | 'connecting';
 	lastActivity: Date;
+	reconnectAttempts: number;
+	maxReconnectAttempts: number;
+	lastError?: Error;
 }
 
 class AuctionSubscriptionManager {
@@ -26,10 +31,10 @@ class AuctionSubscriptionManager {
 	/**
 	 * Subscribe to an auction with enhanced features
 	 */
-	subscribe(auctionId: string, callbacks: AuctionSubscriptionCallbacks): string {
+	subscribe(auctionId: string, callbacks: AuctionSubscriptionCallbacks, maxReconnectAttempts: number = 5): string {
 		const subscriptionId = `auction-${auctionId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-		// Enhanced callbacks with global callbacks
+		// Enhanced callbacks with global callbacks and reconnection logic
 		const enhancedCallbacks: AuctionSubscriptionCallbacks = {
 			onUpdate: (update) => {
 				callbacks.onUpdate?.(update);
@@ -53,13 +58,34 @@ class AuctionSubscriptionManager {
 				if (sub) {
 					sub.connectionStatus = status;
 					sub.lastActivity = new Date();
+					
+					// Reset reconnect attempts on successful connection
+					if (status === 'connected') {
+						sub.reconnectAttempts = 0;
+						sub.lastError = undefined;
+					}
 				}
 				callbacks.onConnectionStatus?.(status);
 				this.globalCallbacks.forEach(globalCb => globalCb.onConnectionStatus?.(status));
 			},
 			onError: (error) => {
+				// Store error and attempt reconnection
+				const sub = this.subscriptions.get(subscriptionId);
+				if (sub) {
+					sub.lastError = error;
+					this.attemptReconnection(subscriptionId);
+				}
+				
 				callbacks.onError?.(error);
 				this.globalCallbacks.forEach(globalCb => globalCb.onError?.(error));
+			},
+			onReconnect: (attempt, maxAttempts) => {
+				callbacks.onReconnect?.(attempt, maxAttempts);
+				this.globalCallbacks.forEach(globalCb => globalCb.onReconnect?.(attempt, maxAttempts));
+			},
+			onReconnectFailed: (error) => {
+				callbacks.onReconnectFailed?.(error);
+				this.globalCallbacks.forEach(globalCb => globalCb.onReconnectFailed?.(error));
 			}
 		};
 
@@ -71,7 +97,9 @@ class AuctionSubscriptionManager {
 			callbacks: enhancedCallbacks,
 			unsubscribe,
 			connectionStatus: 'connecting',
-			lastActivity: new Date()
+			lastActivity: new Date(),
+			reconnectAttempts: 0,
+			maxReconnectAttempts
 		};
 
 		this.subscriptions.set(subscriptionId, subscriptionInfo);
@@ -179,16 +207,105 @@ class AuctionSubscriptionManager {
 	}
 
 	/**
+	 * Attempt reconnection for a specific subscription
+	 */
+	private attemptReconnection(subscriptionId: string): void {
+		const subscription = this.subscriptions.get(subscriptionId);
+		if (!subscription) return;
+
+		// Check if we should attempt reconnection
+		if (subscription.reconnectAttempts >= subscription.maxReconnectAttempts) {
+			console.log(`Max reconnection attempts reached for subscription: ${subscriptionId}`);
+			subscription.callbacks.onReconnectFailed?.(subscription.lastError || new Error('Max reconnection attempts reached'));
+			return;
+		}
+
+		// Increment reconnect attempts
+		subscription.reconnectAttempts++;
+		subscription.connectionStatus = 'reconnecting';
+
+		// Notify of reconnection attempt
+		subscription.callbacks.onReconnect?.(subscription.reconnectAttempts, subscription.maxReconnectAttempts);
+
+		// Calculate delay with exponential backoff
+		const delay = Math.min(1000 * Math.pow(2, subscription.reconnectAttempts - 1), 30000); // Max 30 seconds
+
+		setTimeout(() => {
+			// Attempt to reconnect by creating a new subscription
+			try {
+				const newUnsubscribe = subscribeToAuction(subscription.auctionId, subscription.callbacks);
+				subscription.unsubscribe = newUnsubscribe;
+				subscription.connectionStatus = 'connecting';
+				subscription.lastActivity = new Date();
+			} catch (error) {
+				console.error(`Reconnection failed for subscription ${subscriptionId}:`, error);
+				subscription.lastError = error as Error;
+				subscription.connectionStatus = 'disconnected';
+				
+				// Try again if we haven't exceeded max attempts
+				if (subscription.reconnectAttempts < subscription.maxReconnectAttempts) {
+					this.attemptReconnection(subscriptionId);
+				} else {
+					subscription.callbacks.onReconnectFailed?.(error as Error);
+				}
+			}
+		}, delay);
+	}
+
+	/**
 	 * Force reconnection for all disconnected subscriptions
 	 */
 	forceReconnect(): void {
 		this.subscriptions.forEach(sub => {
 			if (sub.connectionStatus === 'disconnected') {
-				// The enhanced subscription function already handles reconnection
-				// This is just a placeholder for manual reconnection if needed
-				console.log(`Attempting manual reconnection for: ${sub.id}`);
+				console.log(`Force reconnecting subscription: ${sub.id}`);
+				sub.reconnectAttempts = 0; // Reset attempts for manual reconnection
+				this.attemptReconnection(sub.id);
 			}
 		});
+	}
+
+	/**
+	 * Get connection health status
+	 */
+	getConnectionHealth(): {
+		totalSubscriptions: number;
+		connected: number;
+		disconnected: number;
+		reconnecting: number;
+		connecting: number;
+		failedReconnections: number;
+	} {
+		const stats = {
+			totalSubscriptions: this.subscriptions.size,
+			connected: 0,
+			disconnected: 0,
+			reconnecting: 0,
+			connecting: 0,
+			failedReconnections: 0
+		};
+
+		this.subscriptions.forEach(sub => {
+			switch (sub.connectionStatus) {
+				case 'connected':
+					stats.connected++;
+					break;
+				case 'disconnected':
+					stats.disconnected++;
+					if (sub.reconnectAttempts >= sub.maxReconnectAttempts) {
+						stats.failedReconnections++;
+					}
+					break;
+				case 'reconnecting':
+					stats.reconnecting++;
+					break;
+				case 'connecting':
+					stats.connecting++;
+					break;
+			}
+		});
+
+		return stats;
 	}
 }
 

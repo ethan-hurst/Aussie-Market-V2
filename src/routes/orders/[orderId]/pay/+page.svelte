@@ -5,14 +5,22 @@
 	import { loadStripe } from '@stripe/stripe-js';
 	import type { OrderWithDetails } from '$lib/orders';
 	import { formatPrice, getOrderStatusLabel } from '$lib/orders';
-import { mapApiErrorToMessage } from '$lib/errors';
-import { toastError, toastSuccess } from '$lib/toast';
-import { safeFetch } from '$lib/http';
+	import { mapApiErrorToMessage, categorizePaymentError, isRetryableError } from '$lib/errors';
+	import { toastError, toastSuccess } from '$lib/toast';
+	import { safeFetch } from '$lib/http';
+	import PaymentErrorBoundary from '$lib/components/PaymentErrorBoundary.svelte';
+	import PaymentStatusIndicator from '$lib/components/PaymentStatusIndicator.svelte';
+	import ErrorNotificationDisplay from '$lib/components/ErrorNotificationDisplay.svelte';
+	import { notifyPaymentError, notifyWebhookFailure } from '$lib/errorNotificationSystem';
+	import { pollOrderStatus } from '$lib/webhookFallback';
 
 	let order: OrderWithDetails | null = null;
 	let loading = true;
 	let processing = false;
 	let error = '';
+	let paymentStatus: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' = 'pending';
+	let retryCount = 0;
+	let maxRetries = 3;
 	let stripe: any = null;
 	let elements: any = null;
 	let cardElement: any = null;
@@ -60,6 +68,7 @@ import { safeFetch } from '$lib/http';
 		
 		processing = true;
 		error = '';
+		paymentStatus = 'processing';
 		
 		try {
 			// Create payment intent
@@ -98,15 +107,84 @@ import { safeFetch } from '$lib/http';
 				})
 			});
 			
-			// Redirect to order details
-			goto(`/orders/${order.id}`);
+			if (!confirmResponse.ok) {
+				const errorData = await confirmResponse.json();
+				throw new Error(errorData.error || 'Payment confirmation failed');
+			}
+			
+			// Payment successful
+			paymentStatus = 'succeeded';
+			toastSuccess('Payment completed successfully!');
+			
+			// Start polling for order status updates as webhook fallback
+			pollOrderStatus(order.id, {
+				onStatusUpdate: (updatedOrder) => {
+					console.log('Order status updated:', updatedOrder.state);
+				},
+				onError: (pollingError) => {
+					console.error('Polling error:', pollingError);
+					if (order) {
+						notifyWebhookFailure(order.id, pollingError, { showRetry: true, showPolling: true });
+					}
+				},
+				onComplete: (finalOrder) => {
+					console.log('Order polling completed:', finalOrder.state);
+				}
+			});
+			
+			// Redirect to order details after a short delay
+			setTimeout(() => {
+				if (order) {
+					goto(`/orders/${order.id}`);
+				}
+			}, 2000);
 			
 		} catch (err) {
 			error = mapApiErrorToMessage(err);
+			paymentStatus = 'failed';
+			
+			// Categorize the error and show appropriate notification
+			const paymentErrorInfo = categorizePaymentError(err);
+			notifyPaymentError(err, order.id, {
+				persistent: !paymentErrorInfo.canRetry,
+				actions: paymentErrorInfo.canRetry ? [
+					{
+						label: 'Try Again',
+						action: () => handleRetry(),
+						variant: 'primary'
+					}
+				] : undefined
+			});
+			
 			toastError(error);
 		} finally {
 			processing = false;
 		}
+	}
+
+	function handleRetry() {
+		if (retryCount >= maxRetries) return;
+		
+		retryCount++;
+		error = '';
+		paymentStatus = 'pending';
+		
+		// Retry payment after a short delay
+		setTimeout(() => {
+			handlePayment();
+		}, 1000);
+	}
+
+	function handleNewPayment() {
+		// Reset state for new payment attempt
+		error = '';
+		paymentStatus = 'pending';
+		retryCount = 0;
+	}
+
+	function handleContactSupport() {
+		// Open support contact or redirect to support page
+		window.open('/support', '_blank');
 	}
 </script>
 
@@ -114,26 +192,52 @@ import { safeFetch } from '$lib/http';
 	<title>Payment - Order #{$page.params.orderId}</title>
 </svelte:head>
 
+<!-- Error Notification Display -->
+<ErrorNotificationDisplay 
+	position="top-right" 
+	maxNotifications={3}
+	on:notificationAction={(e) => {
+		const { notificationId, actionLabel } = e.detail;
+		if (actionLabel === 'Try Again') {
+			handleRetry();
+		} else if (actionLabel === 'New Payment Method') {
+			handleNewPayment();
+		} else if (actionLabel === 'Contact Support') {
+			handleContactSupport();
+		}
+	}}
+/>
+
 <div class="max-w-4xl mx-auto p-6">
     <h1 class="text-2xl font-bold mb-4">Complete Payment</h1>
 	{#if loading}
 		<div class="flex justify-center items-center h-64">
 			<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
 		</div>
-	{:else if error}
-		<div class="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
-			<div class="flex">
-				<div class="flex-shrink-0">
-					<svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-						<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-					</svg>
-				</div>
-				<div class="ml-3">
-					<h3 class="text-sm font-medium text-red-800">Error</h3>
-					<div class="mt-2 text-sm text-red-700">{error}</div>
-				</div>
-			</div>
-		</div>
+	{:else if error && paymentStatus === 'failed'}
+		<!-- Enhanced Error Display with PaymentErrorBoundary -->
+		<PaymentErrorBoundary 
+			{error} 
+			orderId={order?.id}
+			showRetry={isRetryableError(error)}
+			{maxRetries}
+			{retryCount}
+			on:retry={() => handleRetry()}
+			on:contactSupport={() => handleContactSupport()}
+			on:newPayment={() => handleNewPayment()}
+		/>
+	{:else if paymentStatus === 'processing' || paymentStatus === 'succeeded'}
+		<!-- Payment Status Indicator -->
+		<PaymentStatusIndicator 
+			status={paymentStatus}
+			showProgress={true}
+			progressSteps={['Payment Details', 'Processing', 'Confirmation']}
+			currentStep={paymentStatus === 'processing' ? 1 : 2}
+			{error}
+			retryable={isRetryableError(error)}
+			on:retry={() => handleRetry()}
+			on:cancel={() => goto(`/orders/${order?.id}`)}
+		/>
 	{:else if order}
 		<div class="bg-white shadow-lg rounded-lg overflow-hidden">
 			<!-- Header -->
