@@ -59,12 +59,58 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },
-    // Uncomment for additional browser testing
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    //   dependencies: ['setup'],
-    // },
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+      dependencies: ['setup'],
+    },
+    // Mobile testing projects for MVP validation
+    {
+      name: 'mobile-chrome',
+      use: { 
+        ...devices['Pixel 5'],
+        contextOptions: {
+          hasTouch: true,
+        }
+      },
+      dependencies: ['setup'],
+      testMatch: ['**/mobile-*.spec.ts', '**/seller-listing-creation-mvp.spec.ts', '**/buyer-discovery-bidding-mvp.spec.ts'],
+    },
+    {
+      name: 'mobile-safari',
+      use: { 
+        ...devices['iPhone 12'],
+        contextOptions: {
+          hasTouch: true,
+        }
+      },
+      dependencies: ['setup'],
+      testMatch: ['**/mobile-*.spec.ts'],
+    },
+    // MVP-specific test suite projects
+    {
+      name: 'mvp-core-functionality',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+      testMatch: ['**/*-mvp.spec.ts'],
+    },
+    {
+      name: 'mvp-performance',
+      use: { 
+        ...devices['Desktop Chrome'],
+        contextOptions: {
+          // Enable more aggressive performance monitoring
+          recordVideo: { mode: 'on-failure', size: { width: 1280, height: 720 } },
+        }
+      },
+      dependencies: ['setup'],
+      testMatch: ['**/production-performance-mvp.spec.ts', '**/integration-suite-mvp.spec.ts'],
+    },
   ],
 });
 
