@@ -80,6 +80,17 @@ export interface MockPayment {
   capturable_amount_cents?: number | null;
 }
 
+export interface MockNotification {
+  id: string;
+  user_id: string;
+  type: 'order_paid' | 'order_shipped' | 'order_delivered' | 'payment_failed' | 'dispute_created' | 'new_message';
+  title: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+  metadata?: Record<string, any>;
+}
+
 export class SupabaseAuthMock {
   private users: Map<string, MockUser> = new Map();
   private sessions: Map<string, MockSession> = new Map();
@@ -88,6 +99,7 @@ export class SupabaseAuthMock {
   private webhookEvents: Map<string, MockWebhookEvent> = new Map();
   private orders: Map<string, MockOrder> = new Map();
   private payments: Map<string, MockPayment> = new Map();
+  private notifications: Map<string, MockNotification> = new Map();
   private tokenCounter = 0;
 
   constructor() {
@@ -102,6 +114,43 @@ export class SupabaseAuthMock {
     const testUser1 = this.createUser('test@example.com', 'buyer');
     const testUser2 = this.createUser('seller@example.com', 'seller');
     const adminUser = this.createUser('admin@example.com', 'admin');
+    
+    // Set specific test user ID for E2E tests
+    const e2eTestUser: MockUser = {
+      id: '11111111-1111-1111-1111-111111111111',
+      email: 'test@example.com',
+      role: 'buyer',
+      created_at: new Date().toISOString(),
+      metadata: { role: 'buyer' }
+    };
+    this.users.set(e2eTestUser.id, e2eTestUser);
+    
+    // Create a test session for the E2E test user 
+    const testSession = this.createSession(e2eTestUser);
+    // Override with a predictable token for E2E tests
+    testSession.access_token = 'test-token-for-e2e';
+    this.sessions.set('test-token-for-e2e', testSession);
+    
+    // Create test notifications for the E2E test user
+    this.createNotification({
+      id: '33333333-3333-3333-3333-333333333333',
+      user_id: e2eTestUser.id,
+      type: 'order_paid',
+      title: 'Payment Received',
+      message: 'Payment completed',
+      read: false,
+      created_at: new Date().toISOString()
+    });
+    
+    this.createNotification({
+      id: '44444444-4444-4444-4444-444444444444',
+      user_id: e2eTestUser.id,
+      type: 'order_shipped',
+      title: 'Item Shipped',
+      message: 'Your item shipped',
+      read: false,
+      created_at: new Date().toISOString()
+    });
 
     // Create test listings
     this.createListing({
@@ -355,6 +404,60 @@ export class SupabaseAuthMock {
   }
 
   /**
+   * Create a notification
+   */
+  createNotification(notification: MockNotification): MockNotification {
+    this.notifications.set(notification.id, notification);
+    return notification;
+  }
+
+  /**
+   * Get notifications for a user
+   */
+  getUserNotifications(userId: string): MockNotification[] {
+    return Array.from(this.notifications.values())
+      .filter(notification => notification.user_id === userId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  /**
+   * Get unread notification count for a user
+   */
+  getUnreadNotificationCount(userId: string): number {
+    return Array.from(this.notifications.values())
+      .filter(notification => notification.user_id === userId && !notification.read)
+      .length;
+  }
+
+  /**
+   * Mark notification as read
+   */
+  markNotificationAsRead(notificationId: string): MockNotification | null {
+    const notification = this.notifications.get(notificationId);
+    if (notification) {
+      notification.read = true;
+      this.notifications.set(notificationId, notification);
+      return notification;
+    }
+    return null;
+  }
+
+  /**
+   * Mark all notifications as read for a user
+   */
+  markAllNotificationsAsRead(userId: string): number {
+    let count = 0;
+    for (const [id, notification] of this.notifications.entries()) {
+      if (notification.user_id === userId && !notification.read) {
+        notification.read = true;
+        this.notifications.set(id, notification);
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
    * Mock PostgreSQL functions
    */
   mockRpcCall(functionName: string, params: any): Promise<{ data: any; error: any }> {
@@ -400,6 +503,7 @@ export class SupabaseAuthMock {
     this.webhookEvents.clear();
     this.orders.clear();
     this.payments.clear();
+    this.notifications.clear();
     this.tokenCounter = 0;
     this.seedTestData();
   }
@@ -795,6 +899,114 @@ export async function handleMockSupabaseAuth(event: RequestEvent): Promise<Respo
         status: 201,
         headers: { 'Content-Type': 'application/json' }
       });
+    }
+
+    // Notifications table operations
+    if (url.pathname === '/rest/v1/notifications') {
+      const authHeader = request.headers.get('Authorization');
+      const token = authHeader?.replace('Bearer ', '');
+
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const session = supabaseAuthMock.getSession(token);
+      if (!session) {
+        return new Response(JSON.stringify({ error: 'Invalid session' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (request.method === 'HEAD') {
+        // HEAD request for count
+        const count = supabaseAuthMock.getUnreadNotificationCount(session.user.id);
+        return new Response('', {
+          status: 200,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Content-Range': `0-0/${count}`
+          }
+        });
+      }
+
+      if (request.method === 'GET') {
+        const prefer = request.headers.get('Prefer') || request.headers.get('prefer') || '';
+        
+        if (prefer.includes('count=exact')) {
+          // GET with count=exact header
+          const count = supabaseAuthMock.getUnreadNotificationCount(session.user.id);
+          return new Response('', {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Content-Range': `0-0/${count}`
+            }
+          });
+        } else {
+          // Regular GET for notifications list
+          const notifications = supabaseAuthMock.getUserNotifications(session.user.id);
+          return new Response(JSON.stringify(notifications), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Content-Range': `0-${Math.max(0, notifications.length - 1)}/*`
+            }
+          });
+        }
+      }
+
+      if (request.method === 'PATCH') {
+        const body = await request.json();
+        
+        // Check if this is marking all notifications as read (filter by user_id and read=false)
+        let userIdEq = null;
+        let readEq = null;
+        
+        for (const [key, value] of url.searchParams.entries()) {
+          if (key === 'user_id' && value.startsWith('eq.')) {
+            userIdEq = value.replace('eq.', '');
+          } else if (key === 'read' && value.startsWith('eq.')) {
+            readEq = value.replace('eq.', '') === 'false' ? false : true;
+          }
+        }
+        
+        if (userIdEq === session.user.id && readEq === false) {
+          // Mark all unread notifications as read
+          const count = supabaseAuthMock.markAllNotificationsAsRead(session.user.id);
+          return new Response('', {
+            status: 204,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } else {
+          // Single notification update (by id)
+          let notificationIdEq = null;
+          for (const [key, value] of url.searchParams.entries()) {
+            if (key === 'id' && value.startsWith('eq.')) {
+              notificationIdEq = value.replace('eq.', '');
+              break;
+            }
+          }
+          
+          if (notificationIdEq) {
+            const notification = supabaseAuthMock.markNotificationAsRead(notificationIdEq);
+            if (notification) {
+              return new Response('', {
+                status: 204,
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+          }
+          
+          return new Response(JSON.stringify({ message: 'No matching notification found' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      }
     }
 
     return new Response(JSON.stringify({ error: 'Mock endpoint not found' }), {

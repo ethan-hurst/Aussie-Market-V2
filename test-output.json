@@ -1,0 +1,4189 @@
+
+> aussie-market-v2@0.0.1 e2e
+> dotenv -e .env.e2e -- playwright test --reporter=json
+
+
+🚀 Starting E2E Test Environment Setup...
+
+⏳ Waiting for dev server to start...
+✅ Dev server is ready
+🔍 Checking mock services health...
+✅ Mock services are healthy: healthy
+   - stripe-mock: ok
+   - supabase-mock: ok
+🔄 Resetting mock services...
+✅ Mock services reset successfully
+🔍 Validating E2E environment...
+✅ E2E_TESTING: true
+✅ NODE_ENV: test
+🧪 Testing basic page functionality...
+✅ Page loaded successfully. Title: "Home - Aussie Market"
+
+✅ E2E Test Environment Setup Complete!
+
+
+🧹 Starting E2E Test Environment Cleanup...
+
+🔍 Checking server status...
+✅ Server is still running
+📊 Final mock service status: healthy
+🔄 Final mock services reset...
+✅ Final mock services reset completed
+🗑️ Cleaning up test artifacts...
+📋 Test session summary:
+   - Configuration: /Users/ethan/Projects/Aussie-Market-V2/playwright.config.ts
+   - Test directory: undefined
+   - Workers: 1
+
+✅ E2E Test Environment Cleanup Complete!
+
+{
+  "config": {
+    "configFile": "/Users/ethan/Projects/Aussie-Market-V2/playwright.config.ts",
+    "rootDir": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/global-setup.ts",
+    "globalTeardown": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/global-teardown.ts",
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/ethan/Projects/Aussie-Market-V2/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "setup",
+        "name": "setup",
+        "testDir": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/.*\\.setup\\.ts/"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/ethan/Projects/Aussie-Market-V2/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "cleanup",
+        "name": "cleanup",
+        "testDir": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/.*\\.teardown\\.ts/"
+        ],
+        "timeout": 60000
+      },
+      {
+        "outputDir": "/Users/ethan/Projects/Aussie-Market-V2/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.55.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev:e2e",
+      "port": 5173,
+      "reuseExistingServer": true,
+      "env": {
+        "NODE_ENV": "test",
+        "E2E_TESTING": "true"
+      },
+      "timeout": 120000,
+      "stdout": "pipe",
+      "stderr": "pipe"
+    }
+  },
+  "suites": [
+    {
+      "title": "e2e.teardown.ts",
+      "file": "e2e.teardown.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "cleanup E2E environment",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "cleanup",
+              "projectName": "cleanup",
+              "results": [
+                {
+                  "workerIndex": 16,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 117,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "🧹 Cleaning up E2E test environment...\n"
+                    },
+                    {
+                      "text": "✅ E2E environment cleanup complete\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:56:49.985Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "89c439cd03390310a0a6-26b0abe155f6c382f173",
+          "file": "e2e.teardown.ts",
+          "line": 8,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "e2e.setup.ts",
+      "file": "e2e.setup.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "prepare E2E environment",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "setup",
+              "projectName": "setup",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 833,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "🔧 Preparing E2E test environment...\n"
+                    },
+                    {
+                      "text": "✅ Mock services verified as healthy\n"
+                    },
+                    {
+                      "text": "✅ E2E environment preparation complete\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:55:20.541Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "f81a34a6181fee269df5-8ea949f5ca5f776b900f",
+          "file": "e2e.setup.ts",
+          "line": 8,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "a11y.spec.ts",
+      "file": "a11y.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "home page a11y",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1497,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:55:21.772Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa3ad05f8c0e05077efb-77bf352fa69b1af54abc",
+          "file": "a11y.spec.ts",
+          "line": 12,
+          "column": 1
+        },
+        {
+          "title": "listing page a11y (stub)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1340,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:55:23.357Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa3ad05f8c0e05077efb-d59a069b2989cdaf9f77",
+          "file": "a11y.spec.ts",
+          "line": 16,
+          "column": 1
+        },
+        {
+          "title": "order page a11y (stub)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1238,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:55:24.701Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "aa3ad05f8c0e05077efb-e32d1b7ee79c61f92d45",
+          "file": "a11y.spec.ts",
+          "line": 25,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "bid-live-ui.spec.ts",
+      "file": "bid-live-ui.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "LiveAuction/BidForm validates and updates price on bid",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1296,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:55:25.945Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "0c1815b41e0eee7ccaae-46d8eec10c1bcfe79c75",
+          "file": "bid-live-ui.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "bid-placement-ui.spec.ts",
+      "file": "bid-placement-ui.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "bid placement via listing page updates price and bid count",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1258,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:55:27.248Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "ba195f79b35bf174d04f-c9d72a6d9961e96ba040",
+          "file": "bid-placement-ui.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "bid-placement.spec.ts",
+      "file": "bid-placement.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "bid placement updates current/minimum bid UI",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 223,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:55:28.513Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "fd8511044e135a13ee09-91cdf13d82d2673cbecf",
+          "file": "bid-placement.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "canary.stripe-webhook.spec.ts",
+      "file": "canary.stripe-webhook.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Canary: Stripe webhook path",
+          "file": "canary.stripe-webhook.spec.ts",
+          "line": 6,
+          "column": 6,
+          "specs": [
+            {
+              "title": "rejects invalid webhook signature",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 69,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:55:28.744Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "79dcee8f331d0fbda365-93636ab6a645dad2d1f0",
+              "file": "canary.stripe-webhook.spec.ts",
+              "line": 8,
+              "column": 2
+            },
+            {
+              "title": "records signed event idempotently",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "No STRIPE_TEST_EVENT_ID provided",
+                      "location": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/canary.stripe-webhook.spec.ts",
+                        "line": 22,
+                        "column": 22
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 1,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:55:28.816Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "description": "No STRIPE_TEST_EVENT_ID provided",
+                          "location": {
+                            "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/canary.stripe-webhook.spec.ts",
+                            "line": 22,
+                            "column": 22
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "79dcee8f331d0fbda365-d026401af337b382386d",
+              "file": "canary.stripe-webhook.spec.ts",
+              "line": 20,
+              "column": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "error-pages.spec.ts",
+      "file": "error-pages.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "global 404 renders error page",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 967,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:55:28.823Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "912a4336af57e1210f39-4eaae1de11c395e75626",
+          "file": "error-pages.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "lifecycle.spec.ts",
+      "file": "lifecycle.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "full purchase lifecycle: pay → ready → shipped → delivered → released",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 4395,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:55:29.798Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "1f1785dee40219527314-cea2615d43aaac0f4780",
+          "file": "lifecycle.spec.ts",
+          "line": 4,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "notifications-ui.spec.ts",
+      "file": "notifications-ui.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "notifications bell shows unread badge and mark-as-read clears it",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 11179,
+                  "error": {
+                    "message": "TimeoutError: page.waitForRequest: Timeout 10000ms exceeded while waiting for event \"request\"",
+                    "stack": "TimeoutError: page.waitForRequest: Timeout 10000ms exceeded while waiting for event \"request\"\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/notifications-ui.spec.ts:42:14",
+                    "location": {
+                      "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/notifications-ui.spec.ts",
+                      "column": 14,
+                      "line": 42
+                    },
+                    "snippet": "  40 |   await page.goto('/orders/buyer');\n  41 |   // Ensure count request was issued before asserting badge\n> 42 |   await page.waitForRequest((req) => req.url().includes('/rest/v1/notifications') && (req.method() === 'HEAD' || ((req.headers()['prefer'] || req.headers()['Prefer'] || '').toString().includes('count=exact'))));\n     |              ^\n  43 |   await expect(page.getByLabel('Notifications')).toBeVisible();\n  44 |   // Badge visible with count\n  45 |   await expect(page.getByLabel('Notifications').locator('span').filter({ hasText: /\\d+/ })).toBeVisible();"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/notifications-ui.spec.ts",
+                        "column": 14,
+                        "line": 42
+                      },
+                      "message": "TimeoutError: page.waitForRequest: Timeout 10000ms exceeded while waiting for event \"request\"\n\n  40 |   await page.goto('/orders/buyer');\n  41 |   // Ensure count request was issued before asserting badge\n> 42 |   await page.waitForRequest((req) => req.url().includes('/rest/v1/notifications') && (req.method() === 'HEAD' || ((req.headers()['prefer'] || req.headers()['Prefer'] || '').toString().includes('count=exact'))));\n     |              ^\n  43 |   await expect(page.getByLabel('Notifications')).toBeVisible();\n  44 |   // Badge visible with count\n  45 |   await expect(page.getByLabel('Notifications').locator('span').filter({ hasText: /\\d+/ })).toBeVisible();\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/notifications-ui.spec.ts:42:14"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:55:34.200Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/notifications-ui-notificat-1e8fa--and-mark-as-read-clears-it-chromium/test-failed-1.png"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/notifications-ui-notificat-1e8fa--and-mark-as-read-clears-it-chromium/video.webm"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/notifications-ui-notificat-1e8fa--and-mark-as-read-clears-it-chromium/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/notifications-ui-notificat-1e8fa--and-mark-as-read-clears-it-chromium/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/notifications-ui.spec.ts",
+                    "column": 14,
+                    "line": 42
+                  }
+                },
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 11046,
+                  "error": {
+                    "message": "TimeoutError: page.waitForRequest: Timeout 10000ms exceeded while waiting for event \"request\"",
+                    "stack": "TimeoutError: page.waitForRequest: Timeout 10000ms exceeded while waiting for event \"request\"\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/notifications-ui.spec.ts:42:14",
+                    "location": {
+                      "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/notifications-ui.spec.ts",
+                      "column": 14,
+                      "line": 42
+                    },
+                    "snippet": "  40 |   await page.goto('/orders/buyer');\n  41 |   // Ensure count request was issued before asserting badge\n> 42 |   await page.waitForRequest((req) => req.url().includes('/rest/v1/notifications') && (req.method() === 'HEAD' || ((req.headers()['prefer'] || req.headers()['Prefer'] || '').toString().includes('count=exact'))));\n     |              ^\n  43 |   await expect(page.getByLabel('Notifications')).toBeVisible();\n  44 |   // Badge visible with count\n  45 |   await expect(page.getByLabel('Notifications').locator('span').filter({ hasText: /\\d+/ })).toBeVisible();"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/notifications-ui.spec.ts",
+                        "column": 14,
+                        "line": 42
+                      },
+                      "message": "TimeoutError: page.waitForRequest: Timeout 10000ms exceeded while waiting for event \"request\"\n\n  40 |   await page.goto('/orders/buyer');\n  41 |   // Ensure count request was issued before asserting badge\n> 42 |   await page.waitForRequest((req) => req.url().includes('/rest/v1/notifications') && (req.method() === 'HEAD' || ((req.headers()['prefer'] || req.headers()['Prefer'] || '').toString().includes('count=exact'))));\n     |              ^\n  43 |   await expect(page.getByLabel('Notifications')).toBeVisible();\n  44 |   // Badge visible with count\n  45 |   await expect(page.getByLabel('Notifications').locator('span').filter({ hasText: /\\d+/ })).toBeVisible();\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/notifications-ui.spec.ts:42:14"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 1,
+                  "startTime": "2025-09-09T06:55:45.708Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/notifications-ui-notificat-1e8fa--and-mark-as-read-clears-it-chromium-retry1/test-failed-1.png"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/notifications-ui-notificat-1e8fa--and-mark-as-read-clears-it-chromium-retry1/video.webm"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/notifications-ui-notificat-1e8fa--and-mark-as-read-clears-it-chromium-retry1/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/notifications-ui-notificat-1e8fa--and-mark-as-read-clears-it-chromium-retry1/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/notifications-ui.spec.ts",
+                    "column": 14,
+                    "line": 42
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "641027b164cb13a36ab9-942db1ca7b699b8adb4e",
+          "file": "notifications-ui.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "order-actions-ui.spec.ts",
+      "file": "order-actions-ui.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "order actions UI: seller mark ready→shipped, buyer confirm→release",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3427,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:55:57.116Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "c2127c37e2fb2d21badc-36e74d59f4e250fedfd6",
+          "file": "order-actions-ui.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "pay-flow.spec.ts",
+      "file": "pay-flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "buyer can complete payment with stubbed Stripe and APIs",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1555,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:56:00.635Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "5e4ad572ccc14aba5ca2-757c5e1490b62065cb0a",
+          "file": "pay-flow.spec.ts",
+          "line": 4,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "payment-flow-integration.spec.ts",
+      "file": "payment-flow-integration.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Payment Flow Integration Tests",
+          "file": "payment-flow-integration.spec.ts",
+          "line": 5,
+          "column": 6,
+          "specs": [
+            {
+              "title": "handles complete payment success flow end-to-end",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 135,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:02.200Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2f20919e9c7bb73da669-2bdff3dffe170edd3895",
+              "file": "payment-flow-integration.spec.ts",
+              "line": 6,
+              "column": 3
+            },
+            {
+              "title": "handles payment failure flow with proper error handling",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 14,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:02.337Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2f20919e9c7bb73da669-f911168b250e4a36ddfe",
+              "file": "payment-flow-integration.spec.ts",
+              "line": 42,
+              "column": 3
+            },
+            {
+              "title": "handles payment cancellation flow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 12,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:02.356Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2f20919e9c7bb73da669-9165cb28511e4bee294b",
+              "file": "payment-flow-integration.spec.ts",
+              "line": 79,
+              "column": 3
+            },
+            {
+              "title": "handles dispute creation and resolution flow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 19,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:02.372Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2f20919e9c7bb73da669-f5100e0e3bf81b050e82",
+              "file": "payment-flow-integration.spec.ts",
+              "line": 112,
+              "column": 3
+            },
+            {
+              "title": "handles refund processing flow",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 11,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:02.394Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2f20919e9c7bb73da669-f55563d83d82041d364e",
+              "file": "payment-flow-integration.spec.ts",
+              "line": 174,
+              "column": 3
+            },
+            {
+              "title": "handles partial refund processing",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 14,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:02.409Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2f20919e9c7bb73da669-a9c99d49cccad9dddcf0",
+              "file": "payment-flow-integration.spec.ts",
+              "line": 215,
+              "column": 3
+            },
+            {
+              "title": "handles payment intent amount capturable updates",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 10,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:02.427Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2f20919e9c7bb73da669-909a5e77f8ab625ed609",
+              "file": "payment-flow-integration.spec.ts",
+              "line": 248,
+              "column": 3
+            },
+            {
+              "title": "validates order state transitions are atomic",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 16,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:02.441Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2f20919e9c7bb73da669-9a4dd965f669726922ed",
+              "file": "payment-flow-integration.spec.ts",
+              "line": 280,
+              "column": 3
+            },
+            {
+              "title": "handles multiple webhook events for same order consistently",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 21,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:02.460Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "2f20919e9c7bb73da669-bb9710a9aadea05b3ccc",
+              "file": "payment-flow-integration.spec.ts",
+              "line": 315,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "pickup-redeem.spec.ts",
+      "file": "pickup-redeem.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "pickup redeem moves order to Delivered (idempotent)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1968,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:56:02.488Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "8b16a47fa849555af07c-84450a20427e4ff91a73",
+          "file": "pickup-redeem.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "realtime-order-update.spec.ts",
+      "file": "realtime-order-update.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "realtime order update refreshes UI when channel event fires",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 6099,
+                  "error": {
+                    "message": "TimeoutError: page.waitForResponse: Timeout 5000ms exceeded while waiting for event \"response\"\n=========================== logs ===========================\nwaiting for response \"**/api/orders/rt-order-1\"\n============================================================",
+                    "stack": "TimeoutError: page.waitForResponse: Timeout 5000ms exceeded while waiting for event \"response\"\n=========================== logs ===========================\nwaiting for response \"**/api/orders/rt-order-1\"\n============================================================\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/realtime-order-update.spec.ts:85:14",
+                    "location": {
+                      "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/realtime-order-update.spec.ts",
+                      "column": 14,
+                      "line": 85
+                    },
+                    "snippet": "  83 |\n  84 |   // Wait for the refetch to happen - we should see another API call\n> 85 |   await page.waitForResponse('**/api/orders/rt-order-1', { timeout: 5000 });\n     |              ^\n  86 |\n  87 |   // Expect UI to reflect new state after handler refetches\n  88 |   await expect(page.locator('span.inline-block', { hasText: 'Delivered' }).first()).toBeVisible();"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/realtime-order-update.spec.ts",
+                        "column": 14,
+                        "line": 85
+                      },
+                      "message": "TimeoutError: page.waitForResponse: Timeout 5000ms exceeded while waiting for event \"response\"\n=========================== logs ===========================\nwaiting for response \"**/api/orders/rt-order-1\"\n============================================================\n\n  83 |\n  84 |   // Wait for the refetch to happen - we should see another API call\n> 85 |   await page.waitForResponse('**/api/orders/rt-order-1', { timeout: 5000 });\n     |              ^\n  86 |\n  87 |   // Expect UI to reflect new state after handler refetches\n  88 |   await expect(page.locator('span.inline-block', { hasText: 'Delivered' }).first()).toBeVisible();\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/realtime-order-update.spec.ts:85:14"
+                    }
+                  ],
+                  "stdout": [
+                    {
+                      "text": "PAGE LOG: [vite] connecting...\n"
+                    },
+                    {
+                      "text": "PAGE LOG: [vite] connected.\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Invalid Sentry Dsn: https://your-sentry-dsn@sentry.io/project-id\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Sentry initialized for development environment\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Sentry initialized on client side\n"
+                    },
+                    {
+                      "text": "PAGE LOG: <Layout> was created with unknown prop 'params'\n"
+                    },
+                    {
+                      "text": "PAGE LOG: <Page> was created with unknown prop 'params'\n"
+                    },
+                    {
+                      "text": "API call to /api/orders/rt-order-1, returning state: paid\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Failed to load resource: the server responded with a status of 400 (Bad Request)\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Error getting unread notification count: {message: }\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Creating test channel for: order-rt-order-1\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Registering listener for event: postgres_changes\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Failed to load resource: the server responded with a status of 400 (Bad Request)\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Error fetching notifications: {code: 22P02, details: null, hint: null, message: invalid input syntax for type uuid: \"u_buyer\"}\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Creating test channel for: notifications\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Registering listener for event: postgres_changes\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Failed to load resource: the server responded with a status of 404 (Not Found)\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Channel object: {on: , subscribe: , __fire: }\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Firing realtime event...\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Firing event to 1 listeners\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Calling callback...\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Failed to load resource: the server responded with a status of 400 (Bad Request)\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Error getting unread notification count: {message: }\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Failed to load resource: the server responded with a status of 400 (Bad Request)\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Error fetching notifications: {code: 22P02, details: null, hint: null, message: invalid input syntax for type uuid: \"u_buyer\"}\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:56:04.463Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/realtime-order-update-real-cd2de-UI-when-channel-event-fires-chromium/test-failed-1.png"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/realtime-order-update-real-cd2de-UI-when-channel-event-fires-chromium/video.webm"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/realtime-order-update-real-cd2de-UI-when-channel-event-fires-chromium/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/realtime-order-update-real-cd2de-UI-when-channel-event-fires-chromium/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/realtime-order-update.spec.ts",
+                    "column": 14,
+                    "line": 85
+                  }
+                },
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 6064,
+                  "error": {
+                    "message": "TimeoutError: page.waitForResponse: Timeout 5000ms exceeded while waiting for event \"response\"\n=========================== logs ===========================\nwaiting for response \"**/api/orders/rt-order-1\"\n============================================================",
+                    "stack": "TimeoutError: page.waitForResponse: Timeout 5000ms exceeded while waiting for event \"response\"\n=========================== logs ===========================\nwaiting for response \"**/api/orders/rt-order-1\"\n============================================================\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/realtime-order-update.spec.ts:85:14",
+                    "location": {
+                      "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/realtime-order-update.spec.ts",
+                      "column": 14,
+                      "line": 85
+                    },
+                    "snippet": "  83 |\n  84 |   // Wait for the refetch to happen - we should see another API call\n> 85 |   await page.waitForResponse('**/api/orders/rt-order-1', { timeout: 5000 });\n     |              ^\n  86 |\n  87 |   // Expect UI to reflect new state after handler refetches\n  88 |   await expect(page.locator('span.inline-block', { hasText: 'Delivered' }).first()).toBeVisible();"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/realtime-order-update.spec.ts",
+                        "column": 14,
+                        "line": 85
+                      },
+                      "message": "TimeoutError: page.waitForResponse: Timeout 5000ms exceeded while waiting for event \"response\"\n=========================== logs ===========================\nwaiting for response \"**/api/orders/rt-order-1\"\n============================================================\n\n  83 |\n  84 |   // Wait for the refetch to happen - we should see another API call\n> 85 |   await page.waitForResponse('**/api/orders/rt-order-1', { timeout: 5000 });\n     |              ^\n  86 |\n  87 |   // Expect UI to reflect new state after handler refetches\n  88 |   await expect(page.locator('span.inline-block', { hasText: 'Delivered' }).first()).toBeVisible();\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/realtime-order-update.spec.ts:85:14"
+                    }
+                  ],
+                  "stdout": [
+                    {
+                      "text": "PAGE LOG: [vite] connecting...\n"
+                    },
+                    {
+                      "text": "PAGE LOG: [vite] connected.\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Invalid Sentry Dsn: https://your-sentry-dsn@sentry.io/project-id\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Sentry initialized for development environment\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Sentry initialized on client side\n"
+                    },
+                    {
+                      "text": "PAGE LOG: <Layout> was created with unknown prop 'params'\n"
+                    },
+                    {
+                      "text": "PAGE LOG: <Page> was created with unknown prop 'params'\n"
+                    },
+                    {
+                      "text": "API call to /api/orders/rt-order-1, returning state: paid\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Failed to load resource: the server responded with a status of 400 (Bad Request)\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Error getting unread notification count: {message: }\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Creating test channel for: order-rt-order-1\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Registering listener for event: postgres_changes\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Failed to load resource: the server responded with a status of 400 (Bad Request)\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Error fetching notifications: {code: 22P02, details: null, hint: null, message: invalid input syntax for type uuid: \"u_buyer\"}\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Creating test channel for: notifications\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Registering listener for event: postgres_changes\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Failed to load resource: the server responded with a status of 404 (Not Found)\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Channel object: {on: , subscribe: , __fire: }\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Firing realtime event...\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Firing event to 1 listeners\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Calling callback...\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Failed to load resource: the server responded with a status of 400 (Bad Request)\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Error getting unread notification count: {message: }\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Failed to load resource: the server responded with a status of 400 (Bad Request)\n"
+                    },
+                    {
+                      "text": "PAGE LOG: Error fetching notifications: {code: 22P02, details: null, hint: null, message: invalid input syntax for type uuid: \"u_buyer\"}\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 1,
+                  "startTime": "2025-09-09T06:56:10.848Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/realtime-order-update-real-cd2de-UI-when-channel-event-fires-chromium-retry1/test-failed-1.png"
+                    },
+                    {
+                      "name": "video",
+                      "contentType": "video/webm",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/realtime-order-update-real-cd2de-UI-when-channel-event-fires-chromium-retry1/video.webm"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/realtime-order-update-real-cd2de-UI-when-channel-event-fires-chromium-retry1/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/realtime-order-update-real-cd2de-UI-when-channel-event-fires-chromium-retry1/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/realtime-order-update.spec.ts",
+                    "column": 14,
+                    "line": 85
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "fdcc56322cb10dda4bdf-f078fee26f09811ebb41",
+          "file": "realtime-order-update.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "session-handling.spec.ts",
+      "file": "session-handling.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Session Handling E2E Tests",
+          "file": "session-handling.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [],
+          "suites": [
+            {
+              "title": "Authentication Flow",
+              "file": "session-handling.spec.ts",
+              "line": 4,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "should redirect unauthenticated users to login",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 803,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:17.266Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-354a7322c4beebb2a5e3",
+                  "file": "session-handling.spec.ts",
+                  "line": 5,
+                  "column": 3
+                },
+                {
+                  "title": "should allow authenticated users to access protected routes",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 760,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:18.161Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-568986691347619491f7",
+                  "file": "session-handling.spec.ts",
+                  "line": 13,
+                  "column": 3
+                },
+                {
+                  "title": "should handle session expiration gracefully",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 930,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:18.924Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-c90d0d95ff153091adf9",
+                  "file": "session-handling.spec.ts",
+                  "line": 25,
+                  "column": 3
+                }
+              ]
+            },
+            {
+              "title": "API Route Session Handling",
+              "file": "session-handling.spec.ts",
+              "line": 40,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "should return 401 for unauthenticated API requests",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 24,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:19.859Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-520056055ae7923a01d3",
+                  "file": "session-handling.spec.ts",
+                  "line": 41,
+                  "column": 3
+                },
+                {
+                  "title": "should allow authenticated API requests with x-test-user-id",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 3,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:19.887Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-45cef0a2fb375416907d",
+                  "file": "session-handling.spec.ts",
+                  "line": 51,
+                  "column": 3
+                },
+                {
+                  "title": "should handle malformed session tokens",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 4,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:19.893Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-f72f75c978e03adc7b95",
+                  "file": "session-handling.spec.ts",
+                  "line": 63,
+                  "column": 3
+                }
+              ]
+            },
+            {
+              "title": "Session Consistency Across Routes",
+              "file": "session-handling.spec.ts",
+              "line": 77,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "should maintain session across page navigation",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 1069,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:19.900Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-5b3f021ca1edd4734820",
+                  "file": "session-handling.spec.ts",
+                  "line": 78,
+                  "column": 3
+                },
+                {
+                  "title": "should maintain session across API calls",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 832,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:20.973Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-ca3f44f7d2106aa3a957",
+                  "file": "session-handling.spec.ts",
+                  "line": 95,
+                  "column": 3
+                }
+              ]
+            },
+            {
+              "title": "Session Security",
+              "file": "session-handling.spec.ts",
+              "line": 116,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "should not expose session data in client-side code",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 796,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:21.809Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-85d6303a4c863d2da015",
+                  "file": "session-handling.spec.ts",
+                  "line": 117,
+                  "column": 3
+                },
+                {
+                  "title": "should handle session hijacking attempts",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 914,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:22.609Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-067128dc07a368eb6bea",
+                  "file": "session-handling.spec.ts",
+                  "line": 133,
+                  "column": 3
+                },
+                {
+                  "title": "should validate session on every protected request",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 73,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:23.527Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-08d93491fc88cc833dc6",
+                  "file": "session-handling.spec.ts",
+                  "line": 162,
+                  "column": 3
+                }
+              ]
+            },
+            {
+              "title": "Session Error Handling",
+              "file": "session-handling.spec.ts",
+              "line": 182,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "should handle network errors gracefully",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 801,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:23.604Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-470e3e828eb92f60d2ad",
+                  "file": "session-handling.spec.ts",
+                  "line": 183,
+                  "column": 3
+                },
+                {
+                  "title": "should handle server errors gracefully",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 863,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:24.408Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-433711fedad614eb77d5",
+                  "file": "session-handling.spec.ts",
+                  "line": 203,
+                  "column": 3
+                },
+                {
+                  "title": "should handle malformed session responses",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 1081,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:25.275Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-75fe693cdfcb68fcd9a0",
+                  "file": "session-handling.spec.ts",
+                  "line": 216,
+                  "column": 3
+                }
+              ]
+            },
+            {
+              "title": "Session Performance",
+              "file": "session-handling.spec.ts",
+              "line": 242,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "should load protected pages within acceptable time",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 1016,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:26.359Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-e593132db7b5b3cb2082",
+                  "file": "session-handling.spec.ts",
+                  "line": 243,
+                  "column": 3
+                },
+                {
+                  "title": "should handle concurrent session requests efficiently",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 420,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:27.379Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-e5b7ee07ebdefa34d48a",
+                  "file": "session-handling.spec.ts",
+                  "line": 257,
+                  "column": 3
+                },
+                {
+                  "title": "should not cause memory leaks with repeated session checks",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 1616,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:27.802Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-979be6a232275b264b3c",
+                  "file": "session-handling.spec.ts",
+                  "line": 285,
+                  "column": 3
+                }
+              ]
+            },
+            {
+              "title": "Cross-Browser Session Compatibility",
+              "file": "session-handling.spec.ts",
+              "line": 297,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "should work consistently across different browsers",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 765,
+                          "errors": [],
+                          "stdout": [
+                            {
+                              "text": "Session test passed on chromium\n"
+                            }
+                          ],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:29.422Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-7500fcafaef570af66a2",
+                  "file": "session-handling.spec.ts",
+                  "line": 298,
+                  "column": 3
+                }
+              ]
+            },
+            {
+              "title": "Session Edge Cases",
+              "file": "session-handling.spec.ts",
+              "line": 316,
+              "column": 7,
+              "specs": [
+                {
+                  "title": "should handle empty x-test-user-id header",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 830,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:30.192Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-f46d6f3ad0c3144a8bd1",
+                  "file": "session-handling.spec.ts",
+                  "line": 317,
+                  "column": 3
+                },
+                {
+                  "title": "should handle very long x-test-user-id header",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 897,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:31.025Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-eb27625f2dd3e0a77067",
+                  "file": "session-handling.spec.ts",
+                  "line": 329,
+                  "column": 3
+                },
+                {
+                  "title": "should handle special characters in x-test-user-id header",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 845,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:31.927Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-6846639b57549b432119",
+                  "file": "session-handling.spec.ts",
+                  "line": 342,
+                  "column": 3
+                },
+                {
+                  "title": "should handle concurrent sessions from different users",
+                  "ok": true,
+                  "tags": [],
+                  "tests": [
+                    {
+                      "timeout": 60000,
+                      "annotations": [],
+                      "expectedStatus": "passed",
+                      "projectId": "chromium",
+                      "projectName": "chromium",
+                      "results": [
+                        {
+                          "workerIndex": 5,
+                          "parallelIndex": 0,
+                          "status": "passed",
+                          "duration": 990,
+                          "errors": [],
+                          "stdout": [],
+                          "stderr": [],
+                          "retry": 0,
+                          "startTime": "2025-09-09T06:56:32.775Z",
+                          "annotations": [],
+                          "attachments": []
+                        }
+                      ],
+                      "status": "expected"
+                    }
+                  ],
+                  "id": "7f30ab2f5cf8b24b74f0-d44094ad9a3b4752a3f7",
+                  "file": "session-handling.spec.ts",
+                  "line": 354,
+                  "column": 3
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "shipments-ui.spec.ts",
+      "file": "shipments-ui.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "seller can add shipment and tracking event; timeline updates",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2051,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:56:33.772Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "30dc624dfa1ad03f4a22-7e2fcdf028f2a6d5c7fd",
+          "file": "shipments-ui.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "smoke.spec.ts",
+      "file": "smoke.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "home page loads and CTA is visible",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 901,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:56:35.830Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "4219922fea2e2bd3c691-d6061f23a2aadf441660",
+          "file": "smoke.spec.ts",
+          "line": 4,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "visual-snapshots.spec.ts",
+      "file": "visual-snapshots.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "home hero visual snapshots across breakpoints",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Visual snapshots are disabled by default. Set E2E_VISUAL=1 to enable locally.",
+                  "location": {
+                    "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/visual-snapshots.spec.ts",
+                    "line": 5,
+                    "column": 6
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": -1,
+                  "parallelIndex": -1,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:56:36.735Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "fbc375043ba39a7d6ad9-85274e532313ecab4410",
+          "file": "visual-snapshots.spec.ts",
+          "line": 7,
+          "column": 1
+        },
+        {
+          "title": "listing card visual snapshot (stub)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Visual snapshots are disabled by default. Set E2E_VISUAL=1 to enable locally.",
+                  "location": {
+                    "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/visual-snapshots.spec.ts",
+                    "line": 5,
+                    "column": 6
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": -1,
+                  "parallelIndex": -1,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:56:36.735Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "fbc375043ba39a7d6ad9-9fd14beb681bb4f77525",
+          "file": "visual-snapshots.spec.ts",
+          "line": 20,
+          "column": 1
+        },
+        {
+          "title": "order timeline visual snapshot (stub)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "Visual snapshots are disabled by default. Set E2E_VISUAL=1 to enable locally.",
+                  "location": {
+                    "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/visual-snapshots.spec.ts",
+                    "line": 5,
+                    "column": 6
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": -1,
+                  "parallelIndex": -1,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:56:36.735Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "fbc375043ba39a7d6ad9-2c7d5f23df1ac8543de1",
+          "file": "visual-snapshots.spec.ts",
+          "line": 31,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "webhook-dispute-buyer-won.spec.ts",
+      "file": "webhook-dispute-buyer-won.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "webhook dispute closed (buyer won) moves order to Refunded; idempotent",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2801,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:56:36.738Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "54753272178d1d9ac768-c3769cda0df51c2d5665",
+          "file": "webhook-dispute-buyer-won.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "webhook-dispute-lifecycle.spec.ts",
+      "file": "webhook-dispute-lifecycle.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "webhook dispute lifecycle: created → closed (seller won) updates UI; idempotent",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 3361,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:56:39.547Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "cc6b6c6b3eef4e71762c-582d4ee08e28b4e7d471",
+          "file": "webhook-dispute-lifecycle.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "webhook-idempotency.spec.ts",
+      "file": "webhook-idempotency.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Webhook Idempotency Tests",
+          "file": "webhook-idempotency.spec.ts",
+          "line": 5,
+          "column": 6,
+          "specs": [
+            {
+              "title": "handles duplicate webhook delivery idempotently",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 134,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:42.917Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4879c6b0277bc8bff4de-44a2d324e1a920c4d65f",
+              "file": "webhook-idempotency.spec.ts",
+              "line": 6,
+              "column": 3
+            },
+            {
+              "title": "prevents concurrent webhook processing race conditions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 23,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:43.054Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4879c6b0277bc8bff4de-8aeb720f6e40a2c85d96",
+              "file": "webhook-idempotency.spec.ts",
+              "line": 52,
+              "column": 3
+            },
+            {
+              "title": "handles order state transitions idempotently",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 24,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:43.080Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4879c6b0277bc8bff4de-f1d45650b68f7c7d7661",
+              "file": "webhook-idempotency.spec.ts",
+              "line": 94,
+              "column": 3
+            },
+            {
+              "title": "validates webhook event processing order",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 24,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:43.107Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4879c6b0277bc8bff4de-c650b7623129441ac455",
+              "file": "webhook-idempotency.spec.ts",
+              "line": 152,
+              "column": 3
+            },
+            {
+              "title": "handles webhook event replay with different timestamps",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 25,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:43.134Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4879c6b0277bc8bff4de-e84eb81444f5360f6316",
+              "file": "webhook-idempotency.spec.ts",
+              "line": 200,
+              "column": 3
+            },
+            {
+              "title": "validates webhook event deduplication by event ID",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 21,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m0\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m0\u001b[39m\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-idempotency.spec.ts:300:32",
+                        "location": {
+                          "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-idempotency.spec.ts",
+                          "column": 32,
+                          "line": 300
+                        },
+                        "snippet": "  298 |     const bodies = await Promise.all(responses.map(res => res.json()));\n  299 |     const nonIdempotentCount = bodies.filter(body => !body.idempotent).length;\n> 300 |     expect(nonIdempotentCount).toBe(1);\n      |                                ^\n  301 |   });\n  302 | });\n  303 |"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-idempotency.spec.ts",
+                            "column": 32,
+                            "line": 300
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m0\u001b[39m\n\n  298 |     const bodies = await Promise.all(responses.map(res => res.json()));\n  299 |     const nonIdempotentCount = bodies.filter(body => !body.idempotent).length;\n> 300 |     expect(nonIdempotentCount).toBe(1);\n      |                                ^\n  301 |   });\n  302 | });\n  303 |\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-idempotency.spec.ts:300:32"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:43.163Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/webhook-idempotency-Webhoo-d49d7-t-deduplication-by-event-ID-chromium/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-idempotency.spec.ts",
+                        "column": 32,
+                        "line": 300
+                      }
+                    },
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 47,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m0\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m0\u001b[39m\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-idempotency.spec.ts:300:32",
+                        "location": {
+                          "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-idempotency.spec.ts",
+                          "column": 32,
+                          "line": 300
+                        },
+                        "snippet": "  298 |     const bodies = await Promise.all(responses.map(res => res.json()));\n  299 |     const nonIdempotentCount = bodies.filter(body => !body.idempotent).length;\n> 300 |     expect(nonIdempotentCount).toBe(1);\n      |                                ^\n  301 |   });\n  302 | });\n  303 |"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-idempotency.spec.ts",
+                            "column": 32,
+                            "line": 300
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m0\u001b[39m\n\n  298 |     const bodies = await Promise.all(responses.map(res => res.json()));\n  299 |     const nonIdempotentCount = bodies.filter(body => !body.idempotent).length;\n> 300 |     expect(nonIdempotentCount).toBe(1);\n      |                                ^\n  301 |   });\n  302 | });\n  303 |\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-idempotency.spec.ts:300:32"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2025-09-09T06:56:43.512Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/webhook-idempotency-Webhoo-d49d7-t-deduplication-by-event-ID-chromium-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-idempotency.spec.ts",
+                        "column": 32,
+                        "line": 300
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4879c6b0277bc8bff4de-c0610015a2103e1a5493",
+              "file": "webhook-idempotency.spec.ts",
+              "line": 249,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "webhook-performance.spec.ts",
+      "file": "webhook-performance.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Webhook Performance and Load Tests",
+          "file": "webhook-performance.spec.ts",
+          "line": 5,
+          "column": 6,
+          "specs": [
+            {
+              "title": "handles high volume webhook processing under load",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 198,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "Processed 50 webhooks in 179ms (279.33 webhooks/sec)\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:43.798Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9799ecd0c421821e3147-df3f6142306aa553277d",
+              "file": "webhook-performance.spec.ts",
+              "line": 6,
+              "column": 3
+            },
+            {
+              "title": "validates webhook processing response times",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 241,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "Response time metrics:\n      Average: 11.80ms\n      Min: 9ms\n      Max: 21ms\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:44.002Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9799ecd0c421821e3147-c5c52472e67ecd9557eb",
+              "file": "webhook-performance.spec.ts",
+              "line": 57,
+              "column": 3
+            },
+            {
+              "title": "handles concurrent webhook processing with race conditions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 35,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:44.247Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9799ecd0c421821e3147-024947727ca0bfeff4f1",
+              "file": "webhook-performance.spec.ts",
+              "line": 108,
+              "column": 3
+            },
+            {
+              "title": "validates webhook processing under memory pressure",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 438,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:44.285Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9799ecd0c421821e3147-8bce8d9078e74ce132b8",
+              "file": "webhook-performance.spec.ts",
+              "line": 157,
+              "column": 3
+            },
+            {
+              "title": "handles webhook processing with varying payload sizes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 61,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "Payload size 100 bytes: 14ms\n"
+                        },
+                        {
+                          "text": "Payload size 500 bytes: 10ms\n"
+                        },
+                        {
+                          "text": "Payload size 1000 bytes: 11ms\n"
+                        },
+                        {
+                          "text": "Payload size 2000 bytes: 10ms\n"
+                        },
+                        {
+                          "text": "Payload size 5000 bytes: 12ms\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:44.727Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9799ecd0c421821e3147-41ac7e9cddf60cf25be9",
+              "file": "webhook-performance.spec.ts",
+              "line": 210,
+              "column": 3
+            },
+            {
+              "title": "validates webhook processing error handling under load",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 53,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:44.791Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "9799ecd0c421821e3147-8f0db7f5a4b0927f8660",
+              "file": "webhook-performance.spec.ts",
+              "line": 259,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "webhook-refund-dispute.spec.ts",
+      "file": "webhook-refund-dispute.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "webhook refund updates order UI to Refunded (idempotent)",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 60000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chromium",
+              "projectName": "chromium",
+              "results": [
+                {
+                  "workerIndex": 7,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2051,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2025-09-09T06:56:44.852Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "64dd82ad3d27b9ba8037-93e2519893fa09b7740e",
+          "file": "webhook-refund-dispute.spec.ts",
+          "line": 3,
+          "column": 1
+        }
+      ]
+    },
+    {
+      "title": "webhook-security-hardening.spec.ts",
+      "file": "webhook-security-hardening.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Webhook Security Hardening",
+          "file": "webhook-security-hardening.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "rejects webhook requests without signature in production mode",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 118,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:46.999Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "3b8004ed3999789cc18c-e4883d8f4e1c8ca8d8a6",
+              "file": "webhook-security-hardening.spec.ts",
+              "line": 4,
+              "column": 2
+            },
+            {
+              "title": "validates webhook signature properly",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 21,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:40:29",
+                        "location": {
+                          "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                          "column": 29,
+                          "line": 40
+                        },
+                        "snippet": "  38 | \t\t\n  39 | \t\t// Should accept mock signature in development (but fail on order processing)\n> 40 | \t\texpect(response.status()).toBe(404); // Will fail because order doesn't exist, but signature is valid\n     | \t\t                          ^\n  41 | \t\tconst body = await response.json();\n  42 | \t\texpect(body.error).toBe('Webhook processing failed');\n  43 | \t});"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                            "column": 29,
+                            "line": 40
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n\n  38 | \t\t\n  39 | \t\t// Should accept mock signature in development (but fail on order processing)\n> 40 | \t\texpect(response.status()).toBe(404); // Will fail because order doesn't exist, but signature is valid\n     | \t\t                          ^\n  41 | \t\tconst body = await response.json();\n  42 | \t\texpect(body.error).toBe('Webhook processing failed');\n  43 | \t});\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:40:29"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:47.120Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/webhook-security-hardening-e076c--webhook-signature-properly-chromium/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                        "column": 29,
+                        "line": 40
+                      }
+                    },
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 33,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:40:29",
+                        "location": {
+                          "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                          "column": 29,
+                          "line": 40
+                        },
+                        "snippet": "  38 | \t\t\n  39 | \t\t// Should accept mock signature in development (but fail on order processing)\n> 40 | \t\texpect(response.status()).toBe(404); // Will fail because order doesn't exist, but signature is valid\n     | \t\t                          ^\n  41 | \t\tconst body = await response.json();\n  42 | \t\texpect(body.error).toBe('Webhook processing failed');\n  43 | \t});"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                            "column": 29,
+                            "line": 40
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n\n  38 | \t\t\n  39 | \t\t// Should accept mock signature in development (but fail on order processing)\n> 40 | \t\texpect(response.status()).toBe(404); // Will fail because order doesn't exist, but signature is valid\n     | \t\t                          ^\n  41 | \t\tconst body = await response.json();\n  42 | \t\texpect(body.error).toBe('Webhook processing failed');\n  43 | \t});\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:40:29"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2025-09-09T06:56:47.514Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/webhook-security-hardening-e076c--webhook-signature-properly-chromium-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                        "column": 29,
+                        "line": 40
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "3b8004ed3999789cc18c-ce04ffadff1a3bd3876b",
+              "file": "webhook-security-hardening.spec.ts",
+              "line": 17,
+              "column": 2
+            },
+            {
+              "title": "rejects old webhook events (replay protection)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 17,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:47.806Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "3b8004ed3999789cc18c-fbf806f5eb0d8d80adc5",
+              "file": "webhook-security-hardening.spec.ts",
+              "line": 45,
+              "column": 2
+            },
+            {
+              "title": "rejects future webhook events (clock skew protection)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:47.829Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "3b8004ed3999789cc18c-27c13d03fe15bbf83f54",
+              "file": "webhook-security-hardening.spec.ts",
+              "line": 67,
+              "column": 2
+            },
+            {
+              "title": "enforces idempotency for duplicate events",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 38,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:136:30",
+                        "location": {
+                          "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                          "column": 30,
+                          "line": 136
+                        },
+                        "snippet": "  134 | \t\t\n  135 | \t\t// First call fails (order not found), second call should also fail (order still doesn't exist)\n> 136 | \t\texpect(response1.status()).toBe(404);\n      | \t\t                           ^\n  137 | \t\texpect(response2.status()).toBe(404);\n  138 | \t\t\n  139 | \t\tconst body1 = await response1.json();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                            "column": 30,
+                            "line": 136
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n\n  134 | \t\t\n  135 | \t\t// First call fails (order not found), second call should also fail (order still doesn't exist)\n> 136 | \t\texpect(response1.status()).toBe(404);\n      | \t\t                           ^\n  137 | \t\texpect(response2.status()).toBe(404);\n  138 | \t\t\n  139 | \t\tconst body1 = await response1.json();\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:136:30"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:47.838Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/webhook-security-hardening-220ec-otency-for-duplicate-events-chromium/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                        "column": 30,
+                        "line": 136
+                      }
+                    },
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 48,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:136:30",
+                        "location": {
+                          "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                          "column": 30,
+                          "line": 136
+                        },
+                        "snippet": "  134 | \t\t\n  135 | \t\t// First call fails (order not found), second call should also fail (order still doesn't exist)\n> 136 | \t\texpect(response1.status()).toBe(404);\n      | \t\t                           ^\n  137 | \t\texpect(response2.status()).toBe(404);\n  138 | \t\t\n  139 | \t\tconst body1 = await response1.json();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                            "column": 30,
+                            "line": 136
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n\n  134 | \t\t\n  135 | \t\t// First call fails (order not found), second call should also fail (order still doesn't exist)\n> 136 | \t\texpect(response1.status()).toBe(404);\n      | \t\t                           ^\n  137 | \t\texpect(response2.status()).toBe(404);\n  138 | \t\t\n  139 | \t\tconst body1 = await response1.json();\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:136:30"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2025-09-09T06:56:48.112Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/webhook-security-hardening-220ec-otency-for-duplicate-events-chromium-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                        "column": 30,
+                        "line": 136
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "3b8004ed3999789cc18c-1f50171760634ca8cda0",
+              "file": "webhook-security-hardening.spec.ts",
+              "line": 89,
+              "column": 2
+            },
+            {
+              "title": "prevents order state downgrades",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 52,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:191:36",
+                        "location": {
+                          "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                          "column": 36,
+                          "line": 191
+                        },
+                        "snippet": "  189 | \t\t\n  190 | \t\t// Both should fail because order doesn't exist\n> 191 | \t\texpect(successResponse.status()).toBe(404);\n      | \t\t                                 ^\n  192 | \t\texpect(failResponse.status()).toBe(404);\n  193 | \t\t\n  194 | \t\tconst successBody = await successResponse.json();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                            "column": 36,
+                            "line": 191
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n\n  189 | \t\t\n  190 | \t\t// Both should fail because order doesn't exist\n> 191 | \t\texpect(successResponse.status()).toBe(404);\n      | \t\t                                 ^\n  192 | \t\texpect(failResponse.status()).toBe(404);\n  193 | \t\t\n  194 | \t\tconst successBody = await successResponse.json();\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:191:36"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:48.404Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/webhook-security-hardening-f7392-ents-order-state-downgrades-chromium/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                        "column": 36,
+                        "line": 191
+                      }
+                    },
+                    {
+                      "workerIndex": 12,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 53,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:191:36",
+                        "location": {
+                          "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                          "column": 36,
+                          "line": 191
+                        },
+                        "snippet": "  189 | \t\t\n  190 | \t\t// Both should fail because order doesn't exist\n> 191 | \t\texpect(successResponse.status()).toBe(404);\n      | \t\t                                 ^\n  192 | \t\texpect(failResponse.status()).toBe(404);\n  193 | \t\t\n  194 | \t\tconst successBody = await successResponse.json();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                            "column": 36,
+                            "line": 191
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n\n  189 | \t\t\n  190 | \t\t// Both should fail because order doesn't exist\n> 191 | \t\texpect(successResponse.status()).toBe(404);\n      | \t\t                                 ^\n  192 | \t\texpect(failResponse.status()).toBe(404);\n  193 | \t\t\n  194 | \t\tconst successBody = await successResponse.json();\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:191:36"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2025-09-09T06:56:48.700Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/webhook-security-hardening-f7392-ents-order-state-downgrades-chromium-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                        "column": 36,
+                        "line": 191
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "3b8004ed3999789cc18c-2d6635b22b97cf545539",
+              "file": "webhook-security-hardening.spec.ts",
+              "line": 145,
+              "column": 2
+            },
+            {
+              "title": "validates order exists before processing",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 40,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:224:29",
+                        "location": {
+                          "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                          "column": 29,
+                          "line": 224
+                        },
+                        "snippet": "  222 | \t\t\n  223 | \t\t// Should fail with 404 for non-existent order\n> 224 | \t\texpect(response.status()).toBe(404);\n      | \t\t                          ^\n  225 | \t\tconst body = await response.json();\n  226 | \t\texpect(body.error).toBe('Webhook processing failed');\n  227 | \t\texpect(body.details).toMatch(/not found/i);"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                            "column": 29,
+                            "line": 224
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n\n  222 | \t\t\n  223 | \t\t// Should fail with 404 for non-existent order\n> 224 | \t\texpect(response.status()).toBe(404);\n      | \t\t                          ^\n  225 | \t\tconst body = await response.json();\n  226 | \t\texpect(body.error).toBe('Webhook processing failed');\n  227 | \t\texpect(body.details).toMatch(/not found/i);\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:224:29"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:48.997Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/webhook-security-hardening-1bd82-er-exists-before-processing-chromium/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                        "column": 29,
+                        "line": 224
+                      }
+                    },
+                    {
+                      "workerIndex": 14,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 33,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:224:29",
+                        "location": {
+                          "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                          "column": 29,
+                          "line": 224
+                        },
+                        "snippet": "  222 | \t\t\n  223 | \t\t// Should fail with 404 for non-existent order\n> 224 | \t\texpect(response.status()).toBe(404);\n      | \t\t                          ^\n  225 | \t\tconst body = await response.json();\n  226 | \t\texpect(body.error).toBe('Webhook processing failed');\n  227 | \t\texpect(body.details).toMatch(/not found/i);"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                            "column": 29,
+                            "line": 224
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m404\u001b[39m\nReceived: \u001b[31m200\u001b[39m\n\n  222 | \t\t\n  223 | \t\t// Should fail with 404 for non-existent order\n> 224 | \t\texpect(response.status()).toBe(404);\n      | \t\t                          ^\n  225 | \t\tconst body = await response.json();\n  226 | \t\texpect(body.error).toBe('Webhook processing failed');\n  227 | \t\texpect(body.details).toMatch(/not found/i);\n    at /Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts:224:29"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2025-09-09T06:56:49.283Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/ethan/Projects/Aussie-Market-V2/test-results/webhook-security-hardening-1bd82-er-exists-before-processing-chromium-retry1/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/ethan/Projects/Aussie-Market-V2/tests/e2e/webhook-security-hardening.spec.ts",
+                        "column": 29,
+                        "line": 224
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "3b8004ed3999789cc18c-ea2509266ca764dd10d5",
+              "file": "webhook-security-hardening.spec.ts",
+              "line": 200,
+              "column": 2
+            },
+            {
+              "title": "handles missing order_id in metadata",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 28,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:49.556Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "3b8004ed3999789cc18c-093f67f70a692a36b421",
+              "file": "webhook-security-hardening.spec.ts",
+              "line": 230,
+              "column": 2
+            },
+            {
+              "title": "comprehensive error handling and logging",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 11,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:49.591Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "3b8004ed3999789cc18c-d0c18c00566c56fe2974",
+              "file": "webhook-security-hardening.spec.ts",
+              "line": 257,
+              "column": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "webhook-security.spec.ts",
+      "file": "webhook-security.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Webhook Security Tests",
+          "file": "webhook-security.spec.ts",
+          "line": 5,
+          "column": 6,
+          "specs": [
+            {
+              "title": "rejects webhook requests without signature in production",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:49.611Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e59ac89a6ddb63e38c0e-bc8bce4e735f8a58167b",
+              "file": "webhook-security.spec.ts",
+              "line": 6,
+              "column": 3
+            },
+            {
+              "title": "rejects webhook requests with invalid signature",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:49.619Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e59ac89a6ddb63e38c0e-ab73fbd5f8f1fab61f5f",
+              "file": "webhook-security.spec.ts",
+              "line": 23,
+              "column": 3
+            },
+            {
+              "title": "rejects webhook events that are too old (replay attack prevention)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:49.628Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e59ac89a6ddb63e38c0e-30b521f0bb173d3d2d87",
+              "file": "webhook-security.spec.ts",
+              "line": 41,
+              "column": 3
+            },
+            {
+              "title": "rejects webhook events from the future (clock skew protection)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:49.634Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e59ac89a6ddb63e38c0e-13575a5c1a9a05a335f5",
+              "file": "webhook-security.spec.ts",
+              "line": 62,
+              "column": 3
+            },
+            {
+              "title": "validates webhook signature format and structure",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 11,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:49.641Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e59ac89a6ddb63e38c0e-1a7282535c90cf79e60b",
+              "file": "webhook-security.spec.ts",
+              "line": 83,
+              "column": 3
+            },
+            {
+              "title": "handles malformed webhook payload gracefully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 30,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:49.655Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e59ac89a6ddb63e38c0e-a00d81264c4a36decf2b",
+              "file": "webhook-security.spec.ts",
+              "line": 111,
+              "column": 3
+            },
+            {
+              "title": "validates webhook event type handling",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 26,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:49.688Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e59ac89a6ddb63e38c0e-37659c2828ee5b6b2b7e",
+              "file": "webhook-security.spec.ts",
+              "line": 135,
+              "column": 3
+            },
+            {
+              "title": "validates production environment secret requirements",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 60000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 21,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-09-09T06:56:49.718Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e59ac89a6ddb63e38c0e-11abb4a0b1ec1af44643",
+              "file": "webhook-security.spec.ts",
+              "line": 163,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-09-09T06:55:16.345Z",
+    "duration": 94033.95,
+    "expected": 74,
+    "skipped": 4,
+    "unexpected": 7,
+    "flaky": 0
+  }
+}

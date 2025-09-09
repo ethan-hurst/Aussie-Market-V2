@@ -1,40 +1,21 @@
 import { test, expect } from '@playwright/test';
 
 test('notifications bell shows unread badge and mark-as-read clears it', async ({ page }) => {
+  // Listen to console logs from the page
+  page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+  
+  const testUserId = '11111111-1111-1111-1111-111111111111';
+  
   // Stub session for layout to consider user logged in
   await page.addInitScript(() => {
-    localStorage.setItem('sb-session', JSON.stringify({ access_token: 't', expires_at: Math.floor(Date.now()/1000)+3600, user: { id: 'u1' } }));
+    console.log('Test: Setting up session in localStorage');
+    localStorage.setItem('sb-session', JSON.stringify({ access_token: 't', expires_at: Math.floor(Date.now()/1000)+3600, user: { id: '11111111-1111-1111-1111-111111111111' } }));
   });
 
-  // Stub notifications endpoints used by NotificationBell
-  let unread = 2;
-  await page.route('**/rest/v1/notifications*', async (route) => {
-    const req = route.request();
-    const method = req.method();
-    const headers = req.headers();
-    const prefer = (headers['prefer'] || headers['Prefer'] || '').toString();
-    if (method === 'HEAD' || prefer.includes('count=exact')) {
-      // count query (HEAD or GET with Prefer: count=exact)
-      return route.fulfill({ status: 200, headers: { 'Content-Range': `0-0/${unread}` } as any, body: '' });
-    }
-    if (method === 'GET') {
-      // list notifications
-      const list = [
-        { id: 'n1', user_id: 'u1', type: 'order_paid', title: 'Payment Received', message: 'Payment completed', read: unread === 0, created_at: new Date().toISOString() },
-        { id: 'n2', user_id: 'u1', type: 'order_shipped', title: 'Item Shipped', message: 'Your item shipped', read: unread < 2, created_at: new Date().toISOString() }
-      ];
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(list) });
-    }
-    if (method === 'PATCH' || method === 'POST') {
-      // mark read
-      unread = 0;
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) });
-    }
-    return route.continue();
-  });
-  await page.setExtraHTTPHeaders({ 'x-test-user-id': 'u1' });
+  // Mock server handles notification endpoints directly
+  await page.setExtraHTTPHeaders({ 'x-test-user-id': testUserId });
   await page.addInitScript(() => {
-    localStorage.setItem('sb-session', JSON.stringify({ access_token: 't', expires_at: Math.floor(Date.now()/1000)+3600, user: { id: 'u1' } }));
+    localStorage.setItem('sb-session', JSON.stringify({ access_token: 't', expires_at: Math.floor(Date.now()/1000)+3600, user: { id: testUserId } }));
   });
   // Use a protected route so SSR session is required and user nav renders
   await page.goto('/orders/buyer');

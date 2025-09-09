@@ -220,37 +220,45 @@ export const POST: RequestHandler = async ({ request }) => {
 		// Enhanced event processing with comprehensive error handling
 		console.log(`Processing webhook event: ${event.type} (${event.id})`);
 		
+		let isIdempotentProcessing = false;
+		
 		switch (event.type) {
 			case 'payment_intent.succeeded':
-				await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
+				isIdempotentProcessing = await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
 				break;
 			case 'payment_intent.payment_failed':
-				await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
+				isIdempotentProcessing = await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
 				break;
 			case 'payment_intent.canceled':
-				await handlePaymentIntentCanceled(event.data.object as Stripe.PaymentIntent);
+				isIdempotentProcessing = await handlePaymentIntentCanceled(event.data.object as Stripe.PaymentIntent);
 				break;
 			case 'payment_intent.amount_capturable_updated':
-				await handlePaymentIntentAmountCapturableUpdated(event.data.object as Stripe.PaymentIntent);
+				isIdempotentProcessing = await handlePaymentIntentAmountCapturableUpdated(event.data.object as Stripe.PaymentIntent);
 				break;
 			case 'charge.dispute.created':
-				await handleDisputeCreated(event.data.object as Stripe.Dispute);
+				isIdempotentProcessing = await handleDisputeCreated(event.data.object as Stripe.Dispute);
 				break;
 			case 'charge.dispute.closed':
-				await handleDisputeClosed(event.data.object as Stripe.Dispute);
+				isIdempotentProcessing = await handleDisputeClosed(event.data.object as Stripe.Dispute);
 				break;
 			case 'charge.dispute.updated':
-				await handleDisputeUpdated(event.data.object as Stripe.Dispute);
+				isIdempotentProcessing = await handleDisputeUpdated(event.data.object as Stripe.Dispute);
 				break;
 			case 'charge.refund.updated':
-				await handleRefundUpdated(event.data.object as Stripe.Refund);
+				isIdempotentProcessing = await handleRefundUpdated(event.data.object as Stripe.Refund);
 				break;
 			case 'charge.refunded':
-				await handleChargeRefunded(event.data.object as Stripe.Charge);
+				isIdempotentProcessing = await handleChargeRefunded(event.data.object as Stripe.Charge);
 				break;
 			default:
 				console.log(`Unhandled event type: ${event.type} (${event.id})`);
 				// Don't fail for unhandled events - just log and continue
+		}
+
+		// If this was idempotent processing (order doesn't exist), return appropriate response
+		if (isIdempotentProcessing) {
+			console.log(`Idempotent processing for webhook event: ${event.type} (${event.id})`);
+			return json({ received: true, idempotent: true, status: 'order_not_found' });
 		}
 
 		// Mark event processed for idempotency
@@ -326,7 +334,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 };
 
-async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
+async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent): Promise<boolean> {
 	const orderId = paymentIntent.metadata.order_id;
 	
 	if (!orderId) {
@@ -356,26 +364,26 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 			console.error('Error fetching order for payment success:', fetchError);
 			if (fetchError.code === 'PGRST116') {
 				console.log(`Order ${orderId} not found - treating as idempotent success`);
-				return; // Idempotent: order doesn't exist, treat as success
+				return true; // Return true to indicate idempotent processing
 			}
 			// Handle UUID validation errors in E2E testing
 			if (isE2EMode && fetchError.message?.includes('invalid input syntax for type uuid')) {
 				console.log('[E2E] Treating invalid UUID order ID as idempotent success');
-				return;
+				return true; // Return true to indicate idempotent processing
 			}
 			throw new Error(`Failed to fetch order ${orderId}: ${fetchError.message}`);
 		}
 
 		if (!existingOrder) {
 			console.log(`Order ${orderId} not found - treating as idempotent success`);
-			return; // Idempotent: order doesn't exist, treat as success
+			return true; // Return true to indicate idempotent processing
 		}
 
 		// Prevent state downgrades and duplicate processing
 		const validFromStates = ['pending', 'pending_payment'];
 		if (!validFromStates.includes(existingOrder.state)) {
 			console.log(`Order ${orderId} in state ${existingOrder.state}, cannot transition to paid (idempotent)`);
-			return; // Idempotent: already in a final state
+			return true; // Return true to indicate idempotent processing
 		}
 
 		// Prevent duplicate payment intent processing
@@ -459,9 +467,10 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 			console.warn(`Could not release lock for order ${orderId}:`, unlockError);
 		}
 	}
+	return false; // Return false to indicate successful processing (not idempotent)
 }
 
-async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
+async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent): Promise<boolean> {
 	const orderId = paymentIntent.metadata.order_id;
 
 	if (!orderId) {
@@ -481,27 +490,27 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
 		// Handle UUID validation errors in E2E testing
 		if (isE2EMode && fetchError.message?.includes('invalid input syntax for type uuid')) {
 			console.log('[E2E] Treating invalid UUID order ID as idempotent success');
-			return;
+			return true; // Return true to indicate idempotent processing
 		}
 		// Handle missing column errors in E2E testing
 		if (isE2EMode && fetchError.message?.includes('column') && fetchError.message?.includes('does not exist')) {
 			console.log('[E2E] Treating missing column as idempotent success');
-			return;
+			return true; // Return true to indicate idempotent processing
 		}
 		console.log(`Order ${orderId} not found - treating as idempotent success`);
-		return; // Idempotent: order doesn't exist, treat as success
+		return true; // Return true to indicate idempotent processing
 	}
 
 	if (!existingOrder) {
 		console.log(`Order ${orderId} not found - treating as idempotent success`);
-		return; // Idempotent: order doesn't exist, treat as success
+		return true; // Return true to indicate idempotent processing
 	}
 
 	// Prevent state downgrades - only allow from pending states
 	const validFromStates = ['pending', 'pending_payment'];
 	if (!validFromStates.includes(existingOrder.state)) {
 		console.log(`Order ${orderId} in state ${existingOrder.state}, cannot transition to payment_failed`);
-		return; // Idempotent: already processed
+		return true; // Return true to indicate idempotent processing
 	}
 
 	// Prevent duplicate payment intent processing
@@ -574,9 +583,10 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
 	}
 
 	console.log(`Payment failed for order ${orderId}: ${paymentIntent.last_payment_error?.message}`);
+	return false; // Return false to indicate successful processing (not idempotent)
 }
 
-async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) {
+async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent): Promise<boolean> {
 	const orderId = paymentIntent.metadata.order_id;
 
 	if (!orderId) {
@@ -596,27 +606,27 @@ async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) 
 		// Handle UUID validation errors in E2E testing
 		if (isE2EMode && fetchError.message?.includes('invalid input syntax for type uuid')) {
 			console.log('[E2E] Treating invalid UUID order ID as idempotent success');
-			return;
+			return true; // Return true to indicate idempotent processing
 		}
 		// Handle missing column errors in E2E testing
 		if (isE2EMode && fetchError.message?.includes('column') && fetchError.message?.includes('does not exist')) {
 			console.log('[E2E] Treating missing column as idempotent success');
-			return;
+			return true; // Return true to indicate idempotent processing
 		}
 		console.log(`Order ${orderId} not found - treating as idempotent success`);
-		return; // Idempotent: order doesn't exist, treat as success
+		return true; // Return true to indicate idempotent processing
 	}
 
 	if (!existingOrder) {
 		console.log(`Order ${orderId} not found - treating as idempotent success`);
-		return; // Idempotent: order doesn't exist, treat as success
+		return true; // Return true to indicate idempotent processing
 	}
 
 	// Prevent state downgrades - only allow from pending states
 	const validFromStates = ['pending', 'pending_payment'];
 	if (!validFromStates.includes(existingOrder.state)) {
 		console.log(`Order ${orderId} in state ${existingOrder.state}, cannot transition to cancelled`);
-		return; // Idempotent: already processed
+		return true; // Return true to indicate idempotent processing
 	}
 
 	// Prevent duplicate payment intent processing
@@ -642,14 +652,15 @@ async function handlePaymentIntentCanceled(paymentIntent: Stripe.PaymentIntent) 
 	}
 
 	console.log(`Payment canceled for order ${orderId}`);
+	return false; // Return false to indicate successful processing (not idempotent)
 }
 
-async function handlePaymentIntentAmountCapturableUpdated(paymentIntent: Stripe.PaymentIntent) {
+async function handlePaymentIntentAmountCapturableUpdated(paymentIntent: Stripe.PaymentIntent): Promise<boolean> {
 	const orderId = paymentIntent.metadata.order_id;
 
 	if (!orderId) {
 		console.error('No order_id in payment intent amount capturable update');
-		return;
+		return true; // Return true to indicate idempotent processing
 	}
 
 	// Update payment record with capturable amount
@@ -662,9 +673,10 @@ async function handlePaymentIntentAmountCapturableUpdated(paymentIntent: Stripe.
 		.eq('stripe_payment_intent_id', paymentIntent.id);
 
 	console.log(`Payment amount capturable updated for order ${orderId}: ${paymentIntent.amount_capturable}`);
+	return false; // Return false to indicate successful processing (not idempotent)
 }
 
-async function handleDisputeCreated(dispute: Stripe.Dispute) {
+async function handleDisputeCreated(dispute: Stripe.Dispute): Promise<boolean> {
 	// Find order by charge ID
 	const { data: payment } = await supabase
 		.from('payments')

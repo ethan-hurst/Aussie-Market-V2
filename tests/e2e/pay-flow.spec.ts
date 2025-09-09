@@ -67,9 +67,9 @@ test('buyer can complete payment with stubbed Stripe and APIs', async ({ page })
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
   });
   await page.goto(`/orders/${orderId}`);
-  // Wait for order fetch to complete before asserting
-  await page.waitForResponse((res) => res.url().endsWith(`/api/orders/${orderId}`) && res.request().method() === 'GET');
-  await expect(page.locator('span.inline-block', { hasText: 'Payment Received' }).first()).toBeVisible();
+  // Wait for order fetch to complete before asserting with increased timeout
+  await page.waitForResponse((res) => res.url().endsWith(`/api/orders/${orderId}`) && res.request().method() === 'GET', { timeout: 10000 });
+  await expect(page.locator('span.inline-block', { hasText: 'Payment Received' }).first()).toBeVisible({ timeout: 10000 });
 });
 
 

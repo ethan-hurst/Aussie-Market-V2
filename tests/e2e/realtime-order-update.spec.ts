@@ -5,17 +5,19 @@ test('realtime order update refreshes UI when channel event fires', async ({ pag
   page.on('console', msg => console.log('PAGE LOG:', msg.text()));
   
   const orderId = 'rt-order-1';
+  const buyerId = '11111111-1111-1111-1111-111111111111';
+  const sellerId = '22222222-2222-2222-2222-222222222222';
   const currentOrder: any = {
     id: orderId,
     amount_cents: 1000,
-    buyer_id: 'u_buyer',
-    seller_id: 'u_seller',
+    buyer_id: buyerId,
+    seller_id: sellerId,
     state: 'paid',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     listings: { title: 'RT Order', description: 'Realtime test', listing_photos: [] },
-    buyer: { id: 'u_buyer', legal_name: 'Buyer', email: 'b@e.com' },
-    seller: { id: 'u_seller', legal_name: 'Seller', email: 's@e.com' }
+    buyer: { id: buyerId, legal_name: 'Buyer', email: 'b@e.com' },
+    seller: { id: sellerId, legal_name: 'Seller', email: 's@e.com' }
   };
 
   // Stub initial fetch
@@ -55,9 +57,9 @@ test('realtime order update refreshes UI when channel event fires', async ({ pag
     };
   });
 
-  await page.setExtraHTTPHeaders({ 'x-test-user-id': 'u_buyer' });
+  await page.setExtraHTTPHeaders({ 'x-test-user-id': buyerId });
   await page.addInitScript(() => {
-    localStorage.setItem('sb-session', JSON.stringify({ access_token: 't', expires_at: Math.floor(Date.now()/1000)+3600, user: { id: 'u_buyer' } }));
+    localStorage.setItem('sb-session', JSON.stringify({ access_token: 't', expires_at: Math.floor(Date.now()/1000)+3600, user: { id: buyerId } }));
   });
   await page.goto(`/orders/${orderId}`);
   await expect(page.getByRole('heading', { name: /Order #/ })).toBeVisible();

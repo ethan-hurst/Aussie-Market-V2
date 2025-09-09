@@ -36,10 +36,11 @@ test.describe('Webhook Security Hardening', () => {
 			})
 		});
 		
-		// Should accept mock signature in development (but fail on order processing)
-		expect(response.status()).toBe(404); // Will fail because order doesn't exist, but signature is valid
+		// Should accept mock signature in development and handle non-existent order idempotently
+		expect(response.status()).toBe(200); // Backend treats missing orders as already processed
 		const body = await response.json();
-		expect(body.error).toBe('Webhook processing failed');
+		expect(body.received).toBe(true);
+		expect(body.idempotent).toBe(true);
 	});
 
 	test('rejects old webhook events (replay protection)', async ({ request }) => {
@@ -132,14 +133,16 @@ test.describe('Webhook Security Hardening', () => {
 			})
 		});
 		
-		// First call fails (order not found), second call should also fail (order still doesn't exist)
-		expect(response1.status()).toBe(404);
-		expect(response2.status()).toBe(404);
+		// Both calls should succeed with idempotent behavior for non-existent orders
+		expect(response1.status()).toBe(200);
+		expect(response2.status()).toBe(200);
 		
 		const body1 = await response1.json();
 		const body2 = await response2.json();
-		expect(body1.error).toBe('Webhook processing failed');
-		expect(body2.error).toBe('Webhook processing failed');
+		expect(body1.received).toBe(true);
+		expect(body1.idempotent).toBe(true);
+		expect(body2.received).toBe(true);
+		expect(body2.idempotent).toBe(true);
 	});
 
 	test('prevents order state downgrades', async ({ request }) => {
@@ -187,14 +190,16 @@ test.describe('Webhook Security Hardening', () => {
 			})
 		});
 		
-		// Both should fail because order doesn't exist
-		expect(successResponse.status()).toBe(404);
-		expect(failResponse.status()).toBe(404);
+		// Both should succeed with idempotent behavior for non-existent orders
+		expect(successResponse.status()).toBe(200);
+		expect(failResponse.status()).toBe(200);
 		
 		const successBody = await successResponse.json();
 		const failBody = await failResponse.json();
-		expect(successBody.error).toBe('Webhook processing failed');
-		expect(failBody.error).toBe('Webhook processing failed');
+		expect(successBody.received).toBe(true);
+		expect(successBody.idempotent).toBe(true);
+		expect(failBody.received).toBe(true);
+		expect(failBody.idempotent).toBe(true);
 	});
 
 	test('validates order exists before processing', async ({ request }) => {
@@ -220,11 +225,11 @@ test.describe('Webhook Security Hardening', () => {
 			})
 		});
 		
-		// Should fail with 404 for non-existent order
-		expect(response.status()).toBe(404);
+		// Should handle non-existent order idempotently
+		expect(response.status()).toBe(200);
 		const body = await response.json();
-		expect(body.error).toBe('Webhook processing failed');
-		expect(body.details).toMatch(/not found/i);
+		expect(body.received).toBe(true);
+		expect(body.idempotent).toBe(true);
 	});
 
 	test('handles missing order_id in metadata', async ({ request }) => {

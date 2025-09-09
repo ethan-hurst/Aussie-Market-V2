@@ -36,7 +36,20 @@ if (typeof window !== 'undefined') {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.user && parsed.user.id) {
-        (supabase.auth as any).getSession = async () => ({ data: { session: { user: parsed.user } } });
+        const mockSession = { 
+          user: parsed.user, 
+          access_token: 'test-token-for-e2e',
+          expires_at: Math.floor(Date.now() / 1000) + 3600
+        };
+        (supabase.auth as any).getSession = async () => ({ data: { session: mockSession } });
+        // Override the client's request headers to include the test token
+        const originalRest = supabase.rest;
+        if (originalRest) {
+          originalRest.headers = {
+            ...originalRest.headers,
+            Authorization: 'Bearer test-token-for-e2e'
+          };
+        }
       }
     }
   } catch {}

@@ -31,11 +31,18 @@
 
 	async function loadNotifications() {
 		try {
+			console.log('NotificationBell: loadNotifications called');
 			const { data: { session } } = await supabase.auth.getSession();
-			if (!session?.user) return;
+			console.log('NotificationBell: session data:', session?.user?.id);
+			if (!session?.user) {
+				console.log('NotificationBell: No session or user found');
+				return;
+			}
 
+			console.log('NotificationBell: Fetching notifications for user:', session.user.id);
 			unreadCount = await getUnreadNotificationCount(session.user.id);
 			notifications = await getUserNotifications(session.user.id);
+			console.log('NotificationBell: Loaded', unreadCount, 'unread notifications');
 		} catch (error) {
 			console.error('Error loading notifications:', error);
 		}
@@ -112,7 +119,17 @@
 					<h3 class="text-lg font-semibold text-gray-900">Notifications</h3>
 					{#if unreadCount > 0}
 						<button
-							on:click={() => markAllNotificationsAsRead()}
+							on:click={async () => {
+								try {
+									const { data: { session } } = await supabase.auth.getSession();
+									if (session?.user) {
+										await markAllNotificationsAsRead(session.user.id);
+										await loadNotifications();
+									}
+								} catch (error) {
+									console.error('Error marking all notifications as read:', error);
+								}
+							}}
 							class="text-sm text-blue-600 hover:text-blue-800"
 						>
 							Mark all read

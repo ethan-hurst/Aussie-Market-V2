@@ -415,7 +415,35 @@ export function canPerformAction(order: Order, userId: string, action: string): 
 
 // Real-time order subscriptions
 export function subscribeToOrderUpdates(orderId: string, callback: (order: OrderWithDetails) => void) {
-	return supabase
+	// Check for test override
+	if (typeof window !== 'undefined' && (window as any).__TEST_OVERRIDE_SUPABASE_CHANNEL) {
+		const channel = (window as any).__TEST_OVERRIDE_SUPABASE_CHANNEL(`order-${orderId}`);
+		// Store reference for test access
+		(window as any).__LATEST_SUPABASE_CHANNEL__ = channel;
+		return channel.on('postgres_changes', {
+			event: 'UPDATE',
+			schema: 'public',
+			table: 'orders',
+			filter: `id=eq.${orderId}`
+		}, async (payload: any) => {
+			console.log('Test realtime event received for order:', orderId);
+			try {
+				// Fetch updated order with all details
+				const updatedOrder = await getOrderDetails(orderId);
+				console.log('Updated order fetched:', updatedOrder?.state);
+				if (updatedOrder) {
+					callback(updatedOrder);
+					console.log('Callback called with updated order');
+				} else {
+					console.log('No updated order found');
+				}
+			} catch (error) {
+				console.error('Error in realtime callback:', error);
+			}
+		}).subscribe();
+	}
+
+	const channel = supabase
 		.channel(`order-${orderId}`)
 		.on('postgres_changes', {
 			event: 'UPDATE',
@@ -439,6 +467,13 @@ export function subscribeToOrderUpdates(orderId: string, callback: (order: Order
 			}
 		})
 		.subscribe();
+
+	// Store reference for test access
+	if (typeof window !== 'undefined') {
+		(window as any).__LATEST_SUPABASE_CHANNEL__ = channel;
+	}
+
+	return channel;
 }
 
 export function subscribeToUserOrders(userId: string, callback: (orders: OrderWithDetails[]) => void) {
