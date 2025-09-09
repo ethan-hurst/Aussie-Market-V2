@@ -30,8 +30,8 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 				),
 				listing_photos (
 					id,
-					photo_url,
-					display_order
+					url,
+					order_idx
 				)
 			`, { count: 'exact' });
 

@@ -80,9 +80,9 @@
 
 	function getListingImage(listing: any): string {
 		if (listing.listing_photos && listing.listing_photos.length > 0) {
-			// Sort by display_order and get first image
-			const sortedPhotos = listing.listing_photos.sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0));
-			return sortedPhotos[0].photo_url;
+			// Sort by order_idx and get first image
+			const sortedPhotos = listing.listing_photos.sort((a: any, b: any) => (a.order_idx || 0) - (b.order_idx || 0));
+			return sortedPhotos[0].url;
 		}
 		return '/placeholder-image.jpg';
 	}
