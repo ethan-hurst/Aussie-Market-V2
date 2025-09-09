@@ -1,13 +1,14 @@
 import { json } from '@sveltejs/kit';
 import { supabase } from '$lib/supabase';
 import { completeKYCVerification } from '$lib/auth';
-import { getSessionUserOrThrow, validateUserAccess } from '$lib/session';
+import { getSessionUserFromLocals, validateUserAccess } from '$lib/session';
+import { ApiErrorHandler } from '$lib/api-error-handler';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals, request }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals } as any);
+		const user = await getSessionUserFromLocals(locals);
 
 		const sessionId = url.searchParams.get('session_id');
 		const userId = url.searchParams.get('user_id');
@@ -30,17 +31,21 @@ export const GET: RequestHandler = async ({ url, locals, request }) => {
 			details: result.details
 		});
 	} catch (error) {
-		console.error('KYC status check error:', error);
-		return json({ error: 'Failed to check KYC status' }, { status: 500 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
+		}
+		return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
+			operation: 'get_kyc_status',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async ({ request, locals, url }) => {
 	try {
-		const { data: { session } } = await locals.getSession();
-		if (!session) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+		// Get authenticated user with proper error handling
+		const user = await getSessionUserFromLocals(locals);
 
 		const { sessionId } = await request.json();
 
@@ -49,11 +54,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		}
 
 		// Complete KYC verification
-		const result = await completeKYCVerification(session.user.id, sessionId);
+		const result = await completeKYCVerification(user.id, sessionId);
 
 		return json(result);
 	} catch (error) {
-		console.error('KYC completion error:', error);
-		return json({ error: 'Failed to complete KYC verification' }, { status: 500 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
+		}
+		return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
+			operation: 'complete_kyc',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };

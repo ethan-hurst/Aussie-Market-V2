@@ -3,13 +3,14 @@ import { mapApiErrorToMessage } from '$lib/errors';
 import { supabase } from '$lib/supabase';
 import type { RequestHandler } from './$types';
 import { validate, ShipmentUpsertSchema } from '$lib/validation';
-import { getSessionUserOrThrow } from '$lib/session';
+import { getSessionUserFromLocals } from '$lib/session';
+import { ApiErrorHandler } from '$lib/api-error-handler';
 
 // Create or update manual shipment info for an order (seller only)
 export const POST: RequestHandler = async ({ params, request, locals }) => {
     try {
         // Get authenticated user with proper error handling
-        const user = await getSessionUserOrThrow({ request, locals } as any);
+        const user = await getSessionUserFromLocals(locals);
 
         const { orderId } = params;
         if (!orderId) return json({ error: 'Order ID required' }, { status: 400 });
@@ -48,7 +49,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
         return json({ success: true, shipment });
     } catch (error) {
         console.error('Shipment API error:', error);
-        return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
+        // Handle authentication errors gracefully
+        if (error instanceof Response) {
+          return error;
+        }
+        return ApiErrorHandler.handleError(error as Error, { request, locals, url, params }, {
+          operation: 'shipment_update',
+          userId: user?.id
+        });
     }
 };
 

@@ -5,12 +5,13 @@ import { deleteFile, STORAGE_BUCKETS } from '$lib/storage';
 import { supabase } from '$lib/supabase';
 import { rateLimit } from '$lib/security';
 import { validate, StorageDeleteSchema } from '$lib/validation';
-import { getSessionUserOrThrow } from '$lib/session';
+import { getSessionUserFromLocals } from '$lib/session';
+import { ApiErrorHandler } from '$lib/api-error-handler';
 
-export const DELETE: RequestHandler = async ({ request, locals }) => {
+export const DELETE: RequestHandler = async ({ request, locals, url }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals } as any);
+		const user = await getSessionUserFromLocals(locals);
 
 		// Rate limit deletes per user (e.g., 30/minute)
 		const rl = rateLimit(`delete:${user.id}`, 30, 60_000);
@@ -115,7 +116,13 @@ export const DELETE: RequestHandler = async ({ request, locals }) => {
 		return json({ success: true });
 
 	} catch (error) {
-		console.error('Delete error:', error);
-		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
+		}
+		return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
+			operation: 'storage_delete',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };

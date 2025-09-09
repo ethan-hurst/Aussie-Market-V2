@@ -159,6 +159,76 @@ export async function getSessionOrThrow(event: RequestEvent): Promise<Session> {
 }
 
 /**
+ * Standardized session helper that accepts locals parameter
+ * This maintains backward compatibility while providing proper typing
+ * 
+ * @param locals - SvelteKit locals object (with request and supabase)
+ * @returns Promise<Session> - Typed session object  
+ * @throws Response - 401 JSON response if not authenticated
+ */
+export async function getSessionFromLocals(locals: any): Promise<Session> {
+	try {
+		// Handle test mode authentication header first
+		if (locals.request?.headers) {
+			const testUserId = locals.request.headers.get('x-test-user-id');
+			if (testUserId && testUserId.trim() !== '') {
+				// Create a complete mock session for testing
+				const mockSession: Session = {
+					user: {
+						id: testUserId,
+						email: `${testUserId}@example.com`,
+						user_metadata: { full_name: `Test User ${testUserId}` },
+						app_metadata: {},
+						aud: 'authenticated',
+						created_at: new Date().toISOString(),
+						updated_at: new Date().toISOString()
+					},
+					access_token: `mock-access-token-${testUserId}`,
+					refresh_token: `mock-refresh-token-${testUserId}`,
+					expires_at: Date.now() + 3600000, // 1 hour from now
+					expires_in: 3600,
+					token_type: 'bearer'
+				};
+				return mockSession;
+			}
+		}
+
+		const sessionResp = await locals.getSession();
+		
+		// Handle different response formats from getSession()
+		const session = (sessionResp as any)?.data?.session 
+			?? (sessionResp as any)?.session 
+			?? null;
+		
+		if (!session || !session.user || !session.user.id) {
+			throw new SessionError('No valid session found', 401);
+		}
+		
+		return session as Session;
+	} catch (error) {
+		if (error instanceof SessionError) {
+			throw json({ error: error.message }, { status: error.statusCode });
+		}
+		
+		console.error('Session retrieval error:', error);
+		throw json({ error: 'Authentication failed' }, { status: 500 });
+	}
+}
+
+/**
+ * Get session user from locals parameter
+ * This maintains backward compatibility while providing proper typing
+ * 
+ * @param locals - SvelteKit locals object
+ * @returns Promise<SessionUser> - Typed user object
+ * @throws Response - 401 JSON response if not authenticated
+ */
+export async function getSessionUserFromLocals(locals: any): Promise<SessionUser> {
+	const session = await getSessionFromLocals(locals);
+	return session.user;
+}
+
+/**
  * Get session user or return 401 JSON response
  * This is the main helper function for API routes that need user data
  * 

@@ -6,7 +6,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { KPIReportingService } from '$lib/kpi-reporting';
-import { getSessionUserOrThrow } from '$lib/session';
+import { getSessionUserFromLocals } from '$lib/session';
 import { ApiErrorHandler } from '$lib/api-error-handler';
 import { PerformanceMonitor } from '$lib/performance-monitor';
 import { KPIAlertActionSchema, validate } from '$lib/validation';
@@ -22,7 +22,7 @@ export const GET: RequestHandler = async ({ request, locals, url }) => {
         return json({ error: 'Not authenticated' }, { status: 401 });
       }
       
-      user = await getSessionUserOrThrow({ request, locals } as any);
+      user = await getSessionUserFromLocals(locals);
       
       // Check if user has admin privileges for KPI access
       if (!user.app_metadata?.role || user.app_metadata.role !== 'admin') {
@@ -99,7 +99,11 @@ export const GET: RequestHandler = async ({ request, locals, url }) => {
       });
 
     } catch (error) {
-      return ApiErrorHandler.handleError(error as Error, { request, locals } as any, {
+      // Handle authentication errors gracefully
+      if (error instanceof Response) {
+        return error;
+      }
+      return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
         operation: 'get_kpi_alerts',
         userId: user?.id
       });
@@ -125,7 +129,7 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
         return json({ error: 'Not authenticated' }, { status: 401 });
       }
       
-      user = await getSessionUserOrThrow({ request, locals } as any);
+      user = await getSessionUserFromLocals(locals);
       
       // Check if user has admin privileges for KPI access
       if (!user.app_metadata?.role || user.app_metadata.role !== 'admin') {
@@ -265,7 +269,11 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
       }
 
     } catch (error) {
-      return ApiErrorHandler.handleError(error as Error, { request, locals } as any, {
+      // Handle authentication errors gracefully
+      if (error instanceof Response) {
+        return error;
+      }
+      return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
         operation: 'manage_kpi_alerts',
         userId: user?.id
       });

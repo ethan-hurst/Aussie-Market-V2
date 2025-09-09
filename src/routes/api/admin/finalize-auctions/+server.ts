@@ -6,7 +6,8 @@ import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
 import { validate } from '$lib/validation';
 import { z } from 'zod';
-import { getSessionUserOrThrow } from '$lib/session';
+import { getSessionUserFromLocals } from '$lib/session';
+import { ApiErrorHandler } from '$lib/api-error-handler';
 
 // Validation schema for manual finalize request
 const ManualFinalizeSchema = z.object({
@@ -15,10 +16,10 @@ const ManualFinalizeSchema = z.object({
 	reason: z.string().min(10).max(500)
 });
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async ({ request, locals, url }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals } as any);
+		const user = await getSessionUserFromLocals(locals);
 
 		// Check admin privileges
 		const adminCheck = await isAdmin(user.id);
@@ -79,8 +80,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 
 	} catch (error) {
-		console.error('Admin finalize error:', error);
-		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
+		}
+		return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
+			operation: 'admin_finalize_auctions',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };
 
@@ -206,7 +213,7 @@ async function finalizeAllExpiredAuctions(force: boolean, reason: string) {
 export const GET: RequestHandler = async ({ url, locals, request }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals } as any);
+		const user = await getSessionUserFromLocals(locals);
 
 		// Check admin privileges
 		const adminCheck = await isAdmin(user.id);
@@ -249,7 +256,13 @@ export const GET: RequestHandler = async ({ url, locals, request }) => {
 		return json({ error: 'Invalid action' }, { status: 400 });
 
 	} catch (error) {
-		console.error('Admin status check error:', error);
-		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
+		}
+		return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
+			operation: 'admin_auction_status',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };

@@ -12,13 +12,14 @@ import {
 } from '$lib/auctions';
 import { rateLimit } from '$lib/security';
 import { validate, BidSchema } from '$lib/validation';
-import { getSessionUserOrThrow, validateUserAccess } from '$lib/session';
+import { getSessionUserFromLocals, validateUserAccess } from '$lib/session';
+import { ApiErrorHandler } from '$lib/api-error-handler';
 import { recordBusinessEvent } from '$lib/server/kpi-metrics-server';
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async ({ request, locals, url }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals });
+		const user = await getSessionUserFromLocals(locals);
 
 		// Rate limit bid placements per user (e.g., 10 bids per minute)
 		const rl = rateLimit(`bids:${user.id}`, 10, 60_000);
@@ -134,8 +135,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 
 	} catch (error) {
-		console.error('Bid placement error:', error);
-		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
+		}
+		return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
+			operation: 'place_bid',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };
 
@@ -146,7 +153,7 @@ export const GET: RequestHandler = async ({ url, locals, request }) => {
 		const userId = url.searchParams.get('userId');
 
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals });
+		const user = await getSessionUserFromLocals(locals);
 
 		// Get current bid for a listing
 		if (action === 'current' && listingId) {
@@ -215,7 +222,13 @@ export const GET: RequestHandler = async ({ url, locals, request }) => {
 		return json({ error: 'Invalid action' }, { status: 400 });
 
 	} catch (error) {
-		console.error('Bid retrieval error:', error);
-		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
+		}
+		return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
+			operation: 'get_bids',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };

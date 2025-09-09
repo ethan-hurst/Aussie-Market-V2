@@ -6,16 +6,17 @@ import { env } from '$lib/env';
 import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
 import { validate, PaymentCreateIntentSchema } from '$lib/validation';
-import { getSessionUserOrThrow } from '$lib/session';
+import { getSessionUserFromLocals } from '$lib/session';
+import { ApiErrorHandler } from '$lib/api-error-handler';
 
 const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here', {
 	apiVersion: '2023-10-16'
 });
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async ({ request, locals, url }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals });
+		const user = await getSessionUserFromLocals(locals);
 
 		// Rate limit payment intent creation per user (e.g., 10 per 10 minutes)
 		const rl = rateLimit(`pay-create:${user.id}`, 10, 10 * 60_000);
@@ -84,11 +85,27 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			paymentIntentId: paymentIntent.id
 		});
 	} catch (error) {
-		console.error('Error creating payment intent:', error);
-		const friendly = mapApiErrorToMessage(error);
-		if (error instanceof Stripe.errors.StripeError) {
-			return json({ error: friendly }, { status: 400 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
 		}
-		return json({ error: friendly }, { status: 500 });
+
+		// Handle Stripe errors specifically
+		if (error instanceof Stripe.errors.StripeError) {
+			return ApiErrorHandler.handleStripeError(error, { request, locals, url }, {
+				operation: 'create_payment_intent',
+				userId: undefined,
+				stripeError: {
+					type: error.type,
+					code: error.code,
+					decline_code: error.decline_code
+				}
+			});
+		}
+
+		return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
+			operation: 'create_payment_intent',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };

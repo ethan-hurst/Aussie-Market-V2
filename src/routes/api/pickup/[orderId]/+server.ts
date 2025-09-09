@@ -5,7 +5,8 @@ import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
 import crypto from 'crypto';
 import { validate, PickupSchema } from '$lib/validation';
-import { getSessionUserOrThrow } from '$lib/session';
+import { getSessionUserFromLocals } from '$lib/session';
+import { ApiErrorHandler } from '$lib/api-error-handler';
 
 function generateCode6(): string {
     // 6-digit numeric code
@@ -17,10 +18,10 @@ function hash(text: string): string {
 }
 
 // Initialize pickup (seller only). Generates code6 and qr_token
-export const POST: RequestHandler = async ({ params, request, locals }) => {
+export const POST: RequestHandler = async ({ params, request, locals, url }) => {
     try {
         // Get authenticated user with proper error handling
-        const user = await getSessionUserOrThrow({ request, locals });
+        const user = await getSessionUserFromLocals(locals);
 
         const { orderId } = params;
         if (!orderId) return json({ error: 'Order ID required' }, { status: 400 });
@@ -123,8 +124,14 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 
         return json({ error: 'Unsupported action' }, { status: 400 });
     } catch (error) {
-        console.error('Pickup API error:', error);
-        return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
+        // Handle authentication errors gracefully
+        if (error instanceof Response) {
+            return error;
+        }
+        return ApiErrorHandler.handleError(error as Error, { request, locals, url, params }, {
+            operation: 'pickup_order',
+            userId: undefined // User not available in catch scope
+        });
     }
 };
 

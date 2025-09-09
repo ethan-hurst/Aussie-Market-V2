@@ -14,12 +14,13 @@ import {
 import { supabase } from '$lib/supabase';
 import { rateLimit } from '$lib/security';
 import { validate, StorageUploadSchema } from '$lib/validation';
-import { getSessionUserOrThrow } from '$lib/session';
+import { getSessionUserFromLocals } from '$lib/session';
+import { ApiErrorHandler } from '$lib/api-error-handler';
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async ({ request, locals, url }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals } as any);
+		const user = await getSessionUserFromLocals(locals);
 
 		// Rate limit uploads per user (e.g., 60/minute overall)
 		const rl = rateLimit(`upload:${user.id}`, 60, 60_000);
@@ -156,7 +157,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 
 	} catch (error) {
-		console.error('Upload error:', error);
-		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
+		}
+		return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
+			operation: 'file_upload',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };

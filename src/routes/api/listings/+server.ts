@@ -13,13 +13,14 @@ import {
 import { rateLimit } from '$lib/security';
 import { mapApiErrorToMessage } from '$lib/errors';
 import { validate, ListingCreateSchema, SearchSchema } from '$lib/validation';
-import { getSessionUserOrThrow, validateUserAccess } from '$lib/session';
+import { getSessionUserFromLocals, validateUserAccess } from '$lib/session';
+import { ApiErrorHandler } from '$lib/api-error-handler';
 import { recordBusinessEvent } from '$lib/server/kpi-metrics-server';
 
-export const POST: RequestHandler = async ({ request, locals }) => {
+export const POST: RequestHandler = async ({ request, locals, url }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals } as any);
+		const user = await getSessionUserFromLocals(locals);
 
 		// Rate limit listing creation per user (e.g., 5 creates per hour)
 		const rl = rateLimit(`create-listing:${user.id}`, 5, 60 * 60_000);
@@ -70,8 +71,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		});
 
 	} catch (error) {
-		console.error('Listing creation error:', error);
-		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
+		}
+		return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
+			operation: 'create_listing',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };
 
@@ -99,7 +106,7 @@ export const GET: RequestHandler = async ({ url, locals, request }) => {
 		// Get user's listings
 		if (action === 'user' && userId) {
 			// Verify user is authenticated and requesting their own listings
-			await validateUserAccess({ request, locals } as any, userId);
+			await validateUserAccess({ request, locals, url }, userId);
 
 			const result = await getUserListings(userId, status || undefined);
 			
@@ -136,7 +143,13 @@ export const GET: RequestHandler = async ({ url, locals, request }) => {
 		return json({ error: 'Invalid action' }, { status: 400 });
 
 	} catch (error) {
-		console.error('Listing retrieval error:', error);
-		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
+		}
+		return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
+			operation: 'get_listings',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };

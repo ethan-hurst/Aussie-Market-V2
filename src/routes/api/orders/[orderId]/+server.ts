@@ -5,13 +5,14 @@ import { notifyOrderShipped, notifyOrderDelivered } from '$lib/notifications';
 import type { RequestHandler } from './$types';
 import { rateLimit } from '$lib/security';
 import { validate, OrderActionSchema } from '$lib/validation';
-import { getSessionUserOrThrow } from '$lib/session';
-import { recordOrderCreated, recordPaymentSuccess } from '$lib/server/kpi-metrics-server';
+import { getSessionUserFromLocals } from '$lib/session';
+import { ApiErrorHandler } from '$lib/api-error-handler';
+import { recordBusinessEvent } from '$lib/server/kpi-metrics-server';
 
-export const GET: RequestHandler = async ({ params, locals, request }) => {
+export const GET: RequestHandler = async ({ params, locals, request, url }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals });
+		const user = await getSessionUserFromLocals(locals);
 
 		const { orderId } = params;
 		if (!orderId) {
@@ -70,15 +71,21 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
 
 		return json(order);
 	} catch (error) {
-		console.error('Error in order API:', error);
-		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
+		}
+		return ApiErrorHandler.handleError(error as Error, { request, locals, params, url }, {
+			operation: 'get_order',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };
 
-export const POST: RequestHandler = async ({ params, request, locals }) => {
+export const POST: RequestHandler = async ({ params, request, locals, url }) => {
 	try {
 		// Get authenticated user with proper error handling
-		const user = await getSessionUserOrThrow({ request, locals });
+		const user = await getSessionUserFromLocals(locals);
 
 		// Rate limit order actions per user (e.g., 20 actions per 5 minutes)
 		const rl = rateLimit(`order-actions:${user.id}`, 20, 5 * 60_000);
@@ -191,7 +198,13 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		}
 
 	} catch (error) {
-		console.error('Error in order action API:', error);
-		return json({ error: mapApiErrorToMessage(error) }, { status: 500 });
+		// Handle authentication errors gracefully
+		if (error instanceof Response) {
+			return error;
+		}
+		return ApiErrorHandler.handleError(error as Error, { request, locals, params, url }, {
+			operation: 'order_action',
+			userId: undefined // User not available in catch scope
+		});
 	}
 };

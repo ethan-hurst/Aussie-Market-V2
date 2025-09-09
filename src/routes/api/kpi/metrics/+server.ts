@@ -6,15 +6,18 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 import { KPIMetricsService } from '$lib/server/kpi-metrics-server';
-import { getSessionUserOrThrow } from '$lib/session';
+import { getSessionUserFromLocals } from '$lib/session';
 import { ApiErrorHandler } from '$lib/api-error-handler';
 import { PerformanceMonitor } from '$lib/performance-monitor';
 
 export const GET: RequestHandler = async ({ request, locals, url }) => {
   return PerformanceMonitor.monitorApiRoute('kpi-metrics', 'GET', async () => {
+    // Declare user in outer scope to avoid reference errors in catch
+    let user: any = null;
+    
     try {
       // Check authentication
-      const user = await getSessionUserOrThrow({ request, locals } as any);
+      user = await getSessionUserFromLocals(locals);
       
       // Check if user has admin privileges for KPI access
       if (!user.app_metadata?.role || user.app_metadata.role !== 'admin') {
@@ -81,7 +84,11 @@ export const GET: RequestHandler = async ({ request, locals, url }) => {
       });
 
     } catch (error) {
-      return ApiErrorHandler.handleError(error as Error, { request, locals } as any, {
+      // Handle authentication errors gracefully
+      if (error instanceof Response) {
+        return error;
+      }
+      return ApiErrorHandler.handleError(error as Error, { request, locals, url }, {
         operation: 'get_kpi_metrics',
         userId: user?.id
       });
