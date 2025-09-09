@@ -111,47 +111,94 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	// Enhanced idempotency: Check by (event_id, order_id, event_type)
+	let idempotencyResult = null;
 	try {
 		if (event?.id) {
-			// First check: Global event idempotency
-			const existing = await supabase
+			// First check: Global event idempotency with atomic transaction
+			const { data: existing, error: existingError } = await supabase
 				.from('webhook_events')
-				.select('event_id, processed_at, order_id, event_type')
+				.select('event_id, processed_at, order_id, event_type, error_message')
 				.eq('event_id', event.id)
-				.single();
+				.maybeSingle();
 			
-			if (existing.data) {
-				console.log(`Event ${event.id} already processed`);
-				return json({ received: true, idempotent: true });
+			if (existingError && existingError.code !== 'PGRST116') { // Not a "not found" error
+				console.error('Error checking existing event:', existingError);
+				throw new Error(`Idempotency check failed: ${existingError.message}`);
 			}
-
-			// Second check: Order-specific idempotency for payment events
-			const orderId = getOrderIdFromEvent(event);
-			if (orderId) {
-				const orderEvent = await supabase
-					.from('webhook_events')
-					.select('event_id, processed_at')
-					.eq('order_id', orderId)
-					.eq('event_type', event.type)
-					.eq('processed_at', null)
-					.single();
-				
-				if (orderEvent.data) {
-					console.log(`Order ${orderId} already has pending ${event.type} event`);
-					return json({ received: true, idempotent: true });
+			
+			if (existing) {
+				// Event already exists
+				if (existing.processed_at && !existing.error_message) {
+					console.log(`Event ${event.id} already successfully processed`);
+					return json({ received: true, idempotent: true, status: 'already_processed' });
+				} else if (existing.processed_at && existing.error_message) {
+					console.log(`Event ${event.id} previously failed, allowing retry`);
+					// Continue processing for retry
+				} else {
+					console.log(`Event ${event.id} is currently being processed (race condition)`);
+					return json({ received: true, idempotent: true, status: 'processing' });
 				}
 			}
 
-			// Record the event
-			await supabase
-				.from('webhook_events')
-				.insert({
-					event_id: event.id,
-					type: event.type,
-					order_id: orderId,
-					event_type: event.type,
-					created_at: event.created ? new Date(event.created * 1000).toISOString() : new Date().toISOString()
-				});
+			const orderId = getOrderIdFromEvent(event);
+			
+			// For new events, record with atomic insert
+			if (!existing) {
+				try {
+					const { error: insertError } = await supabase
+						.from('webhook_events')
+						.insert({
+							event_id: event.id,
+							type: event.type,
+							order_id: orderId,
+							event_type: event.type,
+							created_at: event.created ? new Date(event.created * 1000).toISOString() : new Date().toISOString(),
+							retry_count: 0
+						});
+					
+					if (insertError) {
+						// Handle unique constraint violation (race condition)
+						if (insertError.code === '23505') {
+							console.log(`Event ${event.id} was just inserted by another process (race condition)`);
+							return json({ received: true, idempotent: true, status: 'race_condition' });
+						}
+						throw new Error(`Failed to record webhook event: ${insertError.message}`);
+					}
+				} catch (insertErr) {
+					console.error('Error inserting webhook event:', insertErr);
+					throw insertErr;
+				}
+			}
+
+			// Order-specific idempotency for critical payment events
+			if (orderId && ['payment_intent.succeeded', 'payment_intent.payment_failed', 'payment_intent.canceled'].includes(event.type)) {
+				const { data: orderEvents, error: orderEventsError } = await supabase
+					.from('webhook_events')
+					.select('event_id, processed_at, error_message')
+					.eq('order_id', orderId)
+					.eq('event_type', event.type)
+					.neq('event_id', event.id); // Exclude current event
+				
+				if (orderEventsError) {
+					console.error('Error checking order-specific events:', orderEventsError);
+					// Continue processing - don't fail on this check
+				} else if (orderEvents && orderEvents.length > 0) {
+					// Check if there's a successfully processed event of the same type for this order
+					const successfulEvent = orderEvents.find(e => e.processed_at && !e.error_message);
+					if (successfulEvent) {
+						console.log(`Order ${orderId} already has successfully processed ${event.type} event: ${successfulEvent.event_id}`);
+						// Mark current event as duplicate
+						await supabase
+							.from('webhook_events')
+							.update({ 
+								processed_at: new Date().toISOString(),
+								error_message: `Duplicate event - order already processed by ${successfulEvent.event_id}`
+							})
+							.eq('event_id', event.id);
+						return json({ received: true, idempotent: true, status: 'order_already_processed' });
+					}
+				}
+			}
 		}
 	} catch (e) {
 		console.error('Idempotency check failed:', e);
@@ -159,6 +206,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (isProduction) {
 			return json({ error: 'Idempotency check failed' }, { status: 500 });
 		}
+		// In development/testing, continue but log the error
 	}
 
 	try {
@@ -201,12 +249,16 @@ export const POST: RequestHandler = async ({ request }) => {
 		// Mark event processed for idempotency
 		try {
 			if (event?.id) {
-				await supabase
+				const { error: markError } = await supabase
 					.from('webhook_events')
 					.update({ 
 						processed_at: new Date().toISOString()
 					})
 					.eq('event_id', event.id);
+				
+				if (markError) {
+					console.error('Error marking event as processed:', markError);
+				}
 			}
 		} catch (markError) {
 			console.error('Error marking event as processed:', markError);
@@ -263,81 +315,126 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 		throw new Error('Missing order_id in payment intent metadata');
 	}
 
-	// Enhanced state validation: Only allow transitions from pending states
-	const { data: existingOrder, error: fetchError } = await supabase
-		.from('orders')
-		.select('state, stripe_payment_intent_id')
-		.eq('id', orderId)
-		.single();
+	// Implement order-level locking by using database advisory locks
+	const lockKey = parseInt(orderId.replace(/\D/g, '').substring(0, 8)) || Math.floor(Math.random() * 1000000);
+	
+	try {
+		// Acquire advisory lock for this order
+		const { data: lockResult, error: lockError } = await supabase.rpc('pg_try_advisory_lock', { key: lockKey });
+		
+		if (lockError || !lockResult) {
+			console.warn(`Could not acquire lock for order ${orderId}, processing anyway with additional safety checks`);
+		}
 
-	if (fetchError) {
-		console.error('Error fetching order for payment success:', fetchError);
-		console.log(`Order ${orderId} not found - treating as idempotent success`);
-		return; // Idempotent: order doesn't exist, treat as success
-	}
+		// Enhanced state validation with atomic read-check-update
+		const { data: existingOrder, error: fetchError } = await supabase
+			.from('orders')
+			.select('state, stripe_payment_intent_id, version')
+			.eq('id', orderId)
+			.single();
 
-	if (!existingOrder) {
-		console.log(`Order ${orderId} not found - treating as idempotent success`);
-		return; // Idempotent: order doesn't exist, treat as success
-	}
+		if (fetchError) {
+			console.error('Error fetching order for payment success:', fetchError);
+			if (fetchError.code === 'PGRST116') {
+				console.log(`Order ${orderId} not found - treating as idempotent success`);
+				return; // Idempotent: order doesn't exist, treat as success
+			}
+			throw new Error(`Failed to fetch order ${orderId}: ${fetchError.message}`);
+		}
 
-	// Prevent state downgrades and duplicate processing
-	const validFromStates = ['pending', 'pending_payment'];
-	if (!validFromStates.includes(existingOrder.state)) {
-		console.log(`Order ${orderId} in state ${existingOrder.state}, cannot transition to paid`);
-		return; // Idempotent: already processed
-	}
+		if (!existingOrder) {
+			console.log(`Order ${orderId} not found - treating as idempotent success`);
+			return; // Idempotent: order doesn't exist, treat as success
+		}
 
-	// Prevent duplicate payment intent processing
-	if (existingOrder.stripe_payment_intent_id && existingOrder.stripe_payment_intent_id !== paymentIntent.id) {
-		console.error(`Order ${orderId} already has different payment intent: ${existingOrder.stripe_payment_intent_id}`);
-		throw new Error('Order already has different payment intent');
-	}
+		// Prevent state downgrades and duplicate processing
+		const validFromStates = ['pending', 'pending_payment'];
+		if (!validFromStates.includes(existingOrder.state)) {
+			console.log(`Order ${orderId} in state ${existingOrder.state}, cannot transition to paid (idempotent)`);
+			return; // Idempotent: already in a final state
+		}
 
-	// Atomic update with state validation
-	const { error: updateError } = await supabase
-		.from('orders')
-		.update({
+		// Prevent duplicate payment intent processing
+		if (existingOrder.stripe_payment_intent_id && existingOrder.stripe_payment_intent_id !== paymentIntent.id) {
+			console.error(`Order ${orderId} already has different payment intent: ${existingOrder.stripe_payment_intent_id}`);
+			throw new Error(`Order already has different payment intent: ${existingOrder.stripe_payment_intent_id}`);
+		}
+
+		// Atomic update with state validation and optimistic locking
+		const updateData = {
 			state: 'paid',
 			stripe_payment_intent_id: paymentIntent.id,
 			paid_at: new Date().toISOString(),
-			updated_at: new Date().toISOString()
-		})
-		.eq('id', orderId)
-		.in('state', validFromStates); // Only update if still in valid state
+			updated_at: new Date().toISOString(),
+			version: (existingOrder.version || 0) + 1
+		};
 
-	if (updateError) {
-		console.error('Error updating order after payment success:', updateError);
-		// Check if it's a state transition error (order state changed)
-		if (updateError.message.includes('state') || updateError.message.includes('transition')) {
-			console.log(`Order ${orderId} state changed during processing - treating as idempotent success`);
-			return; // Idempotent: order state changed, treat as success
+		const { data: updateResult, error: updateError } = await supabase
+			.from('orders')
+			.update(updateData)
+			.eq('id', orderId)
+			.in('state', validFromStates)
+			.eq('version', existingOrder.version || 0) // Optimistic locking
+			.select('id, state');
+
+		if (updateError) {
+			console.error('Error updating order after payment success:', updateError);
+			// Check for specific error types
+			if (updateError.code === '23514') { // Check constraint violation
+				console.log(`Order ${orderId} state transition validation failed - treating as idempotent success`);
+				return;
+			}
+			throw new Error(`Failed to update order ${orderId}: ${updateError.message}`);
 		}
-		// For other database errors, log and continue (don't fail webhook)
-		console.error(`Database error updating order ${orderId}, but continuing webhook processing`);
+
+		// Verify the update was successful (no rows updated = race condition or state change)
+		if (!updateResult || updateResult.length === 0) {
+			console.log(`Order ${orderId} was not updated - state may have changed concurrently (treating as idempotent)`);
+			// Verify current state to determine if this is actually a success
+			const { data: currentOrder } = await supabase
+				.from('orders')
+				.select('state, stripe_payment_intent_id')
+				.eq('id', orderId)
+				.single();
+			
+			if (currentOrder && currentOrder.state === 'paid' && currentOrder.stripe_payment_intent_id === paymentIntent.id) {
+				console.log(`Order ${orderId} already paid with same payment intent - idempotent success`);
+				return;
+			}
+			
+			throw new Error(`Failed to update order ${orderId} - race condition or invalid state transition`);
+		}
+
+		// Create payment record with idempotency
+		const { error: paymentError } = await supabase
+			.from('payments')
+			.upsert({
+				order_id: orderId,
+				amount_cents: paymentIntent.amount,
+				currency: paymentIntent.currency,
+				payment_method: 'stripe',
+				stripe_payment_intent_id: paymentIntent.id,
+				status: 'completed',
+				processed_at: new Date().toISOString()
+			}, {
+				onConflict: 'order_id,stripe_payment_intent_id'
+			});
+
+		if (paymentError) {
+			console.error('Error creating payment record:', paymentError);
+			// Don't throw here - order is already updated successfully
+		}
+
+		console.log(`Payment succeeded for order ${orderId} - updated to paid state`);
+
+	} finally {
+		// Always release the advisory lock
+		try {
+			await supabase.rpc('pg_advisory_unlock', { key: lockKey });
+		} catch (unlockError) {
+			console.warn(`Could not release lock for order ${orderId}:`, unlockError);
+		}
 	}
-
-	// Create payment record with idempotency
-	const { error: paymentError } = await supabase
-		.from('payments')
-		.upsert({
-			order_id: orderId,
-			amount_cents: paymentIntent.amount,
-			currency: paymentIntent.currency,
-			payment_method: 'stripe',
-			stripe_payment_intent_id: paymentIntent.id,
-			status: 'completed',
-			processed_at: new Date().toISOString()
-		}, {
-			onConflict: 'order_id,stripe_payment_intent_id'
-		});
-
-	if (paymentError) {
-		console.error('Error creating payment record:', paymentError);
-		// Don't throw here - order is already updated
-	}
-
-	console.log(`Payment succeeded for order ${orderId}`);
 }
 
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
