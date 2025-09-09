@@ -6,6 +6,7 @@ import type { Handle } from '@sveltejs/kit';
 import { isCsrfRequestValid } from '$lib/security';
 import { dev } from '$app/environment';
 import { initSentry, configureApiSentry, captureException, setSentryUser, setSentryTags, withApiMonitoring } from '$lib/sentry';
+import { handleMockRequest } from '$lib/mocks/mock-server.js';
 
 // Initialize application with environment validation
 let initializationPromise: Promise<void> | null = null;
@@ -24,6 +25,21 @@ configureApiSentry();
 export const handle: Handle = async ({ event, resolve }) => {
 	// Ensure application is properly initialized
 	await ensureInitialized();
+
+	// Handle mock requests in E2E testing mode
+	// This must come early to intercept requests before auth/CSRF checks
+	if (process.env.E2E_TESTING === 'true' || process.env.NODE_ENV === 'test') {
+		try {
+			const mockResponse = await handleMockRequest(event);
+			if (mockResponse) {
+				console.log(`[E2E Mock] Handled ${event.request.method} ${event.url.pathname}`);
+				return mockResponse;
+			}
+		} catch (error) {
+			console.error('[E2E Mock] Error handling mock request:', error);
+			// Don't fail the request, just log and continue
+		}
+	}
 	
 	// Set up Sentry context for this request
 	const correlationId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
