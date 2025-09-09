@@ -148,6 +148,23 @@ export const KPIAlertActionSchema = z.object({
   return true;
 }, { message: 'Missing required fields for action' });
 
+// Notification schemas
+export const NotificationActionSchema = z.object({
+  action: z.enum(['mark_read', 'mark_all_read']),
+  notificationId: z.string().uuid().optional()
+}).refine((data) => {
+  if (data.action === 'mark_read' && !data.notificationId) {
+    return false;
+  }
+  return true;
+}, { message: 'notificationId required for mark_read action' });
+
+export const NotificationQuerySchema = z.object({
+  userId: z.string().uuid({ message: 'Invalid user ID format' }).optional(),
+  unreadOnly: z.coerce.boolean().default(false),
+  limit: z.coerce.number().int().min(1).max(100).default(50)
+});
+
 // KPI Calculation
 export const KPICalculationSchema = z.object({
   startTime: z.string().datetime({ message: 'Invalid start time format. Use ISO 8601 format (YYYY-MM-DDTHH:mm:ss.sssZ)' }),
@@ -284,6 +301,10 @@ export function validateQueryParams(pathname: string, searchParams: URLSearchPar
   
   if (pathname.includes('/api/storage')) {
     return validate(StorageQuerySchema, params);
+  }
+  
+  if (pathname.includes('/api/notifications')) {
+    return validate(NotificationQuerySchema, params);
   }
   
   // Default: allow all parameters for endpoints without specific validation
