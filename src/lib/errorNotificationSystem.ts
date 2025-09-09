@@ -324,7 +324,7 @@ class ErrorNotificationManager {
 export const errorNotificationManager = new ErrorNotificationManager();
 
 // Export stores for reactive components
-export { errorNotifications, activeErrorNotifications };
+export { errorNotifications };
 
 /**
  * Convenience functions for common error notifications

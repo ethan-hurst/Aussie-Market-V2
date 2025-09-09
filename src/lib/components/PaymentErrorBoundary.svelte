@@ -3,8 +3,9 @@
   import { AlertTriangle, RefreshCw, CreditCard, Wifi, WifiOff } from 'lucide-svelte';
   import { categorizePaymentError, type PaymentErrorInfo } from '$lib/errors';
   import { mapApiErrorToMessage } from '$lib/errors';
+  import type { PaymentNotificationAction } from '$lib/types/payment';
 
-  export let error: any = null;
+  export let error: Error | null = null;
   export let orderId: string | null = null;
   export let showRetry: boolean = true;
   export let maxRetries: number = 3;
@@ -12,7 +13,7 @@
 
   const dispatch = createEventDispatcher<{
     retry: { attempt: number };
-    contactSupport: { error: any; orderId: string | null };
+    contactSupport: { error: Error | null; orderId: string | null };
     newPayment: { orderId: string | null };
   }>();
 
@@ -153,6 +154,8 @@
                   on:click={handleRetry}
                   disabled={isRetrying}
                   aria-label="Retry payment"
+                  aria-describedby="retry-description"
+                  tabindex="0"
                 >
                   {#if isRetrying}
                     <RefreshCw class="h-4 w-4 animate-spin mr-2" />
@@ -170,6 +173,7 @@
                   class="btn btn-outline btn-sm"
                   on:click={handleNewPayment}
                   aria-label="Try different payment method"
+                  tabindex="0"
                 >
                   <CreditCard class="h-4 w-4 mr-2" />
                   Try Different Payment Method
@@ -182,6 +186,7 @@
                   class="btn btn-outline btn-sm"
                   on:click={handleContactSupport}
                   aria-label="Contact support"
+                  tabindex="0"
                 >
                   Contact Support
                 </button>
@@ -189,9 +194,15 @@
 
               <!-- Max retries reached message -->
               {#if retryCount >= maxRetries}
-                <p class="text-sm {errorClasses.text}">
-                  Maximum retry attempts reached. Please contact support for assistance.
-                </p>
+                <div 
+                  class="text-sm {errorClasses.text}"
+                  role="alert"
+                  aria-live="assertive"
+                >
+                  <p id="retry-description">
+                    Maximum retry attempts reached. Please contact support for assistance.
+                  </p>
+                </div>
               {/if}
             </div>
           {/if}
@@ -207,7 +218,7 @@
     </div>
 
     <!-- Additional help text -->
-    <div class="mt-4 text-sm text-gray-600">
+    <div class="mt-4 text-sm text-gray-600" role="region" aria-label="Additional help information">
       <p>
         If you continue to experience issues, please check your internet connection and try again.
         For immediate assistance, contact our support team.

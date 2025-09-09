@@ -432,28 +432,6 @@ async function sendPagerDutyAlert(config: any, alert: Alert): Promise<void> {
   }
 }
 
-/**
- * Send email alert (server-only)
- */
-async function sendEmailAlert(config: any, alert: Alert): Promise<void> {
-  if (!config.recipients || config.recipients.length === 0) {
-    console.warn('Email recipients not configured');
-    return;
-  }
-
-  // Email service implementation
-  try {
-    await sendEmailAlert(config, alert);
-  } catch (error) {
-    console.error('Failed to send email alert:', error);
-    // Fallback to console logging if email service fails
-    console.log(`📧 EMAIL ALERT [${alert.severity.toUpperCase()}]`);
-    console.log(`To: ${config.recipients.join(', ')}`);
-    console.log(`From: ${config.from}`);
-    console.log(`Subject: ${alert.title}`);
-    console.log(`Body: ${alert.message}`);
-  }
-}
 
 /**
  * Send email alert using configured email service

@@ -46,8 +46,29 @@ export const GET: RequestHandler = async ({ request, locals, url }) => {
           startDate.setDate(endDate.getDate() - 7);
       }
 
-      // Get dashboard data
-      const dashboardData = await KPIMetricsService.getDashboardData();
+      // Map timeRange to TimePeriod enum
+      let timePeriod: 'daily' | 'hourly' | 'weekly' | 'monthly' = 'daily';
+      switch (timeRange) {
+        case '1d':
+          timePeriod = 'hourly';
+          break;
+        case '7d':
+        case '30d':
+          timePeriod = 'daily';
+          break;
+        case '90d':
+          timePeriod = 'weekly';
+          break;
+        default:
+          timePeriod = 'daily';
+      }
+
+      // Get dashboard data with required parameters
+      const dashboardData = await KPIMetricsService.getDashboardData(
+        startDate.toISOString(),
+        endDate.toISOString(),
+        timePeriod
+      );
 
       // If specific category requested, filter data
       if (category && ['financial', 'business', 'performance', 'operational'].includes(category)) {

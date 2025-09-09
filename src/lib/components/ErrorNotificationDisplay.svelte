@@ -1,26 +1,28 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { activeErrorNotifications, dismissNotification, type ErrorNotification } from '$lib/errorNotificationSystem';
-  import { CheckCircle, AlertTriangle, Info, XCircle, X, RefreshCw, CreditCard, Wifi, WifiOff } from 'lucide-svelte';
+  import { CheckCircle, AlertTriangle, Info, XCircle, X, RefreshCw, CreditCard, WifiOff } from 'lucide-svelte';
   import { createEventDispatcher } from 'svelte';
+  import type { PaymentErrorInfo, NotificationEventData } from '$lib/types/payment';
 
   export let position: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' = 'top-right';
   export let maxNotifications: number = 5;
   export let autoDismissDelay: number = 10000;
 
   const dispatch = createEventDispatcher<{
-    notificationAction: { notificationId: string; actionLabel: string };
+    notificationAction: NotificationEventData;
     notificationDismissed: { notificationId: string };
   }>();
 
   let notifications: ErrorNotification[] = [];
   let dismissTimeouts = new Map<string, number>();
+  let unsubscribeFn: (() => void) | null = null;
 
   $: notifications = $activeErrorNotifications.slice(0, maxNotifications);
 
   onMount(() => {
     // Set up auto-dismiss for non-persistent notifications
-    const unsubscribe = activeErrorNotifications.subscribe(notifications => {
+    unsubscribeFn = activeErrorNotifications.subscribe(notifications => {
       notifications.forEach(notification => {
         if (!notification.persistent && !dismissTimeouts.has(notification.id)) {
           const timeout = setTimeout(() => {
@@ -31,14 +33,18 @@
         }
       });
     });
-
-    return unsubscribe;
   });
 
   onDestroy(() => {
-    // Clear all timeouts
+    // Clear all timeouts to prevent memory leaks
     dismissTimeouts.forEach(timeout => clearTimeout(timeout));
     dismissTimeouts.clear();
+    
+    // Properly unsubscribe from store
+    if (unsubscribeFn) {
+      unsubscribeFn();
+      unsubscribeFn = null;
+    }
   });
 
   function handleDismiss(notificationId: string) {
@@ -87,7 +93,7 @@
     }
   }
 
-  function getPaymentErrorIcon(paymentInfo: any) {
+  function getPaymentErrorIcon(paymentInfo: PaymentErrorInfo | null) {
     if (!paymentInfo) return AlertTriangle;
     
     switch (paymentInfo.type) {
@@ -124,24 +130,27 @@
       class="notification notification-{getNotificationColor(notification.type)}"
       role="alert"
       aria-live="assertive"
+      aria-describedby="notification-{notification.id}-content"
+      tabindex="0"
     >
       <div class="notification-content">
         <div class="notification-header">
-          <div class="notification-icon">
+          <div class="notification-icon" aria-hidden="true">
             {#if 'paymentInfo' in notification}
               <svelte:component this={getPaymentErrorIcon(notification.paymentInfo)} class="h-5 w-5" />
             {:else}
               <svelte:component this={getNotificationIcon(notification.type)} class="h-5 w-5" />
             {/if}
           </div>
-          <div class="notification-text">
+          <div class="notification-text" id="notification-{notification.id}-content">
             <h4 class="notification-title">{notification.title}</h4>
             <p class="notification-message">{notification.message}</p>
           </div>
           <button
             class="notification-dismiss"
             on:click={() => handleDismiss(notification.id)}
-            aria-label="Dismiss notification"
+            aria-label="Dismiss notification: {notification.title}"
+            tabindex="0"
           >
             <X class="h-4 w-4" />
           </button>
@@ -153,6 +162,8 @@
               <button
                 class="action-button action-{action.variant || 'secondary'}"
                 on:click={() => handleAction(notification.id, action.label)}
+                aria-label="{action.label} for {notification.title}"
+                tabindex="0"
               >
                 {action.label}
               </button>
@@ -164,7 +175,7 @@
           <span class="notification-timestamp">
             {formatTimestamp(notification.timestamp)}
           </span>
-          {#if 'paymentInfo' in notification && notification.paymentInfo && (notification.paymentInfo as any).retryable}
+          {#if 'paymentInfo' in notification && notification.paymentInfo && ('retryable' in notification) && notification.retryable}
             <span class="notification-retryable">
               Retryable
             </span>

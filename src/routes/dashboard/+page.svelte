@@ -4,14 +4,31 @@
   import type { KPIDashboardData } from '$lib/kpi-metrics-types';
   import MetricCard from '$lib/components/MetricCard.svelte';
   import Chart from '$lib/components/Chart.svelte';
+  import ErrorBoundary from '$lib/components/ErrorBoundary.svelte';
+  import MetricCardFallback from '$lib/components/MetricCardFallback.svelte';
+  import {
+    safeDashboardData,
+    safeMetricSum,
+    safeMetricLatest,
+    safeCurrencyFormat,
+    safeNumberFormat,
+    safePercentFormat,
+    isDashboardDataEmpty,
+    getHealthColor,
+    safeDateParse
+  } from '$lib/utils/dashboard-utils';
   
   export let data;
   
-  let dashboardData: KPIDashboardData = data.dashboardData;
-  let timeRange = data.timeRange;
-  let lastUpdated = data.lastUpdated;
+  let rawDashboardData: KPIDashboardData | null = data?.dashboardData || null;
+  let timeRange = data?.timeRange || '7d';
+  let lastUpdated = data?.lastUpdated || new Date().toISOString();
   let isLoading = false;
-  let error: string | null = data.error || null;
+  let error: string | null = data?.error || null;
+  
+  // Safe dashboard data access
+  $: dashboardData = safeDashboardData(rawDashboardData);
+  $: isEmpty = isDashboardDataEmpty(rawDashboardData);
   
   // Auto-refresh data every 30 seconds
   let refreshInterval: NodeJS.Timeout;
@@ -23,19 +40,27 @@
   
   async function refreshData() {
     isLoading = true;
+    error = null;
+    
     try {
-      const response = await fetch(`/api/kpi/dashboard?timeRange=${timeRange}`);
+      const response = await fetch(`/api/kpi/dashboard?timeRange=${timeRange}&refresh=true`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const result = await response.json();
       
-      if (result.success) {
-        dashboardData = result.data;
-        lastUpdated = result.generatedAt;
+      if (result.success && result.data) {
+        rawDashboardData = result.data;
+        lastUpdated = result.generatedAt || new Date().toISOString();
         error = null;
       } else {
-        error = 'Failed to refresh data';
+        throw new Error(result.message || 'Failed to refresh data');
       }
     } catch (err) {
-      error = 'Network error while refreshing data';
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      error = `Unable to refresh dashboard: ${errorMessage}`;
       console.error('Error refreshing dashboard data:', err);
     } finally {
       isLoading = false;
@@ -47,30 +72,26 @@
     refreshData();
   }
   
-  // Calculate key metrics
-  $: gmv = dashboardData.financial
-    .filter(m => m.metric_name === 'gmv_cents')
-    .reduce((sum, m) => sum + m.metric_value, 0);
-    
-  $: totalOrders = dashboardData.financial
-    .filter(m => m.metric_name === 'order_count')
-    .reduce((sum, m) => sum + m.metric_value, 0);
-    
-  $: activeUsers = dashboardData.business
-    .filter(m => m.metric_name === 'active_users')
-    .reduce((sum, m) => sum + m.metric_value, 0);
-    
-  $: systemHealth = dashboardData.operational
-    .filter(m => m.metric_name === 'system_health_score')
-    .slice(-1)[0]?.metric_value || 100;
-    
-  $: avgResponseTime = dashboardData.performance
-    .filter(m => m.metric_name === 'avg_response_time_ms')
-    .slice(-1)[0]?.metric_value || 0;
-    
-  $: errorRate = dashboardData.operational
-    .filter(m => m.metric_name === 'error_rate_percent')
-    .slice(-1)[0]?.metric_value || 0;
+  // Calculate key metrics with safe data access
+  $: gmv = safeMetricSum(dashboardData.financial, 'gmv_cents', 0);
+  $: totalOrders = safeMetricSum(dashboardData.financial, 'order_count', 0);
+  $: activeUsers = safeMetricSum(dashboardData.business, 'active_users', 0);
+  $: systemHealth = safeMetricLatest(dashboardData.operational, 'system_health_score', 100);
+  $: avgResponseTime = safeMetricLatest(dashboardData.performance, 'avg_response_time_ms', 0);
+  $: errorRate = safeMetricLatest(dashboardData.operational, 'error_rate_percent', 0);
+  
+  // Format values safely
+  $: gmvFormatted = safeCurrencyFormat(gmv / 100);
+  $: totalOrdersFormatted = safeNumberFormat(totalOrders);
+  $: activeUsersFormatted = safeNumberFormat(activeUsers);
+  $: systemHealthFormatted = safePercentFormat(systemHealth);
+  $: avgResponseTimeFormatted = `${avgResponseTime.toFixed(0)}ms`;
+  $: errorRateFormatted = safePercentFormat(errorRate, 2);
+  
+  // Health status colors
+  $: systemHealthColor = getHealthColor(systemHealth, 90, 70);
+  $: responseTimeColor = getHealthColor(500 - avgResponseTime, 300, 200); // Inverted for response time
+  $: errorRateColor = getHealthColor(10 - errorRate, 9, 5); // Inverted for error rate
 </script>
 
 <svelte:head>
@@ -130,121 +151,169 @@
 
   <!-- Error Alert -->
   {#if error}
-    <div class="rounded-md bg-red-50 p-4">
-      <div class="flex">
-        <div class="flex-shrink-0">
-          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <div class="ml-3">
-          <h3 class="text-sm font-medium text-red-800">Error loading dashboard data</h3>
-          <div class="mt-2 text-sm text-red-700">
-            <p>{error}</p>
+    <ErrorBoundary fallbackMessage={error} retryable={true} on:retry={refreshData}>
+      <div class="rounded-md bg-red-50 p-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <h3 class="text-sm font-medium text-red-800">Error loading dashboard data</h3>
+            <div class="mt-2 text-sm text-red-700">
+              <p>{error}</p>
+            </div>
           </div>
         </div>
+      </div>
+    </ErrorBoundary>
+  {/if}
+  
+  <!-- Empty State -->
+  {#if !error && isEmpty && !isLoading}
+    <div class="text-center py-12">
+      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+      <h3 class="mt-2 text-sm font-medium text-gray-900">No dashboard data available</h3>
+      <p class="mt-1 text-sm text-gray-500">Try refreshing or selecting a different time range.</p>
+      <div class="mt-6">
+        <button
+          type="button"
+          class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          on:click={refreshData}
+        >
+          Refresh Data
+        </button>
       </div>
     </div>
   {/if}
 
   <!-- Key Metrics Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-    <MetricCard
-      title="Gross Merchandise Value"
-      value={`$${(gmv / 100).toLocaleString()}`}
-      icon="💰"
-      color="green"
-      loading={isLoading}
-    />
-    
-    <MetricCard
-      title="Total Orders"
-      value={totalOrders.toLocaleString()}
-      icon="📋"
-      color="blue"
-      loading={isLoading}
-    />
-    
-    <MetricCard
-      title="Active Users"
-      value={activeUsers.toLocaleString()}
-      icon="👥"
-      color="purple"
-      loading={isLoading}
-    />
-    
-    <MetricCard
-      title="System Health"
-      value={`${systemHealth.toFixed(1)}%`}
-      icon="💚"
-      color={systemHealth >= 90 ? 'green' : systemHealth >= 70 ? 'yellow' : 'red'}
-      loading={isLoading}
-    />
-  </div>
+  {#if !isEmpty || isLoading}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <ErrorBoundary fallbackComponent={MetricCardFallback} fallbackMessage="Unable to load GMV metric">
+        <MetricCard
+          title="Gross Merchandise Value"
+          value={gmvFormatted}
+          icon="💰"
+          color="green"
+          loading={isLoading}
+        />
+      </ErrorBoundary>
+      
+      <ErrorBoundary fallbackComponent={MetricCardFallback} fallbackMessage="Unable to load orders metric">
+        <MetricCard
+          title="Total Orders"
+          value={totalOrdersFormatted}
+          icon="📋"
+          color="blue"
+          loading={isLoading}
+        />
+      </ErrorBoundary>
+      
+      <ErrorBoundary fallbackComponent={MetricCardFallback} fallbackMessage="Unable to load users metric">
+        <MetricCard
+          title="Active Users"
+          value={activeUsersFormatted}
+          icon="👥"
+          color="purple"
+          loading={isLoading}
+        />
+      </ErrorBoundary>
+      
+      <ErrorBoundary fallbackComponent={MetricCardFallback} fallbackMessage="Unable to load health metric">
+        <MetricCard
+          title="System Health"
+          value={systemHealthFormatted}
+          icon="💚"
+          color={systemHealthColor}
+          loading={isLoading}
+        />
+      </ErrorBoundary>
+    </div>
+  {/if}
 
   <!-- Performance Metrics -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Response Time -->
-    <div class="bg-white shadow rounded-lg p-6">
-      <h3 class="text-lg font-medium text-gray-900 mb-4">Average Response Time</h3>
-      <div class="flex items-center">
-        <div class="text-3xl font-bold text-gray-900">{avgResponseTime.toFixed(0)}ms</div>
-        <div class="ml-4">
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {avgResponseTime < 200 ? 'bg-green-100 text-green-800' : avgResponseTime < 500 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
-            {avgResponseTime < 200 ? 'Excellent' : avgResponseTime < 500 ? 'Good' : 'Needs Attention'}
-          </span>
+  {#if !isEmpty || isLoading}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Response Time -->
+      <ErrorBoundary fallbackMessage="Unable to load response time metric">
+        <div class="bg-white shadow rounded-lg p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Average Response Time</h3>
+          <div class="flex items-center">
+            <div class="text-3xl font-bold text-gray-900">{avgResponseTimeFormatted}</div>
+            <div class="ml-4">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {responseTimeColor === 'green' ? 'bg-green-100 text-green-800' : responseTimeColor === 'yellow' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
+                {responseTimeColor === 'green' ? 'Excellent' : responseTimeColor === 'yellow' ? 'Good' : 'Needs Attention'}
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </ErrorBoundary>
 
-    <!-- Error Rate -->
-    <div class="bg-white shadow rounded-lg p-6">
-      <h3 class="text-lg font-medium text-gray-900 mb-4">Error Rate</h3>
-      <div class="flex items-center">
-        <div class="text-3xl font-bold {errorRate < 1 ? 'text-green-600' : errorRate < 5 ? 'text-yellow-600' : 'text-red-600'}">{errorRate.toFixed(2)}%</div>
-        <div class="ml-4">
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {errorRate < 1 ? 'bg-green-100 text-green-800' : errorRate < 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
-            {errorRate < 1 ? 'Low' : errorRate < 5 ? 'Moderate' : 'High'}
-          </span>
+      <!-- Error Rate -->
+      <ErrorBoundary fallbackMessage="Unable to load error rate metric">
+        <div class="bg-white shadow rounded-lg p-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Error Rate</h3>
+          <div class="flex items-center">
+            <div class="text-3xl font-bold {errorRateColor === 'green' ? 'text-green-600' : errorRateColor === 'yellow' ? 'text-yellow-600' : 'text-red-600'}">{errorRateFormatted}</div>
+            <div class="ml-4">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {errorRateColor === 'green' ? 'bg-green-100 text-green-800' : errorRateColor === 'yellow' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
+                {errorRateColor === 'green' ? 'Low' : errorRateColor === 'yellow' ? 'Moderate' : 'High'}
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
+      </ErrorBoundary>
     </div>
-  </div>
+  {/if}
 
   <!-- Charts Section -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <Chart
-      title="GMV Trend"
-      data={dashboardData.financial.filter(m => m.metric_name === 'gmv_cents')}
-      type="line"
-      color="#10b981"
-      showGrid={true}
-    />
-    
-    <Chart
-      title="Order Volume"
-      data={dashboardData.financial.filter(m => m.metric_name === 'order_count')}
-      type="bar"
-      color="#3b82f6"
-      showGrid={true}
-    />
-    
-    <Chart
-      title="Active Users"
-      data={dashboardData.business.filter(m => m.metric_name === 'active_users')}
-      type="area"
-      color="#8b5cf6"
-      showGrid={true}
-    />
-    
-    <Chart
-      title="System Uptime"
-      data={dashboardData.operational.filter(m => m.metric_name === 'system_uptime_percent')}
-      type="line"
-      color="#f59e0b"
-      showGrid={true}
-    />
-  </div>
+  {#if !isEmpty || isLoading}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <ErrorBoundary fallbackMessage="Unable to load GMV chart">
+        <Chart
+          title="GMV Trend"
+          data={dashboardData.financial.filter(m => m?.metric_name === 'gmv_cents') || []}
+          type="line"
+          color="#10b981"
+          showGrid={true}
+        />
+      </ErrorBoundary>
+      
+      <ErrorBoundary fallbackMessage="Unable to load order volume chart">
+        <Chart
+          title="Order Volume"
+          data={dashboardData.financial.filter(m => m?.metric_name === 'order_count') || []}
+          type="bar"
+          color="#3b82f6"
+          showGrid={true}
+        />
+      </ErrorBoundary>
+      
+      <ErrorBoundary fallbackMessage="Unable to load active users chart">
+        <Chart
+          title="Active Users"
+          data={dashboardData.business.filter(m => m?.metric_name === 'active_users') || []}
+          type="area"
+          color="#8b5cf6"
+          showGrid={true}
+        />
+      </ErrorBoundary>
+      
+      <ErrorBoundary fallbackMessage="Unable to load system uptime chart">
+        <Chart
+          title="System Uptime"
+          data={dashboardData.operational.filter(m => m?.metric_name === 'system_uptime_percent') || []}
+          type="line"
+          color="#f59e0b"
+          showGrid={true}
+        />
+      </ErrorBoundary>
+    </div>
+  {/if}
 
   <!-- Quick Actions -->
   <div class="bg-white shadow rounded-lg p-6">
@@ -295,7 +364,9 @@
   </div>
 
   <!-- Last Updated -->
-  <div class="text-center text-sm text-gray-500">
-    Last updated: {new Date(lastUpdated).toLocaleString()}
-  </div>
+  {#if lastUpdated && !isEmpty}
+    <div class="text-center text-sm text-gray-500">
+      Last updated: {safeDateParse(lastUpdated).toLocaleString()}
+    </div>
+  {/if}
 </div>

@@ -10,14 +10,40 @@
 
   $: changeColor = change === null ? 'gray' : change >= 0 ? 'green' : 'red';
   $: changeIcon = change === null ? '' : change >= 0 ? '↗' : '↘';
-  $: formattedValue = typeof value === 'number' ? formatNumber(value) : value;
-  $: formattedChange = change !== null ? `${change >= 0 ? '+' : ''}${change.toFixed(1)}%` : '';
+  $: formattedValue = safeFormatValue(value);
+  $: formattedChange = safeFormatChange(change);
+
+  function safeFormatValue(val: string | number): string {
+    try {
+      if (typeof val === 'string') return val;
+      if (typeof val !== 'number' || isNaN(val)) return '—';
+      return formatNumber(val);
+    } catch (error) {
+      console.warn('Error formatting metric value:', error);
+      return '—';
+    }
+  }
+
+  function safeFormatChange(changeVal: number | null): string {
+    try {
+      if (changeVal === null || typeof changeVal !== 'number' || isNaN(changeVal)) return '';
+      return `${changeVal >= 0 ? '+' : ''}${changeVal.toFixed(1)}%`;
+    } catch (error) {
+      console.warn('Error formatting metric change:', error);
+      return '';
+    }
+  }
 
   function formatNumber(num: number): string {
-    if (num >= 1000000000) return `${(num / 1000000000).toFixed(1)}B`;
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-    return num.toFixed(0);
+    try {
+      if (num >= 1000000000) return `${(num / 1000000000).toFixed(1)}B`;
+      if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+      if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+      return num.toFixed(0);
+    } catch (error) {
+      console.warn('Error in formatNumber:', error);
+      return String(num);
+    }
   }
 </script>
 

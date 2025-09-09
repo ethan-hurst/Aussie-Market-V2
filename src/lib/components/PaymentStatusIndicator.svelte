@@ -128,7 +128,7 @@
 
 <div class="payment-status-indicator" role="status" aria-live="polite">
   <!-- Main status display -->
-  {#if true}
+  {#if status}
     {@const statusClasses = getStatusClasses()}
     <div class="status-header flex items-center space-x-3 p-4 {statusClasses.bg} border {statusClasses.border} rounded-lg">
     <div class="flex-shrink-0">
@@ -181,7 +181,10 @@
             </div>
             
             <!-- Step label -->
-            <span class="text-xs text-gray-600 mt-2 text-center max-w-20">
+            <span 
+              class="text-xs text-gray-600 mt-2 text-center max-w-20"
+              aria-label="Step {index + 1}: {step} {index < currentStep ? '(completed)' : index === currentStep ? '(current)' : '(pending)'}"
+            >
               {step}
             </span>
           </div>
@@ -197,6 +200,8 @@
         class="btn btn-primary"
         on:click={handleRetry}
         aria-label="Retry payment"
+        aria-describedby="retry-help"
+        tabindex="0"
       >
         <RefreshCw class="h-4 w-4 mr-2" />
         Try Again
@@ -208,6 +213,7 @@
         class="btn btn-outline"
         on:click={handleCancel}
         aria-label="Cancel payment"
+        tabindex="0"
       >
         Cancel
       </button>
@@ -218,6 +224,7 @@
         class="btn btn-primary"
         on:click={() => goto('/orders')}
         aria-label="View orders"
+        tabindex="0"
       >
         View Orders
       </button>
@@ -226,7 +233,12 @@
 
   <!-- Additional status information -->
   {#if status === 'processing'}
-    <div class="processing-info mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+    <div 
+      class="processing-info mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md" 
+      role="alert"
+      aria-live="polite"
+      id="processing-info"
+    >
       <p class="text-sm text-blue-700">
         <strong>Please don't close this window</strong> while your payment is being processed.
         This usually takes a few seconds.
@@ -235,7 +247,12 @@
   {/if}
 
   {#if status === 'failed' && error}
-    <div class="error-details mt-4 p-3 bg-red-50 border border-red-200 rounded-md">
+    <div 
+      class="error-details mt-4 p-3 bg-red-50 border border-red-200 rounded-md" 
+      role="alert"
+      aria-live="assertive"
+      id="retry-help"
+    >
       <p class="text-sm text-red-700">
         <strong>Error:</strong> {error}
       </p>

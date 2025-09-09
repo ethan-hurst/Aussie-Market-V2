@@ -11,6 +11,7 @@ export interface OrderStatus {
 export interface WebhookFallbackOptions {
   maxPollingAttempts?: number;
   pollingInterval?: number;
+  maxTotalDuration?: number;
   exponentialBackoff?: boolean;
   onStatusUpdate?: (status: OrderStatus) => void;
   onError?: (error: Error) => void;
@@ -30,6 +31,7 @@ export interface PollingResult {
 export class WebhookFallbackManager {
   private activePollers = new Map<string, number>();
   private pollingAttempts = new Map<string, number>();
+  private pollingStartTimes = new Map<string, number>();
 
   /**
    * Start polling for order status updates
@@ -41,6 +43,7 @@ export class WebhookFallbackManager {
     const {
       maxPollingAttempts = 10,
       pollingInterval = 2000,
+      maxTotalDuration = 300000, // 5 minutes default
       exponentialBackoff = true,
       onStatusUpdate,
       onError,
@@ -53,6 +56,8 @@ export class WebhookFallbackManager {
     return new Promise((resolve) => {
       let attempts = 0;
       let currentInterval = pollingInterval;
+      const startTime = Date.now();
+      this.pollingStartTimes.set(orderId, startTime);
 
       const poll = async () => {
         attempts++;
@@ -104,10 +109,23 @@ export class WebhookFallbackManager {
           // Notify of status update
           onStatusUpdate?.(order);
 
-          // Check if we've exceeded max attempts
+          // Check if we've exceeded max attempts or total duration
+          const elapsed = Date.now() - startTime;
           if (attempts >= maxPollingAttempts) {
             this.stopPolling(orderId);
             const error = new Error('Maximum polling attempts reached');
+            onError?.(error);
+            resolve({
+              success: false,
+              error: error.message,
+              attempts
+            });
+            return;
+          }
+          
+          if (elapsed >= maxTotalDuration) {
+            this.stopPolling(orderId);
+            const error = new Error(`Maximum polling duration exceeded (${maxTotalDuration}ms)`);
             onError?.(error);
             resolve({
               success: false,
@@ -129,7 +147,8 @@ export class WebhookFallbackManager {
           console.error(`Error polling order ${orderId}:`, error);
           
           // Check if we should retry on error
-          if (attempts < maxPollingAttempts) {
+          const elapsed = Date.now() - startTime;
+          if (attempts < maxPollingAttempts && elapsed < maxTotalDuration) {
             const errorObj = new Error(mapApiErrorToMessage(error));
             onError?.(errorObj);
             
@@ -139,7 +158,9 @@ export class WebhookFallbackManager {
             this.activePollers.set(orderId, timeoutId);
           } else {
             this.stopPolling(orderId);
-            const finalError = new Error(`Failed to get order status after ${attempts} attempts: ${mapApiErrorToMessage(error)}`);
+            const elapsed = Date.now() - startTime;
+            const reason = attempts >= maxPollingAttempts ? 'maximum attempts' : 'maximum duration';
+            const finalError = new Error(`Failed to get order status after ${attempts} attempts (${elapsed}ms elapsed, stopped due to ${reason}): ${mapApiErrorToMessage(error)}`);
             onError?.(finalError);
             resolve({
               success: false,
@@ -165,6 +186,7 @@ export class WebhookFallbackManager {
       this.activePollers.delete(orderId);
     }
     this.pollingAttempts.delete(orderId);
+    this.pollingStartTimes.delete(orderId);
   }
 
   /**
@@ -176,15 +198,18 @@ export class WebhookFallbackManager {
     });
     this.activePollers.clear();
     this.pollingAttempts.clear();
+    this.pollingStartTimes.clear();
   }
 
   /**
    * Get polling status for an order
    */
-  getPollingStatus(orderId: string): { isPolling: boolean; attempts: number } {
+  getPollingStatus(orderId: string): { isPolling: boolean; attempts: number; elapsedTime: number } {
+    const startTime = this.pollingStartTimes.get(orderId);
     return {
       isPolling: this.activePollers.has(orderId),
-      attempts: this.pollingAttempts.get(orderId) || 0
+      attempts: this.pollingAttempts.get(orderId) || 0,
+      elapsedTime: startTime ? Date.now() - startTime : 0
     };
   }
 

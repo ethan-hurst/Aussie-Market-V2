@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import type { MetricData } from '$lib/types/payment';
   
   export let data;
   
@@ -67,34 +68,36 @@
   
   // Calculate business metrics
   $: totalGMV = financialData.financial
-    .filter((m: any) => m.metric_name === 'gmv_cents')
-    .reduce((sum: number, m: any) => sum + m.metric_value, 0);
+    ?.filter((m: MetricData) => m.metric_name === 'gmv_cents')
+    .reduce((sum: number, m: MetricData) => sum + m.metric_value, 0) || 0;
     
   $: totalOrders = financialData.financial
-    .filter((m: any) => m.metric_name === 'order_count')
-    .reduce((sum: number, m: any) => sum + m.metric_value, 0);
+    ?.filter((m: MetricData) => m.metric_name === 'order_count')
+    .reduce((sum: number, m: MetricData) => sum + m.metric_value, 0) || 0;
     
   $: avgOrderValue = totalOrders > 0 ? totalGMV / totalOrders : 0;
     
   $: activeUsers = businessData.business
-    .filter((m: any) => m.metric_name === 'active_users')
-    .reduce((sum: number, m: any) => sum + m.metric_value, 0);
+    ?.filter((m: MetricData) => m.metric_name === 'active_users')
+    .reduce((sum: number, m: MetricData) => sum + m.metric_value, 0) || 0;
     
   $: newListings = businessData.business
-    .filter((m: any) => m.metric_name === 'new_listings')
-    .reduce((sum: number, m: any) => sum + m.metric_value, 0);
+    ?.filter((m: MetricData) => m.metric_name === 'new_listings')
+    .reduce((sum: number, m: MetricData) => sum + m.metric_value, 0) || 0;
     
   $: totalBids = businessData.business
-    .filter((m: any) => m.metric_name === 'total_bids')
-    .reduce((sum: number, m: any) => sum + m.metric_value, 0);
+    ?.filter((m: MetricData) => m.metric_name === 'total_bids')
+    .reduce((sum: number, m: MetricData) => sum + m.metric_value, 0) || 0;
     
-  $: disputeRate = businessData.business
-    .filter((m: any) => m.metric_name === 'dispute_rate_percent')
-    .slice(-1)[0]?.metric_value || 0;
+  $: disputeRate = (() => {
+    const filtered = businessData.business?.filter((m: MetricData) => m.metric_name === 'dispute_rate_percent') || [];
+    return filtered.length > 0 ? filtered[filtered.length - 1]?.metric_value || 0 : 0;
+  })();
     
-  $: attachRate = businessData.business
-    .filter((m: any) => m.metric_name === 'attach_rate_percent')
-    .slice(-1)[0]?.metric_value || 0;
+  $: attachRate = (() => {
+    const filtered = businessData.business?.filter((m: MetricData) => m.metric_name === 'attach_rate_percent') || [];
+    return filtered.length > 0 ? filtered[filtered.length - 1]?.metric_value || 0 : 0;
+  })();
 </script>
 
 <svelte:head>

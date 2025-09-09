@@ -13,7 +13,7 @@ import {
 import { rateLimit } from '$lib/security';
 import { validate, BidSchema } from '$lib/validation';
 import { getSessionUserOrThrow, validateUserAccess } from '$lib/session';
-import { recordBidPlaced } from '$lib/server/kpi-metrics-server';
+import { recordBusinessEvent } from '$lib/server/kpi-metrics-server';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
@@ -98,14 +98,22 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 		// Record KPI metrics for successful bid placement
 		try {
-			await recordBidPlaced({
-				bidId: bidResult.bid_id,
-				auctionId: auctionRow.id,
-				amount: bidResult.amount_cents,
-				bidderId: user.id,
-				isProxyBid: bidResult.is_proxy_bid,
-				outbidPrevious: bidResult.outbid_previous
-			});
+			await recordBusinessEvent(
+				'bid_placed',
+				'bid_count',
+				1,
+				'count',
+				{
+					userId: user.id,
+					auctionId: auctionRow.id,
+					metadata: {
+						bidId: bidResult.bid_id,
+						amount: bidResult.amount_cents,
+						isProxyBid: bidResult.is_proxy_bid,
+						outbidPrevious: bidResult.outbid_previous
+					}
+				}
+			);
 		} catch (kpiError) {
 			// Log KPI recording error but don't fail the bid placement
 			console.error('Failed to record bid KPI metrics:', kpiError);
