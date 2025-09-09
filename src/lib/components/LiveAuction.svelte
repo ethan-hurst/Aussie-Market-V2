@@ -295,7 +295,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 			<div class="text-right">
 				<div class="flex items-center space-x-2">
 					<Clock class="w-5 h-5 text-gray-400" />
-					<span class="text-sm font-medium" class:text-red-600={isEndingSoon}>
+					<span class="text-sm font-medium" class:text-red-600={isEndingSoon} data-testid="countdown-timer">
 						{timeRemaining}
 					</span>
 				</div>
@@ -317,7 +317,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 			<p class="text-sm text-gray-500 mb-1">Current Price</p>
 			<div class="flex items-center justify-center space-x-2">
 				<DollarSign class="w-6 h-6 text-green-600" />
-				<span class="text-3xl font-bold text-gray-900">
+				<span class="text-3xl font-bold text-gray-900" data-testid="current-price">
 					{formatPrice(currentPriceCents)}
 				</span>
 			</div>
@@ -342,13 +342,13 @@ import { toastError, toastSuccess } from '$lib/toast';
 	<!-- Bidding Form -->
 	<div class="p-6">
 		{#if error}
-			<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+			<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md" data-testid="error-message">
 				<p class="text-sm text-red-700">{error}</p>
 			</div>
 		{/if}
 
 		{#if success}
-			<div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+			<div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-md" data-testid="success-message">
 				<p class="text-sm text-green-700">{success}</p>
 			</div>
 		{/if}
@@ -362,12 +362,14 @@ import { toastError, toastSuccess } from '$lib/toast';
 					<DollarSign class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
 					<input
 						id="bidAmount"
+						data-testid="bid-amount"
 						type="number"
 						bind:value={bidAmount}
 						step="0.01"
 						min={(minBidAmount / 100).toFixed(2)}
 						placeholder="Enter your bid amount"
-						class="input pl-10 w-full"
+						class="input pl-10 w-full text-lg py-3 touch-manipulation"
+						inputmode="decimal"
 						required
 					/>
 				</div>
@@ -399,7 +401,8 @@ import { toastError, toastSuccess } from '$lib/toast';
 			<button
 				type="submit"
 				disabled={loading}
-				class="w-full btn-primary py-3"
+				data-testid="place-bid"
+				class="w-full btn-primary py-4 text-lg font-semibold touch-manipulation"
 			>
 				{#if loading}
 					<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div>
@@ -425,7 +428,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 
 	<!-- Recent Bid Activity -->
 	{#if bidActivity.length > 0}
-		<div class="px-6 py-4 border-t border-gray-200">
+		<div class="px-6 py-4 border-t border-gray-200" data-testid="bid-history">
 			<div class="flex items-center space-x-2 mb-3">
 				<Activity class="w-4 h-4 text-gray-500" />
 				<h4 class="text-sm font-medium text-gray-900">Recent Activity</h4>

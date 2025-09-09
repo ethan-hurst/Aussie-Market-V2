@@ -168,7 +168,7 @@
 </svelte:head>
 
 {#if loading}
-	<div class="flex items-center justify-center h-64">
+	<div class="flex items-center justify-center h-64" data-testid="loading-spinner">
 		<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
 	</div>
 {:else if permissionError}
@@ -192,7 +192,7 @@
 		</div>
 
 		{#if error}
-			<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+			<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded" data-testid="error-message">
 				{error}
 			</div>
 		{/if}
@@ -211,6 +211,7 @@
 						</label>
 						<input
 							id="title"
+							data-testid="listing-title"
 							type="text"
 							bind:value={title}
 							maxlength="140"
@@ -227,6 +228,7 @@
 						</label>
 						<textarea
 							id="description"
+							data-testid="listing-description"
 							bind:value={description}
 							maxlength="4096"
 							rows="6"
@@ -290,12 +292,14 @@
 								<DollarSign class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
 								<input
 									id="startPrice"
+									data-testid="starting-price"
 									type="number"
 									bind:value={startCents}
 									min="1"
 									step="0.01"
 									required
-									class="input pl-10"
+									class="input pl-10 py-3 text-lg touch-manipulation"
+									inputmode="decimal"
 									placeholder="0.00"
 								/>
 							</div>
@@ -481,11 +485,11 @@
 			</div>
 
 			<!-- Submit -->
-			<div class="flex justify-end space-x-4">
-				<button type="button" on:click={() => goto('/')} class="btn btn-outline btn-lg">
+			<div class="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4">
+				<button type="button" on:click={() => goto('/')} data-testid="cancel-listing" class="btn btn-outline btn-lg w-full sm:w-auto py-4 text-lg touch-manipulation">
 					Cancel
 				</button>
-				<button type="submit" disabled={submitting} class="btn-primary btn-lg">
+				<button type="submit" disabled={submitting} data-testid="create-listing" class="btn-primary btn-lg w-full sm:w-auto py-4 text-lg font-semibold touch-manipulation">
 					{submitting ? 'Creating...' : 'Create Listing'}
 				</button>
 			</div>

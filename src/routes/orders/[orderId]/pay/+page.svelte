@@ -211,7 +211,7 @@
 <div class="max-w-4xl mx-auto p-6">
     <h1 class="text-2xl font-bold mb-4">Complete Payment</h1>
 	{#if loading}
-		<div class="flex justify-center items-center h-64">
+		<div class="flex justify-center items-center h-64" data-testid="loading-spinner">
 			<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
 		</div>
 	{:else if error && paymentStatus === 'failed'}
@@ -358,6 +358,7 @@
 					<button
 						type="submit"
 						disabled={processing}
+						data-testid="submit-payment"
 						class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center"
 					>
 						{#if processing}
@@ -374,7 +375,7 @@
 
 				<!-- Cancel Link -->
 				<div class="mt-6 text-center">
-					<a href="/orders/{order.id}" class="text-blue-600 hover:text-blue-800 text-sm">
+					<a href="/orders/{order.id}" data-testid="cancel-payment" class="text-blue-600 hover:text-blue-800 text-sm touch-manipulation py-2 px-4 -mx-4">
 						← Back to Order Details
 					</a>
 				</div>

@@ -79,14 +79,14 @@ import ToastContainer from '$lib/components/ToastContainer.svelte';
 
 				<!-- Desktop navigation -->
 				<div class="hidden md:flex items-center space-x-8">
-					<a href="/" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
+					<a href="/" data-testid="nav-home" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
 						Browse
 					</a>
 					{#if user}
-						<a href="/sell/new" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
+						<a href="/sell/new" data-testid="nav-sell" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
 							Sell
 						</a>
-						<a href="/orders/buyer" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
+						<a href="/orders/buyer" data-testid="nav-orders" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
 							My Orders
 						</a>
 						<a href="/messages" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
@@ -129,6 +129,7 @@ import ToastContainer from '$lib/components/ToastContainer.svelte';
 									{/if}
 									<a
 										href="/account"
+										data-testid="nav-account"
 										on:click={closeMobileMenu}
 										class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
 									>
