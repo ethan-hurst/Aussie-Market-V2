@@ -105,7 +105,7 @@ serve(async (req) => {
       }
 
       // Use the validated event instead of the parsed one
-      event = validatedEvent;
+      const event = validatedEvent;
 
       // Additional security: Check event age (prevent replay attacks)
       const eventAge = Date.now() - (event.created * 1000);
@@ -245,19 +245,19 @@ async function processWebhookEvent(event: StripeWebhookEvent, logger: any): Prom
         // Use a more robust check that includes event type and processing status
         const { data, error } = await supabase
           .from('webhook_events')
-          .select('id, processed_at, processing_status')
+          .select('id, processed_at, error_message')
           .eq('event_id', event.id)
           .maybeSingle();
         
         if (error) throw error;
         
-        // If event exists and was successfully processed, it's a duplicate
-        if (data && data.processing_status === 'completed') {
+        // If event exists and was successfully processed (no error), it's a duplicate
+        if (data && data.processed_at && !data.error_message) {
           return { isDuplicate: true, status: 'completed' };
         }
         
-        // If event exists but is still processing, it might be a race condition
-        if (data && data.processing_status === 'processing') {
+        // If event exists but is still processing (processed_at is null), it might be a race condition
+        if (data && !data.processed_at) {
           return { isDuplicate: true, status: 'processing' };
         }
         
@@ -299,8 +299,7 @@ async function processWebhookEvent(event: StripeWebhookEvent, logger: any): Prom
           .insert({
             event_id: event.id,
             event_type: event.type,
-            processed_at: new Date().toISOString(),
-            processing_status: 'processing',
+            processed_at: null, // Will be set when processing completes
             livemode: event.livemode,
             created_at: new Date(event.created * 1000).toISOString()
           });
@@ -346,8 +345,7 @@ async function processWebhookEvent(event: StripeWebhookEvent, logger: any): Prom
         const { error } = await supabase
           .from('webhook_events')
           .update({ 
-            processing_status: result.success ? 'completed' : 'failed',
-            completed_at: new Date().toISOString(),
+            processed_at: new Date().toISOString(),
             error_message: result.error || null
           })
           .eq('event_id', event.id);

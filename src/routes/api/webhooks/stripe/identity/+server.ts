@@ -4,6 +4,17 @@ import { supabase } from '$lib/supabase';
 import { env } from '$lib/env';
 import type { RequestHandler } from './$types';
 
+// Validate production secrets
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction) {
+	if (!env.STRIPE_SECRET_KEY || env.STRIPE_SECRET_KEY.includes('test') || env.STRIPE_SECRET_KEY.includes('your_stripe_secret_key_here')) {
+		throw new Error('Production requires real Stripe secret key');
+	}
+	if (!env.STRIPE_WEBHOOK_SECRET || env.STRIPE_WEBHOOK_SECRET.includes('your_webhook_secret_here')) {
+		throw new Error('Production requires real Stripe webhook secret');
+	}
+}
+
 const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here', {
 	apiVersion: '2024-06-20'
 });

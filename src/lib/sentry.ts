@@ -45,8 +45,7 @@ export function initSentry(): void {
     profilesSampleRate: dev ? 1.0 : 0.1, // 100% in dev, 10% in production
     integrations: [
       // Add custom integrations as needed
-      new Sentry.Integrations.Http({ tracing: true }),
-      new Sentry.Integrations.Console(),
+      // Note: Integrations are automatically included in SvelteKit
     ],
     beforeSend: (event) => {
       // Filter out development noise
