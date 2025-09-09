@@ -134,7 +134,7 @@ export class AuthTestFixtures {
         stripe_customer_id: 'cus_test_buyer_verified'
       },
 
-      // Buyer with pending KYC
+      // Buyer with pending KYC - should have limited permissions
       {
         id: 'test-buyer-pending-kyc',
         email: 'buyer.pending@test.com',
@@ -145,7 +145,7 @@ export class AuthTestFixtures {
         legal_name: 'Jane PendingBuyer'
       },
 
-      // Buyer with failed KYC
+      // Buyer with failed KYC - should have no bid permissions  
       {
         id: 'test-buyer-failed-kyc',
         email: 'buyer.failed@test.com',
@@ -237,15 +237,27 @@ export class AuthTestFixtures {
   createTestUser(userData: Partial<TestUser>): TestUser {
     const now = new Date().toISOString();
     const role = userData.role || 'buyer';
-    const permissions = this.permissionGroups.get(role) || [];
+    const kyc_status = userData.kyc_status || 'none';
+    const account_status = userData.account_status || 'active';
+    
+    // Get base permissions for role
+    let permissions = [...(this.permissionGroups.get(role) || [])];
+    
+    // Filter permissions based on KYC status and account status
+    if (kyc_status === 'pending' || kyc_status === 'failed' || account_status !== 'active') {
+      // Remove sensitive permissions for unverified/suspended accounts
+      permissions = permissions.filter(p => 
+        !['place_bids', 'create_listings', 'manage_own_listings', 'process_orders'].includes(p)
+      );
+    }
 
     return {
       id: userData.id || `test-user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       email: userData.email || `test-${Date.now()}@example.com`,
       password: userData.password,
       role,
-      kyc_status: userData.kyc_status || 'none',
-      account_status: userData.account_status || 'active',
+      kyc_status,
+      account_status,
       phone: userData.phone || null,
       legal_name: userData.legal_name || null,
       dob: userData.dob || null,
@@ -323,9 +335,9 @@ export class AuthTestFixtures {
     const session = this.sessionRegistry.get(accessToken);
     if (!session) return null;
 
-    // Check if expired
+    // Check if expired (session.expires_at is in Unix timestamp seconds)
     const now = Math.floor(Date.now() / 1000);
-    if (session.expires_at < now) {
+    if (session.expires_at <= now) {
       this.sessionRegistry.delete(accessToken);
       return null;
     }
