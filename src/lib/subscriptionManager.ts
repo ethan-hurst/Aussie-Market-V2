@@ -22,6 +22,8 @@ export interface SubscriptionInfo {
 	reconnectAttempts: number;
 	maxReconnectAttempts: number;
 	lastError?: Error;
+	pendingReconnectTimer: number | null;
+	reconnectScheduled: boolean;
 }
 
 class AuctionSubscriptionManager {
@@ -71,8 +73,9 @@ class AuctionSubscriptionManager {
 			onError: (error) => {
 				// Store error and attempt reconnection
 				const sub = this.subscriptions.get(subscriptionId);
-				if (sub) {
+				if (sub && !sub.reconnectScheduled) {
 					sub.lastError = error;
+					sub.reconnectScheduled = true;
 					this.attemptReconnection(subscriptionId);
 				}
 				
@@ -99,7 +102,9 @@ class AuctionSubscriptionManager {
 			connectionStatus: 'connecting',
 			lastActivity: new Date(),
 			reconnectAttempts: 0,
-			maxReconnectAttempts
+			maxReconnectAttempts,
+			pendingReconnectTimer: null,
+			reconnectScheduled: false
 		};
 
 		this.subscriptions.set(subscriptionId, subscriptionInfo);
@@ -118,6 +123,12 @@ class AuctionSubscriptionManager {
 	unsubscribe(subscriptionId: string): boolean {
 		const subscription = this.subscriptions.get(subscriptionId);
 		if (subscription) {
+			// Clear any pending reconnect timer
+			if (subscription.pendingReconnectTimer) {
+				clearTimeout(subscription.pendingReconnectTimer);
+				subscription.pendingReconnectTimer = null;
+			}
+			subscription.reconnectScheduled = false;
 			subscription.unsubscribe();
 			this.subscriptions.delete(subscriptionId);
 			return true;
@@ -216,6 +227,9 @@ class AuctionSubscriptionManager {
 		// Check if we should attempt reconnection
 		if (subscription.reconnectAttempts >= subscription.maxReconnectAttempts) {
 			console.log(`Max reconnection attempts reached for subscription: ${subscriptionId}`);
+			subscription.connectionStatus = 'disconnected';
+			subscription.reconnectScheduled = false;
+			subscription.pendingReconnectTimer = null;
 			subscription.callbacks.onReconnectFailed?.(subscription.lastError || new Error('Max reconnection attempts reached'));
 			return;
 		}
@@ -227,20 +241,38 @@ class AuctionSubscriptionManager {
 		// Notify of reconnection attempt
 		subscription.callbacks.onReconnect?.(subscription.reconnectAttempts, subscription.maxReconnectAttempts);
 
-		// Calculate delay with exponential backoff
-		const delay = Math.min(1000 * Math.pow(2, subscription.reconnectAttempts - 1), 30000); // Max 30 seconds
+		// Calculate delay with exponential backoff and jitter
+		const baseDelay = Math.min(1000 * Math.pow(2, subscription.reconnectAttempts - 1), 30000); // Max 30 seconds
+		const jitter = Math.random() * 1000; // Add up to 1 second of jitter
+		const delay = baseDelay + jitter;
 
-		setTimeout(() => {
+		// Clear any existing timer
+		if (subscription.pendingReconnectTimer) {
+			clearTimeout(subscription.pendingReconnectTimer);
+		}
+
+		subscription.pendingReconnectTimer = setTimeout(() => {
+			// Clear the timer reference
+			subscription.pendingReconnectTimer = null;
+			
+			// Unsubscribe from the old subscription first
+			subscription.unsubscribe();
+			
 			// Attempt to reconnect by creating a new subscription
 			try {
 				const newUnsubscribe = subscribeToAuction(subscription.auctionId, subscription.callbacks);
 				subscription.unsubscribe = newUnsubscribe;
 				subscription.connectionStatus = 'connecting';
 				subscription.lastActivity = new Date();
+				subscription.reconnectScheduled = false;
+				
+				// Reset reconnect attempts on successful connection
+				// This will be handled by the onConnectionStatus callback
 			} catch (error) {
 				console.error(`Reconnection failed for subscription ${subscriptionId}:`, error);
 				subscription.lastError = error as Error;
 				subscription.connectionStatus = 'disconnected';
+				subscription.reconnectScheduled = false;
 				
 				// Try again if we haven't exceeded max attempts
 				if (subscription.reconnectAttempts < subscription.maxReconnectAttempts) {

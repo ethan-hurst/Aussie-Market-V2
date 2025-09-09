@@ -1,6 +1,7 @@
 <script lang="ts">
   import { CheckCircle, Clock, AlertCircle, XCircle, Loader2, RefreshCw } from 'lucide-svelte';
   import { createEventDispatcher } from 'svelte';
+  import { goto } from '$app/navigation';
 
   export let status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled' = 'pending';
   export let showProgress: boolean = true;
@@ -44,6 +45,48 @@
     }
   }
 
+  function getStatusClasses() {
+    const color = getStatusColor();
+    const classMap = {
+      green: {
+        bg: 'bg-green-50',
+        border: 'border-green-200',
+        icon: 'text-green-600',
+        title: 'text-green-800',
+        description: 'text-green-700'
+      },
+      red: {
+        bg: 'bg-red-50',
+        border: 'border-red-200',
+        icon: 'text-red-600',
+        title: 'text-red-800',
+        description: 'text-red-700'
+      },
+      yellow: {
+        bg: 'bg-yellow-50',
+        border: 'border-yellow-200',
+        icon: 'text-yellow-600',
+        title: 'text-yellow-800',
+        description: 'text-yellow-700'
+      },
+      blue: {
+        bg: 'bg-blue-50',
+        border: 'border-blue-200',
+        icon: 'text-blue-600',
+        title: 'text-blue-800',
+        description: 'text-blue-700'
+      },
+      gray: {
+        bg: 'bg-gray-50',
+        border: 'border-gray-200',
+        icon: 'text-gray-600',
+        title: 'text-gray-800',
+        description: 'text-gray-700'
+      }
+    };
+    return classMap[color] || classMap.gray;
+  }
+
   function getStatusText() {
     switch (status) {
       case 'succeeded':
@@ -85,22 +128,25 @@
 
 <div class="payment-status-indicator" role="status" aria-live="polite">
   <!-- Main status display -->
-  <div class="status-header flex items-center space-x-3 p-4 bg-{getStatusColor()}-50 border border-{getStatusColor()}-200 rounded-lg">
+  {#if true}
+    {@const statusClasses = getStatusClasses()}
+    <div class="status-header flex items-center space-x-3 p-4 {statusClasses.bg} border {statusClasses.border} rounded-lg">
     <div class="flex-shrink-0">
       <svelte:component 
         this={getStatusIcon()} 
-        class="h-8 w-8 text-{getStatusColor()}-600 {status === 'processing' ? 'animate-spin' : ''}" 
+        class="h-8 w-8 {statusClasses.icon} {status === 'processing' ? 'animate-spin' : ''}" 
       />
     </div>
     <div class="flex-1">
-      <h3 class="text-lg font-medium text-{getStatusColor()}-800">
+      <h3 class="text-lg font-medium {statusClasses.title}">
         {getStatusText()}
       </h3>
-      <p class="text-sm text-{getStatusColor()}-700 mt-1">
+      <p class="text-sm {statusClasses.description} mt-1">
         {getStatusDescription()}
       </p>
     </div>
   </div>
+  {/if}
 
   <!-- Progress steps -->
   {#if showProgress && progressSteps.length > 0}
@@ -170,7 +216,7 @@
     {#if status === 'succeeded'}
       <button
         class="btn btn-primary"
-        on:click={() => window.location.href = '/orders'}
+        on:click={() => goto('/orders')}
         aria-label="View orders"
       >
         View Orders

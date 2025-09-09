@@ -14,7 +14,7 @@ export interface ErrorNotification {
 
 export interface ErrorNotificationAction {
   label: string;
-  action: () => void;
+  action?: () => void;
   variant?: 'primary' | 'secondary' | 'danger';
 }
 
@@ -40,7 +40,7 @@ export const paymentErrorNotifications = derived(
 // Derived store for active (non-dismissed) notifications
 export const activeErrorNotifications = derived(
   errorNotifications,
-  ($notifications) => $notifications.filter(n => !n.persistent || Date.now() - n.timestamp.getTime() < 30000) // Auto-dismiss after 30 seconds unless persistent
+  ($notifications) => $notifications.filter(n => n.persistent || Date.now() - n.timestamp.getTime() < 30000) // Persistent notifications always included, non-persistent auto-dismiss after 30 seconds
 );
 
 class ErrorNotificationManager {
@@ -156,8 +156,10 @@ class ErrorNotificationManager {
       actions.push({
         label: 'Try Again',
         action: () => {
-          // This would be handled by the component that displays the notification
-          console.log('Retry payment action triggered');
+          // Dispatch CustomEvent for parent components to handle
+          window.dispatchEvent(new CustomEvent('payment-notification:retry', {
+            detail: { orderId, paymentInfo }
+          }));
         },
         variant: 'primary'
       });
@@ -167,7 +169,10 @@ class ErrorNotificationManager {
       actions.push({
         label: 'New Payment Method',
         action: () => {
-          console.log('New payment method action triggered');
+          // Dispatch CustomEvent for parent components to handle
+          window.dispatchEvent(new CustomEvent('payment-notification:new-payment', {
+            detail: { orderId, paymentInfo }
+          }));
         },
         variant: 'secondary'
       });
@@ -177,7 +182,10 @@ class ErrorNotificationManager {
       actions.push({
         label: 'Contact Support',
         action: () => {
-          console.log('Contact support action triggered');
+          // Dispatch CustomEvent for parent components to handle
+          window.dispatchEvent(new CustomEvent('payment-notification:contact-support', {
+            detail: { orderId, paymentInfo }
+          }));
         },
         variant: 'secondary'
       });
@@ -204,7 +212,10 @@ class ErrorNotificationManager {
       actions.push({
         label: 'Retry',
         action: () => {
-          console.log('Retry webhook action triggered');
+          // Dispatch CustomEvent for parent components to handle
+          window.dispatchEvent(new CustomEvent('webhook-notification:retry', {
+            detail: { orderId, error }
+          }));
         },
         variant: 'primary'
       });
@@ -214,7 +225,10 @@ class ErrorNotificationManager {
       actions.push({
         label: 'Check Status',
         action: () => {
-          console.log('Check status action triggered');
+          // Dispatch CustomEvent for parent components to handle
+          window.dispatchEvent(new CustomEvent('webhook-notification:check-status', {
+            detail: { orderId, error }
+          }));
         },
         variant: 'secondary'
       });
@@ -243,7 +257,10 @@ class ErrorNotificationManager {
         {
           label: 'Retry',
           action: () => {
-            console.log('Retry network action triggered');
+            // Dispatch CustomEvent for parent components to handle
+            window.dispatchEvent(new CustomEvent('network-notification:retry', {
+              detail: { error }
+            }));
           },
           variant: 'primary'
         }

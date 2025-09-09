@@ -28,7 +28,7 @@ export interface PollingResult {
  * Poll for order status updates when webhook fails
  */
 export class WebhookFallbackManager {
-  private activePollers = new Map<string, NodeJS.Timeout>();
+  private activePollers = new Map<string, number>();
   private pollingAttempts = new Map<string, number>();
 
   /**
@@ -65,7 +65,28 @@ export class WebhookFallbackManager {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
 
-          const order: OrderStatus = await response.json();
+          // Check if response has content
+          const contentLength = response.headers.get('content-length');
+          if (contentLength === '0') {
+            throw new Error('Empty response body');
+          }
+
+          // Check content type
+          const contentType = response.headers.get('content-type');
+          if (contentType && !contentType.includes('application/json')) {
+            console.warn(`Unexpected content type: ${contentType}`);
+          }
+
+          let order: OrderStatus;
+          try {
+            const responseText = await response.text();
+            if (!responseText.trim()) {
+              throw new Error('Empty response body');
+            }
+            order = JSON.parse(responseText);
+          } catch (parseError) {
+            throw new Error(`Failed to parse JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`);
+          }
           
           // Check if order is in a final state
           const finalStates = ['paid', 'cancelled', 'refunded', 'delivered'];
@@ -203,7 +224,28 @@ export async function checkOrderStatusWithFallback(
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
-    const order: OrderStatus = await response.json();
+    // Check if response has content
+    const contentLength = response.headers.get('content-length');
+    if (contentLength === '0') {
+      throw new Error('Empty response body');
+    }
+
+    // Check content type
+    const contentType = response.headers.get('content-type');
+    if (contentType && !contentType.includes('application/json')) {
+      console.warn(`Unexpected content type: ${contentType}`);
+    }
+
+    let order: OrderStatus;
+    try {
+      const responseText = await response.text();
+      if (!responseText.trim()) {
+        throw new Error('Empty response body');
+      }
+      order = JSON.parse(responseText);
+    } catch (parseError) {
+      throw new Error(`Failed to parse JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown parsing error'}`);
+    }
     
     // If order is in a pending state, start polling as fallback
     const pendingStates = ['pending', 'pending_payment'];

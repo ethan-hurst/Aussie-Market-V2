@@ -75,6 +75,41 @@
     }
   }
 
+  function getErrorClasses() {
+    const color = getErrorColor();
+    const classMap = {
+      red: {
+        bg: 'bg-red-50',
+        border: 'border-red-200',
+        text: 'text-red-600',
+        textDark: 'text-red-800',
+        textLight: 'text-red-700'
+      },
+      orange: {
+        bg: 'bg-orange-50',
+        border: 'border-orange-200',
+        text: 'text-orange-600',
+        textDark: 'text-orange-800',
+        textLight: 'text-orange-700'
+      },
+      blue: {
+        bg: 'bg-blue-50',
+        border: 'border-blue-200',
+        text: 'text-blue-600',
+        textDark: 'text-blue-800',
+        textLight: 'text-blue-700'
+      },
+      yellow: {
+        bg: 'bg-yellow-50',
+        border: 'border-yellow-200',
+        text: 'text-yellow-600',
+        textDark: 'text-yellow-800',
+        textLight: 'text-yellow-700'
+      }
+    };
+    return classMap[color] || classMap.red;
+  }
+
   function getErrorTitle() {
     if (!errorInfo) return 'Payment Error';
     
@@ -94,17 +129,18 @@
 </script>
 
 {#if error}
+  {@const errorClasses = getErrorClasses()}
   <div class="payment-error-boundary" role="alert" aria-live="polite">
-    <div class="error-container bg-{getErrorColor()}-50 border border-{getErrorColor()}-200 rounded-lg p-6">
+    <div class="error-container {errorClasses.bg} border {errorClasses.border} rounded-lg p-6">
       <div class="flex items-start">
         <div class="flex-shrink-0">
-          <svelte:component this={getErrorIcon()} class="h-6 w-6 text-{getErrorColor()}-600" />
+          <svelte:component this={getErrorIcon()} class="h-6 w-6 {errorClasses.text}" />
         </div>
         <div class="ml-3 flex-1">
-          <h3 class="text-lg font-medium text-{getErrorColor()}-800">
+          <h3 class="text-lg font-medium {errorClasses.textDark}">
             {getErrorTitle()}
           </h3>
-          <p class="mt-2 text-sm text-{getErrorColor()}-700">
+          <p class="mt-2 text-sm {errorClasses.textLight}">
             {errorInfo?.userMessage || mapApiErrorToMessage(error)}
           </p>
           
@@ -153,7 +189,7 @@
 
               <!-- Max retries reached message -->
               {#if retryCount >= maxRetries}
-                <p class="text-sm text-{getErrorColor()}-600">
+                <p class="text-sm {errorClasses.text}">
                   Maximum retry attempts reached. Please contact support for assistance.
                 </p>
               {/if}
@@ -162,7 +198,7 @@
 
           <!-- Order ID display -->
           {#if orderId}
-            <div class="mt-4 text-xs text-{getErrorColor()}-600">
+            <div class="mt-4 text-xs {errorClasses.text}">
               Order ID: {orderId}
             </div>
           {/if}

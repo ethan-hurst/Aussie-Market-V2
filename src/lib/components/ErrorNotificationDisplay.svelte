@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { activeErrorNotifications, dismissNotification } from '$lib/errorNotificationSystem';
+  import { activeErrorNotifications, dismissNotification, type ErrorNotification } from '$lib/errorNotificationSystem';
   import { CheckCircle, AlertTriangle, Info, XCircle, X, RefreshCw, CreditCard, Wifi, WifiOff } from 'lucide-svelte';
   import { createEventDispatcher } from 'svelte';
 
@@ -13,8 +13,8 @@
     notificationDismissed: { notificationId: string };
   }>();
 
-  let notifications: any[] = [];
-  let dismissTimeouts = new Map<string, NodeJS.Timeout>();
+  let notifications: ErrorNotification[] = [];
+  let dismissTimeouts = new Map<string, number>();
 
   $: notifications = $activeErrorNotifications.slice(0, maxNotifications);
 
@@ -26,7 +26,7 @@
           const timeout = setTimeout(() => {
             dismissNotification(notification.id);
             dismissTimeouts.delete(notification.id);
-          }, autoDismissDelay);
+          }, autoDismissDelay) as unknown as number;
           dismissTimeouts.set(notification.id, timeout);
         }
       });
@@ -164,7 +164,7 @@
           <span class="notification-timestamp">
             {formatTimestamp(notification.timestamp)}
           </span>
-          {#if 'paymentInfo' in notification && notification.paymentInfo.retryable}
+          {#if 'paymentInfo' in notification && notification.paymentInfo && (notification.paymentInfo as any).retryable}
             <span class="notification-retryable">
               Retryable
             </span>

@@ -299,8 +299,9 @@ BEGIN
     ) VALUES (
         'webhook_' || TG_OP,
         'webhook_events',
-        NEW.event_id,
+        NULL,
         jsonb_build_object(
+            'event_id', NEW.event_id,
             'event_type', NEW.event_type,
             'order_id', NEW.order_id,
             'processed_at', NEW.processed_at,
