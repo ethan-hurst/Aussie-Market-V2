@@ -11,7 +11,7 @@ import {
 	type BidData
 } from '$lib/auctions';
 import { rateLimit } from '$lib/security';
-import { validate, BidSchema } from '$lib/validation';
+import { validate, validateWithSecurity, BidSchema, BidsQuerySchema } from '$lib/validation';
 import { getSessionUserFromLocals, validateUserAccess } from '$lib/session';
 import { ApiErrorHandler } from '$lib/api-error-handler';
 import { recordBusinessEvent } from '$lib/server/kpi-metrics-server';
@@ -148,9 +148,21 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 
 export const GET: RequestHandler = async ({ url, locals, request }) => {
 	try {
-		const action = url.searchParams.get('action');
-		const listingId = url.searchParams.get('listingId');
-		const userId = url.searchParams.get('userId');
+		// Validate query parameters with enhanced security
+		const queryValidation = validateWithSecurity(
+			BidsQuerySchema, 
+			Object.fromEntries(url.searchParams.entries()),
+			{ 
+				endpoint: '/api/bids',
+				ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+			}
+		);
+		
+		if (!queryValidation.ok) {
+			return json({ error: queryValidation.error, code: 'INVALID_PARAMS' }, { status: 400 });
+		}
+		
+		const { action, listingId, userId, limit } = queryValidation.value;
 
 		// Get authenticated user with proper error handling
 		const user = await getSessionUserFromLocals(locals);
@@ -171,8 +183,7 @@ export const GET: RequestHandler = async ({ url, locals, request }) => {
 
 		// Get bid history for a listing
 		if (action === 'history' && listingId) {
-			const limit = parseInt(url.searchParams.get('limit') || '50');
-			const result = await getBidHistory(listingId, limit);
+			const result = await getBidHistory(listingId, limit || 50);
 			
 			if (!result.success) {
 				return json({ error: result.error }, { status: 500 });

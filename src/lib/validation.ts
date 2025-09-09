@@ -165,4 +165,157 @@ export const KPICalculationSchema = z.object({
   return timeDiff <= oneYear;
 }, { message: 'Time range cannot exceed 1 year' });
 
+// ========== QUERY PARAMETER VALIDATION SCHEMAS ==========
+// Secure validation for all API query parameters
+
+export const BidsQuerySchema = z.object({
+  action: z.enum(['current', 'history', 'user', 'winning'], { message: 'Invalid action. Must be one of: current, history, user, winning' }),
+  listingId: z.string().uuid({ message: 'Invalid listing ID format' }).optional(),
+  userId: z.string().uuid({ message: 'Invalid user ID format' }).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional()
+}).refine((data) => {
+  // Ensure required fields are present for each action
+  if (data.action === 'current' && !data.listingId) {
+    return false;
+  }
+  if (data.action === 'history' && !data.listingId) {
+    return false;
+  }
+  if (data.action === 'user' && !data.userId) {
+    return false;
+  }
+  if (data.action === 'winning' && (!data.listingId || !data.userId)) {
+    return false;
+  }
+  return true;
+}, { message: 'Missing required parameters for the specified action' });
+
+export const ListingsQuerySchema = z.object({
+  action: z.enum(['get', 'user', 'search'], { message: 'Invalid action. Must be one of: get, user, search' }),
+  listingId: z.string().uuid({ message: 'Invalid listing ID format' }).optional(),
+  userId: z.string().uuid({ message: 'Invalid user ID format' }).optional(),
+  status: z.string().max(32).transform(sanitizeInline).optional(),
+  // Search parameters (extends SearchSchema)
+  category_id: z.coerce.number().int().positive().optional(),
+  condition: z.enum(['new', 'like_new', 'good', 'fair', 'parts']).optional(),
+  state: AUStateEnum.optional(),
+  min_price: z.coerce.number().min(0).max(1000000).optional(),
+  max_price: z.coerce.number().min(0).max(1000000).optional(),
+  search: z.string().max(120).transform((s) => sanitizeInline(s || '')).optional()
+}).refine((data) => {
+  if (data.action === 'get' && !data.listingId) {
+    return false;
+  }
+  if (data.action === 'user' && !data.userId) {
+    return false;
+  }
+  return true;
+}, { message: 'Missing required parameters for the specified action' });
+
+export const OrdersQuerySchema = z.object({
+  orderId: z.string().uuid({ message: 'Invalid order ID format' })
+});
+
+export const KPIQuerySchema = z.object({
+  action: z.enum(['get', 'calculate', 'alerts'], { message: 'Invalid action' }).optional(),
+  startTime: z.string().datetime().optional(),
+  endTime: z.string().datetime().optional(),
+  timePeriod: z.enum(['hourly', 'daily', 'weekly', 'monthly']).optional(),
+  metric: z.string().max(50).transform(sanitizeInline).optional(),
+  category: z.enum(['financial', 'business', 'performance', 'operational']).optional()
+});
+
+export const ShipmentQuerySchema = z.object({
+  orderId: z.string().uuid({ message: 'Invalid order ID format' })
+});
+
+export const PickupQuerySchema = z.object({
+  orderId: z.string().uuid({ message: 'Invalid order ID format' })
+});
+
+export const StorageQuerySchema = z.object({
+  bucket: z.string().min(1).max(50).transform(sanitizeInline).optional(),
+  path: z.string().min(1).max(200).transform(sanitizeInline).optional(),
+  photoId: z.string().uuid().optional(),
+  listingId: z.string().uuid().optional()
+});
+
+// ========== CENTRALIZED QUERY VALIDATION FUNCTION ==========
+
+/**
+ * Validate query parameters for API endpoints based on the endpoint path
+ */
+export function validateQueryParams(pathname: string, searchParams: URLSearchParams): { ok: true; value: any } | { ok: false; error: string } {
+  const params = Object.fromEntries(searchParams.entries());
+  
+  // Route-based validation
+  if (pathname.includes('/api/bids')) {
+    return validate(BidsQuerySchema, params);
+  }
+  
+  if (pathname.includes('/api/listings')) {
+    return validate(ListingsQuerySchema, params);
+  }
+  
+  if (pathname.includes('/api/orders')) {
+    const orderIdMatch = pathname.match(/\/api\/orders\/([^\/]+)/);
+    if (orderIdMatch) {
+      return validate(OrdersQuerySchema, { orderId: orderIdMatch[1] });
+    }
+  }
+  
+  if (pathname.includes('/api/kpi')) {
+    return validate(KPIQuerySchema, params);
+  }
+  
+  if (pathname.includes('/api/shipments')) {
+    const orderIdMatch = pathname.match(/\/api\/shipments\/([^\/]+)/);
+    if (orderIdMatch) {
+      return validate(ShipmentQuerySchema, { orderId: orderIdMatch[1] });
+    }
+  }
+  
+  if (pathname.includes('/api/pickup')) {
+    const orderIdMatch = pathname.match(/\/api\/pickup\/([^\/]+)/);
+    if (orderIdMatch) {
+      return validate(PickupQuerySchema, { orderId: orderIdMatch[1] });
+    }
+  }
+  
+  if (pathname.includes('/api/storage')) {
+    return validate(StorageQuerySchema, params);
+  }
+  
+  // Default: allow all parameters for endpoints without specific validation
+  return { ok: true, value: params };
+}
+
+/**
+ * Enhanced validation function with security logging
+ */
+export function validateWithSecurity<T>(
+  schema: z.ZodSchema<T>, 
+  data: unknown,
+  context?: { endpoint?: string; userId?: string; ip?: string }
+): { ok: true; value: T } | { ok: false; error: string } {
+  const result = schema.safeParse(data);
+  
+  if (!result.success) {
+    const message = result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ');
+    
+    // Log validation failures for security monitoring
+    console.warn('[VALIDATION] Schema validation failed:', {
+      endpoint: context?.endpoint,
+      userId: context?.userId,
+      ip: context?.ip,
+      errors: result.error.errors,
+      inputKeys: typeof data === 'object' && data !== null ? Object.keys(data) : 'non-object'
+    });
+    
+    return { ok: false, error: message };
+  }
+  
+  return { ok: true, value: result.data };
+}
+
 

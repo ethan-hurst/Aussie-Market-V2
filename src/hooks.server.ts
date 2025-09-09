@@ -3,7 +3,7 @@ const { createServerClient } = pkg;
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { initializeApplication } from '$lib/startup';
 import type { Handle } from '@sveltejs/kit';
-import { isCsrfRequestValid } from '$lib/security';
+import { validateCsrfToken } from '$lib/security';
 import { dev } from '$app/environment';
 import { initSentry, configureApiSentry, captureException, setSentryUser, setSentryTags, withApiMonitoring } from '$lib/sentry';
 import { handleMockRequest } from '$lib/mocks/mock-server.js';
@@ -49,20 +49,34 @@ export const handle: Handle = async ({ event, resolve }) => {
 		correlationId
 	});
 	
-	// CSRF protection for state-changing API requests
-	if (!isCsrfRequestValid(event)) {
-		captureException(new Error('Invalid CSRF token'), {
+	// Enhanced CSRF protection for state-changing API requests
+	const csrfResult = validateCsrfToken(event);
+	if (!csrfResult.valid) {
+		captureException(new Error(`CSRF validation failed: ${csrfResult.reason}`), {
 			tags: {
 				component: 'security',
-				error_type: 'csrf_validation'
+				error_type: 'csrf_validation_failed'
 			},
 			extra: {
 				path: event.url.pathname,
 				method: event.request.method,
-				userAgent: event.request.headers.get('user-agent')
+				userAgent: event.request.headers.get('user-agent'),
+				origin: event.request.headers.get('origin'),
+				referer: event.request.headers.get('referer'),
+				reason: csrfResult.reason
 			}
 		});
-		return new Response(JSON.stringify({ error: 'Invalid CSRF' }), { status: 403, headers: { 'content-type': 'application/json' } });
+		
+		return new Response(JSON.stringify({ 
+			error: 'Request blocked by CSRF protection', 
+			code: 'CSRF_INVALID' 
+		}), { 
+			status: 403, 
+			headers: { 
+				'content-type': 'application/json',
+				...csrfResult.headers
+			} 
+		});
 	}
 	
 	event.locals.supabase = createServerClient(

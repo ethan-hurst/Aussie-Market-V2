@@ -12,7 +12,7 @@ import {
 } from '$lib/listings';
 import { rateLimit } from '$lib/security';
 import { mapApiErrorToMessage } from '$lib/errors';
-import { validate, ListingCreateSchema, SearchSchema } from '$lib/validation';
+import { validate, validateWithSecurity, ListingCreateSchema, SearchSchema, ListingsQuerySchema } from '$lib/validation';
 import { getSessionUserFromLocals, validateUserAccess } from '$lib/session';
 import { ApiErrorHandler } from '$lib/api-error-handler';
 import { recordBusinessEvent } from '$lib/server/kpi-metrics-server';
@@ -84,10 +84,21 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 
 export const GET: RequestHandler = async ({ url, locals, request }) => {
 	try {
-		const action = url.searchParams.get('action');
-		const listingId = url.searchParams.get('listingId');
-		const userId = url.searchParams.get('userId');
-		const status = url.searchParams.get('status');
+		// Validate query parameters with enhanced security
+		const queryValidation = validateWithSecurity(
+			ListingsQuerySchema,
+			Object.fromEntries(url.searchParams.entries()),
+			{
+				endpoint: '/api/listings',
+				ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+			}
+		);
+		
+		if (!queryValidation.ok) {
+			return json({ error: queryValidation.error, code: 'INVALID_PARAMS' }, { status: 400 });
+		}
+		
+		const { action, listingId, userId, status, category_id, condition, state, min_price, max_price, search } = queryValidation.value;
 
 		// Get specific listing
 		if (action === 'get' && listingId) {
@@ -108,7 +119,7 @@ export const GET: RequestHandler = async ({ url, locals, request }) => {
 			// Verify user is authenticated and requesting their own listings
 			await validateUserAccess({ request, locals, url }, userId);
 
-			const result = await getUserListings(userId, status || undefined);
+			const result = await getUserListings(userId, status);
 			
 			if (!result.success) {
 				return json({ error: mapApiErrorToMessage(result.error) }, { status: 500 });
@@ -122,13 +133,17 @@ export const GET: RequestHandler = async ({ url, locals, request }) => {
 
 		// Search listings
 		if (action === 'search') {
-			const filtersObj = Object.fromEntries(url.searchParams.entries());
-			const parsedSearch = validate(SearchSchema, filtersObj);
-			if (!parsedSearch.ok) {
-				return json({ error: mapApiErrorToMessage(parsedSearch.error) }, { status: 400 });
-			}
+			// Use validated query parameters for search
+			const searchFilters = {
+				category_id,
+				condition,
+				state,
+				min_price,
+				max_price,
+				search
+			};
 
-			const result = await searchListings(parsedSearch.value as any);
+			const result = await searchListings(searchFilters);
 			
 			if (!result.success) {
 				return json({ error: mapApiErrorToMessage(result.error) }, { status: 500 });

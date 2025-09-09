@@ -33,21 +33,152 @@ export function rateLimit(key: string, limit: number, windowMs: number): {
 }
 
 /**
- * Basic CSRF protection: for state-changing methods on /api routes,
- * if Origin header is present it must match event.url.origin.
- * Skips checks for test traffic (x-test-user-id).
+ * Enhanced CSRF protection middleware for state-changing API requests
+ * 
+ * SECURITY FEATURES:
+ * - Validates Origin header matches site origin
+ * - Requires Origin header for state-changing methods
+ * - Validates Referer header as fallback
+ * - Blocks requests from untrusted origins
+ * - Comprehensive logging for security monitoring
+ */
+export interface CsrfValidationResult {
+  valid: boolean;
+  reason?: string;
+  headers?: Record<string, string>;
+}
+
+/**
+ * Comprehensive CSRF validation for API endpoints
+ */
+export function validateCsrfToken(event: { request: Request; url: URL }): CsrfValidationResult {
+  const method = event.request.method.toUpperCase();
+  const pathname = event.url.pathname;
+  
+  // Skip validation for safe methods
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+    return { valid: true };
+  }
+  
+  // Skip validation for non-API routes
+  if (!pathname.startsWith('/api/')) {
+    return { valid: true };
+  }
+  
+  // Skip validation for webhook endpoints (have their own validation)
+  if (pathname.includes('/webhooks/')) {
+    return { valid: true };
+  }
+  
+  // Allow tests to bypass (but log for security monitoring)
+  const testUserId = event.request.headers.get('x-test-user-id');
+  if (testUserId) {
+    console.warn('[CSRF] Test bypass used:', { pathname, method, testUserId });
+    return { valid: true };
+  }
+  
+  const origin = event.request.headers.get('origin');
+  const referer = event.request.headers.get('referer');
+  const userAgent = event.request.headers.get('user-agent');
+  const contentType = event.request.headers.get('content-type');
+  
+  // CSRF Protection: Origin header validation
+  if (origin) {
+    if (origin !== event.url.origin) {
+      return {
+        valid: false,
+        reason: `Invalid origin: ${origin} (expected: ${event.url.origin})`,
+        headers: { 'X-CSRF-Error': 'invalid-origin' }
+      };
+    }
+  } else {
+    // For state-changing requests, Origin is required
+    // Referer can be used as fallback but is less reliable
+    if (referer) {
+      try {
+        const refererUrl = new URL(referer);
+        if (refererUrl.origin !== event.url.origin) {
+          return {
+            valid: false,
+            reason: `Invalid referer: ${referer} (expected origin: ${event.url.origin})`,
+            headers: { 'X-CSRF-Error': 'invalid-referer' }
+          };
+        }
+      } catch (error) {
+        return {
+          valid: false,
+          reason: `Malformed referer header: ${referer}`,
+          headers: { 'X-CSRF-Error': 'malformed-referer' }
+        };
+      }
+    } else {
+      // No Origin or Referer header - block the request
+      return {
+        valid: false,
+        reason: 'Missing Origin and Referer headers for state-changing request',
+        headers: { 'X-CSRF-Error': 'missing-headers' }
+      };
+    }
+  }
+  
+  // Additional security checks
+  
+  // Check for suspicious user agents
+  if (userAgent && isSuspiciousUserAgent(userAgent)) {
+    console.warn('[CSRF] Suspicious user agent detected:', { pathname, userAgent, origin });
+  }
+  
+  // Validate content type for POST/PUT requests with body
+  if ((method === 'POST' || method === 'PUT') && contentType) {
+    if (!isAllowedContentType(contentType)) {
+      return {
+        valid: false,
+        reason: `Unsupported content type: ${contentType}`,
+        headers: { 'X-CSRF-Error': 'invalid-content-type' }
+      };
+    }
+  }
+  
+  return { valid: true };
+}
+
+/**
+ * Legacy function for backwards compatibility
  */
 export function isCsrfRequestValid(event: { request: Request; url: URL }): boolean {
-  const method = event.request.method.toUpperCase();
-  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return true;
-  if (!event.url.pathname.startsWith('/api/')) return true;
+  const result = validateCsrfToken(event);
+  return result.valid;
+}
 
-  // Allow tests to bypass
-  if (event.request.headers.get('x-test-user-id')) return true;
+/**
+ * Check if User-Agent appears to be from an automated tool or bot
+ */
+function isSuspiciousUserAgent(userAgent: string): boolean {
+  const suspiciousPatterns = [
+    /curl\//i,
+    /wget\//i,
+    /python-requests\//i,
+    /bot/i,
+    /crawler/i,
+    /spider/i,
+    /scraper/i
+  ];
+  
+  return suspiciousPatterns.some(pattern => pattern.test(userAgent));
+}
 
-  const origin = event.request.headers.get('origin');
-  if (!origin) return true; // Most browsers set Origin on cross-site; allow if absent
-  return origin === event.url.origin;
+/**
+ * Validate content type is allowed for API requests
+ */
+function isAllowedContentType(contentType: string): boolean {
+  const allowedTypes = [
+    'application/json',
+    'application/x-www-form-urlencoded',
+    'multipart/form-data',
+    'text/plain'
+  ];
+  
+  return allowedTypes.some(type => contentType.toLowerCase().includes(type));
 }
 
 
