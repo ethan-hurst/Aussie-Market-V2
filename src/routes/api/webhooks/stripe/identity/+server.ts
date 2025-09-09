@@ -6,20 +6,35 @@ import type { RequestHandler } from './$types';
 
 // Validate production secrets
 const isProduction = process.env.NODE_ENV === 'production';
+
+// Get secrets with proper validation
+let stripeSecretKey: string;
+let webhookSecret: string;
+
 if (isProduction) {
-	if (!env.STRIPE_SECRET_KEY || env.STRIPE_SECRET_KEY.includes('test') || env.STRIPE_SECRET_KEY.includes('your_stripe_secret_key_here')) {
-		throw new Error('Production requires real Stripe secret key');
+	// Production: require live keys and real secrets
+	if (!env.STRIPE_SECRET_KEY || !env.STRIPE_SECRET_KEY.startsWith('sk_live_')) {
+		throw new Error('Production requires live Stripe secret key (sk_live_*)');
 	}
-	if (!env.STRIPE_WEBHOOK_SECRET || env.STRIPE_WEBHOOK_SECRET.includes('your_webhook_secret_here')) {
+	if (!env.STRIPE_WEBHOOK_SECRET || 
+		env.STRIPE_WEBHOOK_SECRET.includes('your_webhook_secret_here') ||
+		env.STRIPE_WEBHOOK_SECRET.includes('whsec_your_webhook_secret_here') ||
+		env.STRIPE_WEBHOOK_SECRET === 'whsec_your_webhook_secret_here') {
 		throw new Error('Production requires real Stripe webhook secret');
 	}
+	stripeSecretKey = env.STRIPE_SECRET_KEY;
+	webhookSecret = env.STRIPE_WEBHOOK_SECRET;
+} else {
+	// Non-production: use fallback values
+	stripeSecretKey = env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here';
+	webhookSecret = env.STRIPE_WEBHOOK_SECRET || 'whsec_your_webhook_secret_here';
 }
 
-const stripe = new Stripe(env.STRIPE_SECRET_KEY || 'sk_test_your_stripe_secret_key_here', {
+const stripe = new Stripe(stripeSecretKey, {
 	apiVersion: '2024-06-20'
 });
 
-const endpointSecret = env.STRIPE_WEBHOOK_SECRET || 'whsec_your_webhook_secret_here';
+const endpointSecret = webhookSecret;
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.text();
