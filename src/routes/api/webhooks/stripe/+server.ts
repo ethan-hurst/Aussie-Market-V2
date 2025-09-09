@@ -7,6 +7,7 @@ import type { RequestHandler } from './$types';
 // Production security: Only use real secrets in production
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';
+const isE2EMode = process.env.E2E_TESTING === 'true' || process.env.NODE_ENV === 'test';
 
 // Validate production secrets
 if (isProduction) {
@@ -62,9 +63,9 @@ export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.text();
 	const sig = request.headers.get('stripe-signature');
 
-	// Enhanced security: Reject requests without signature in production
-	if (isProduction && !sig) {
-		console.error('Production webhook request missing signature');
+	// Enhanced security: Reject requests without signature in production and E2E tests
+	if ((isProduction || isE2EMode) && !sig) {
+		console.error('Webhook request missing signature');
 		return json({ error: 'Missing signature' }, { status: 400 });
 	}
 
@@ -72,8 +73,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	try {
 		// Enhanced signature validation
-		if (sig === 'sig_mock' && isDevelopment) {
-			// Only allow mock signatures in development
+		if (sig === 'sig_mock' && (isDevelopment || isE2EMode)) {
+			// Only allow mock signatures in development and E2E tests
 			event = JSON.parse(body) as any;
 		} else if (sig && endpointSecret) {
 			// Production: Always validate real signatures
