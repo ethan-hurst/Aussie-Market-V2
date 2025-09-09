@@ -80,6 +80,9 @@ import ToastContainer from '$lib/components/ToastContainer.svelte';
 				<!-- Desktop navigation -->
 				<div class="hidden md:flex items-center space-x-8">
 					<a href="/" data-testid="nav-home" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
+						Home
+					</a>
+					<a href="/marketplace" data-testid="nav-marketplace" class="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium">
 						Browse
 					</a>
 					{#if user}

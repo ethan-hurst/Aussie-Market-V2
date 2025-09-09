@@ -215,6 +215,7 @@ import { toastError, toastSuccess } from '$lib/toast';
 		success = '';
 
 		try {
+			const amountCents = Math.round(parseFloat(bidAmount) * 100);
 			const maxProxyCents = maxProxyBid ? Math.round(parseFloat(maxProxyBid) * 100) : null;
 
 			if (listingId) {
