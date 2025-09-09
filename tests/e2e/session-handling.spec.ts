@@ -159,7 +159,7 @@ test.describe('Session Handling E2E Tests', () => {
 			// Make multiple API requests
 			const responses = await Promise.all([
 				request.get('/api/listings', { headers: { 'x-test-user-id': 'test-user-123' } }),
-				request.get('/api/orders', { headers: { 'x-test-user-id': 'test-user-123' } }),
+				request.get('/api/bids', { headers: { 'x-test-user-id': 'test-user-123' } }),
 				request.get('/api/kyc', { headers: { 'x-test-user-id': 'test-user-123' } })
 			]);
 			

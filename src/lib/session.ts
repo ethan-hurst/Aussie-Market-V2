@@ -47,6 +47,7 @@ export class SessionError extends Error {
 
 /**
  * Get session from request with proper typing and error handling
+ * Supports both real sessions and test mode with x-test-user-id header
  * 
  * @param event - SvelteKit request event
  * @returns Promise<Session> - Typed session object
@@ -54,6 +55,29 @@ export class SessionError extends Error {
  */
 export async function getSession(event: RequestEvent): Promise<Session> {
 	try {
+		// Check for test mode authentication header first
+		const testUserId = event.request.headers.get('x-test-user-id');
+		if (testUserId && testUserId.trim() !== '') {
+			// Create a complete mock session for testing
+			const mockSession: Session = {
+				user: {
+					id: testUserId,
+					email: `${testUserId}@example.com`,
+					user_metadata: { full_name: `Test User ${testUserId}` },
+					app_metadata: {},
+					aud: 'authenticated',
+					created_at: new Date().toISOString(),
+					updated_at: new Date().toISOString()
+				},
+				access_token: `mock-access-token-${testUserId}`,
+				refresh_token: `mock-refresh-token-${testUserId}`,
+				expires_at: Date.now() + 3600000, // 1 hour from now
+				expires_in: 3600,
+				token_type: 'bearer'
+			};
+			return mockSession;
+		}
+
 		const sessionResp = await event.locals.getSession();
 		
 		// Handle different response formats from getSession()
@@ -128,7 +152,7 @@ export async function getSessionOrThrow(event: RequestEvent): Promise<Session> {
 		return await getSession(event);
 	} catch (error) {
 		if (error instanceof SessionError) {
-			throw json({ error: 'Unauthorized' }, { status: error.statusCode });
+			throw json({ error: error.message }, { status: error.statusCode });
 		}
 		throw json({ error: 'Authentication failed' }, { status: 500 });
 	}

@@ -151,6 +151,16 @@ export class MockServerCoordinator {
 
       // Mock API endpoints for bids
       if (url.pathname === '/api/bids' && request.method === 'POST') {
+        // Check for authentication header in test mode
+        const testUserId = request.headers.get('x-test-user-id');
+        
+        if (!testUserId) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
         const body = await request.json();
         
         // Simple bid placement response
@@ -168,10 +178,72 @@ export class MockServerCoordinator {
         });
       }
 
+      // Mock API endpoints for bids GET (viewing bids)
+      if (url.pathname === '/api/bids' && request.method === 'GET') {
+        // Check for authentication header in test mode
+        const testUserId = request.headers.get('x-test-user-id');
+        
+        if (!testUserId) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Return mock bids data
+        return new Response(JSON.stringify({
+          success: true,
+          bids: [
+            {
+              id: 'bid_1',
+              amount_cents: 5000,
+              created_at: new Date().toISOString()
+            }
+          ]
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
       // Mock API endpoints for listings
       if (url.pathname === '/api/listings' && request.method === 'GET') {
+        // Check for authentication header in test mode
+        const testUserId = request.headers.get('x-test-user-id');
+        
+        // If no authentication and no specific action, return 401 (mirrors real API behavior for protected operations)
+        if (!testUserId && !url.searchParams.has('action')) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
         const listings = supabaseAuthMock.getListings();
         return new Response(JSON.stringify(listings), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Mock KYC endpoint
+      if (url.pathname === '/api/kyc' && request.method === 'GET') {
+        // Check for authentication header in test mode
+        const testUserId = request.headers.get('x-test-user-id');
+        
+        if (!testUserId) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Return mock KYC data
+        return new Response(JSON.stringify({
+          success: true,
+          status: 'pending',
+          user_id: testUserId
+        }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' }
         });

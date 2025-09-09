@@ -19,7 +19,12 @@ import {
 } from './session';
 
 // Mock RequestEvent
-const createMockEvent = (sessionResponse: any): RequestEvent => ({
+const createMockEvent = (sessionResponse: any, headers?: Record<string, string>): RequestEvent => ({
+	request: {
+		headers: {
+			get: vi.fn().mockImplementation((key: string) => headers?.[key] || null)
+		}
+	},
 	locals: {
 		getSession: vi.fn().mockResolvedValue(sessionResponse)
 	}
@@ -137,6 +142,49 @@ describe('Session Helper Functions', () => {
 
 			// Act & Assert
 			await expect(getSession(event)).rejects.toThrow(originalError);
+		});
+
+		it('should use x-test-user-id header when present', async () => {
+			// Arrange
+			const testUserId = 'test-user-456';
+			const event = createMockEvent(null, { 'x-test-user-id': testUserId });
+
+			// Act
+			const result = await getSession(event);
+
+			// Assert
+			expect(result.user.id).toBe(testUserId);
+			expect(result.user.email).toBe(`${testUserId}@example.com`);
+			expect(result.access_token).toBe(`mock-access-token-${testUserId}`);
+			expect(result.token_type).toBe('bearer');
+			// Should not call actual getSession when using test header
+			expect(event.locals.getSession).not.toHaveBeenCalled();
+		});
+
+		it('should fall back to regular session when x-test-user-id is empty', async () => {
+			// Arrange
+			const mockSession = createMockSession();
+			const event = createMockEvent({ data: { session: mockSession } }, { 'x-test-user-id': '' });
+
+			// Act
+			const result = await getSession(event);
+
+			// Assert
+			expect(result).toEqual(mockSession);
+			expect(event.locals.getSession).toHaveBeenCalledOnce();
+		});
+
+		it('should fall back to regular session when x-test-user-id header is not present', async () => {
+			// Arrange
+			const mockSession = createMockSession();
+			const event = createMockEvent({ data: { session: mockSession } });
+
+			// Act
+			const result = await getSession(event);
+
+			// Assert
+			expect(result).toEqual(mockSession);
+			expect(event.locals.getSession).toHaveBeenCalledOnce();
 		});
 	});
 

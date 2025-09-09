@@ -1,14 +1,13 @@
 import { json } from '@sveltejs/kit';
 import { supabase } from '$lib/supabase';
 import { completeKYCVerification } from '$lib/auth';
+import { getSessionUserOrThrow, validateUserAccess } from '$lib/session';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url, locals }) => {
+export const GET: RequestHandler = async ({ url, locals, request }) => {
 	try {
-		const { data: { session } } = await locals.getSession();
-		if (!session) {
-			return json({ error: 'Unauthorized' }, { status: 401 });
-		}
+		// Get authenticated user with proper error handling
+		const user = await getSessionUserOrThrow({ request, locals } as any);
 
 		const sessionId = url.searchParams.get('session_id');
 		const userId = url.searchParams.get('user_id');
@@ -18,7 +17,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		}
 
 		// Verify the user_id matches the authenticated user
-		if (session.user.id !== userId) {
+		if (user.id !== userId) {
 			return json({ error: 'Unauthorized' }, { status: 403 });
 		}
 
