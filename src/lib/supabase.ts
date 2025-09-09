@@ -36,9 +36,20 @@ if (typeof window !== 'undefined') {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && parsed.user && parsed.user.id) {
+        // Create a proper JWT-like token structure for E2E tests
+        const mockJwtHeader = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+        const mockJwtPayload = btoa(JSON.stringify({ 
+          sub: parsed.user.id,
+          email: parsed.user.email || 'test@example.com',
+          exp: Math.floor(Date.now() / 1000) + 3600,
+          iat: Math.floor(Date.now() / 1000)
+        }));
+        const mockJwtSignature = 'test-signature';
+        const mockJwtToken = `${mockJwtHeader}.${mockJwtPayload}.${mockJwtSignature}`;
+        
         const mockSession = { 
           user: parsed.user, 
-          access_token: 'test-token-for-e2e',
+          access_token: mockJwtToken,
           expires_at: Math.floor(Date.now() / 1000) + 3600
         };
         (supabase.auth as any).getSession = async () => ({ data: { session: mockSession } });
@@ -47,7 +58,7 @@ if (typeof window !== 'undefined') {
         if (originalRest) {
           originalRest.headers = {
             ...originalRest.headers,
-            Authorization: 'Bearer test-token-for-e2e'
+            Authorization: `Bearer ${mockJwtToken}`
           };
         }
       }

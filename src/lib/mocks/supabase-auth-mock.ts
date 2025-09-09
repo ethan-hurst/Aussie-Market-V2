@@ -913,8 +913,22 @@ export async function handleMockSupabaseAuth(event: RequestEvent): Promise<Respo
         });
       }
 
-      const session = supabaseAuthMock.getSession(token);
-      if (!session) {
+      // For E2E tests, try to extract user ID from JWT payload
+      let userId: string | null = null;
+      try {
+        // Split JWT and decode payload
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          userId = payload.sub;
+        }
+      } catch {
+        // If JWT parsing fails, fall back to session lookup
+        const session = supabaseAuthMock.getSession(token);
+        userId = session?.user.id || null;
+      }
+
+      if (!userId) {
         return new Response(JSON.stringify({ error: 'Invalid session' }), {
           status: 401,
           headers: { 'Content-Type': 'application/json' }
@@ -923,7 +937,7 @@ export async function handleMockSupabaseAuth(event: RequestEvent): Promise<Respo
 
       if (request.method === 'HEAD') {
         // HEAD request for count
-        const count = supabaseAuthMock.getUnreadNotificationCount(session.user.id);
+        const count = supabaseAuthMock.getUnreadNotificationCount(userId);
         return new Response('', {
           status: 200,
           headers: { 
@@ -938,7 +952,7 @@ export async function handleMockSupabaseAuth(event: RequestEvent): Promise<Respo
         
         if (prefer.includes('count=exact')) {
           // GET with count=exact header
-          const count = supabaseAuthMock.getUnreadNotificationCount(session.user.id);
+          const count = supabaseAuthMock.getUnreadNotificationCount(userId);
           return new Response('', {
             status: 200,
             headers: { 
@@ -948,7 +962,7 @@ export async function handleMockSupabaseAuth(event: RequestEvent): Promise<Respo
           });
         } else {
           // Regular GET for notifications list
-          const notifications = supabaseAuthMock.getUserNotifications(session.user.id);
+          const notifications = supabaseAuthMock.getUserNotifications(userId);
           return new Response(JSON.stringify(notifications), {
             status: 200,
             headers: { 
@@ -974,9 +988,9 @@ export async function handleMockSupabaseAuth(event: RequestEvent): Promise<Respo
           }
         }
         
-        if (userIdEq === session.user.id && readEq === false) {
+        if (userIdEq === userId && readEq === false) {
           // Mark all unread notifications as read
-          const count = supabaseAuthMock.markAllNotificationsAsRead(session.user.id);
+          const count = supabaseAuthMock.markAllNotificationsAsRead(userId);
           return new Response('', {
             status: 204,
             headers: { 'Content-Type': 'application/json' }
