@@ -423,10 +423,19 @@ export function subscribeToOrderUpdates(orderId: string, callback: (order: Order
 			table: 'orders',
 			filter: `id=eq.${orderId}`
 		}, async (payload) => {
-			// Fetch updated order with all details
-			const updatedOrder = await getOrderDetails(orderId);
-			if (updatedOrder) {
-				callback(updatedOrder);
+			console.log('Realtime event received for order:', orderId);
+			try {
+				// Fetch updated order with all details
+				const updatedOrder = await getOrderDetails(orderId);
+				console.log('Updated order fetched:', updatedOrder?.state);
+				if (updatedOrder) {
+					callback(updatedOrder);
+					console.log('Callback called with updated order');
+				} else {
+					console.log('No updated order found');
+				}
+			} catch (error) {
+				console.error('Error in realtime callback:', error);
 			}
 		})
 		.subscribe();

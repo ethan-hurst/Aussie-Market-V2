@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test('realtime order update refreshes UI when channel event fires', async ({ page }) => {
+  // Listen to console logs from the page
+  page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+  
   const orderId = 'rt-order-1';
   const currentOrder: any = {
     id: orderId,
@@ -18,6 +21,7 @@ test('realtime order update refreshes UI when channel event fires', async ({ pag
   // Stub initial fetch
   await page.route(`**/api/orders/${orderId}`, async (route) => {
     // Always return currentOrder snapshot
+    console.log('API call to /api/orders/' + orderId + ', returning state:', currentOrder.state);
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(currentOrder) });
   });
   await page.route(`**/api/shipments/${orderId}/events`, r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ events: [] }) }));
@@ -26,12 +30,28 @@ test('realtime order update refreshes UI when channel event fires', async ({ pag
   await page.addInitScript(() => {
     (window as any).__TEST_CHANNEL_LISTENERS__ = {};
     (window as any).__TEST_OVERRIDE_SUPABASE_CHANNEL = (name: string) => {
+      console.log('Creating test channel for:', name);
       const listeners: any[] = [];
-      return {
-        on: (_evt: any, _filter: any, cb: any) => { listeners.push(cb); return { subscribe: () => ({ unsubscribe(){} }) } as any; },
+      const channelObj = {
+        on: (_evt: any, _filter: any, cb: any) => { 
+          console.log('Registering listener for event:', _evt);
+          listeners.push(cb); 
+          return channelObj; // Return the channel object for method chaining
+        },
         subscribe: () => ({ unsubscribe(){} }),
-        __fire: () => { listeners.forEach(cb => cb({})); }
-      } as any;
+        __fire: async () => { 
+          console.log('Firing event to', listeners.length, 'listeners');
+          for (const cb of listeners) {
+            console.log('Calling callback...');
+            try {
+              await cb({}); // Await the async callback
+            } catch (error) {
+              console.error('Error in callback:', error);
+            }
+          }
+        }
+      };
+      return channelObj;
     };
   });
 
@@ -48,10 +68,21 @@ test('realtime order update refreshes UI when channel event fires', async ({ pag
 
   // Allow subscribe to attach; verify latest channel is present
   await page.waitForFunction(() => Boolean((window as any).__LATEST_SUPABASE_CHANNEL__), undefined, { timeout: 2000 });
-  await page.evaluate(() => {
+  
+  // Fire the realtime event and wait for the callback to process
+  await page.evaluate(async () => {
     const ch = (window as any).__LATEST_SUPABASE_CHANNEL__;
-    if (ch && ch.__fire) ch.__fire();
+    console.log('Channel object:', ch);
+    if (ch && ch.__fire) {
+      console.log('Firing realtime event...');
+      await ch.__fire();
+    } else {
+      console.log('No channel or __fire method available');
+    }
   });
+
+  // Wait for the refetch to happen - we should see another API call
+  await page.waitForResponse('**/api/orders/rt-order-1', { timeout: 5000 });
 
   // Expect UI to reflect new state after handler refetches
   await expect(page.locator('span.inline-block', { hasText: 'Delivered' }).first()).toBeVisible();
