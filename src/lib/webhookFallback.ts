@@ -176,14 +176,43 @@ export class WebhookFallbackManager {
         } catch (error) {
           console.error(`Error polling order ${orderId}:`, error);
           
+          // Detect specific error types for better handling
+          const isTimeout = error && (error.isTimeout || error.code === 'TIMEOUT');
+          const isNetworkChange = error && (error.isNetworkChange || error.code === 'NETWORK_CHANGE');
+          const isNetworkError = error && (error.isNetworkError || error.code === 'NETWORK_ERROR');
+          
           // Check if we should retry on error
           const elapsed = Date.now() - startTime;
           if (attempts < maxPollingAttempts && elapsed < maxTotalDuration) {
             const errorObj = new Error(mapApiErrorToMessage(error));
+            
+            // Notify of specific error types
+            if (isTimeout) {
+              notifyWebhookFailure(orderId, error, {
+                showPolling: true,
+                isTimeout: true
+              });
+            } else if (isNetworkChange || isNetworkError) {
+              notifyNetworkError(error, {
+                context: `Order ${orderId} polling`,
+                showPolling: true,
+                isRetryable: true
+              });
+            }
+            
             onError?.(errorObj);
             
-            // Schedule retry with longer delay
-            const retryDelay = Math.min(currentInterval * 2, 15000); // Max 15 seconds
+            // Adjust retry delay based on error type
+            let retryDelay = Math.min(currentInterval * 2, 15000); // Max 15 seconds
+            
+            if (isNetworkChange) {
+              // Shorter delay for network changes, as they might recover quickly
+              retryDelay = Math.min(retryDelay * 0.5, 5000);
+            } else if (isTimeout) {
+              // Longer delay for timeouts
+              retryDelay = Math.min(retryDelay * 1.5, 20000);
+            }
+            
             const timeoutId = setTimeout(poll, retryDelay);
             this.activePollers.set(orderId, timeoutId);
           } else {
@@ -191,6 +220,20 @@ export class WebhookFallbackManager {
             const elapsed = Date.now() - startTime;
             const reason = attempts >= maxPollingAttempts ? 'maximum attempts' : 'maximum duration';
             const finalError = new Error(`Failed to get order status after ${attempts} attempts (${elapsed}ms elapsed, stopped due to ${reason}): ${mapApiErrorToMessage(error)}`);
+            
+            // Final error notification
+            if (isTimeout) {
+              notifyWebhookFailure(orderId, finalError, {
+                showRetry: false,
+                isTimeout: true
+              });
+            } else if (isNetworkError || isNetworkChange) {
+              notifyNetworkError(finalError, {
+                context: `Order ${orderId} final polling failure`,
+                isRetryable: false
+              });
+            }
+            
             onError?.(finalError);
             resolve({
               success: false,
@@ -215,6 +258,14 @@ export class WebhookFallbackManager {
       clearTimeout(timeoutId);
       this.activePollers.delete(orderId);
     }
+    
+    // Clean up network change listener
+    const networkCleanup = this.networkChangeListeners.get(orderId);
+    if (networkCleanup) {
+      networkCleanup();
+      this.networkChangeListeners.delete(orderId);
+    }
+    
     this.pollingAttempts.delete(orderId);
     this.pollingStartTimes.delete(orderId);
   }
@@ -227,6 +278,13 @@ export class WebhookFallbackManager {
       clearTimeout(timeoutId);
     });
     this.activePollers.clear();
+    
+    // Clean up all network change listeners
+    this.networkChangeListeners.forEach((cleanup) => {
+      cleanup();
+    });
+    this.networkChangeListeners.clear();
+    
     this.pollingAttempts.clear();
     this.pollingStartTimes.clear();
   }
@@ -272,8 +330,11 @@ export async function checkOrderStatusWithFallback(
   options: WebhookFallbackOptions = {}
 ): Promise<{ order: OrderStatus; fromPolling: boolean }> {
   try {
-    // First, try to get current status
-    const response = await safeFetch(`/api/orders/${orderId}`);
+    // First, try to get current status with enhanced timeout detection
+    const response = await safeFetch(`/api/orders/${orderId}`, {
+      timeout: 10000, // 10s timeout for status checks
+      retryOnNetworkChange: true
+    });
     
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
