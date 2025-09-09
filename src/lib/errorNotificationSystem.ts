@@ -1,4 +1,4 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import { mapApiErrorToMessage, categorizePaymentError, type PaymentErrorInfo } from './errors';
 
 export interface ErrorNotification {
@@ -385,31 +385,27 @@ class ErrorNotificationManager {
     paymentErrors: number;
     persistent: number;
   } {
-    let stats = {
-      total: 0,
+    // Get current notifications synchronously using Svelte's get() function
+    const notifications = get(errorNotifications);
+    
+    const stats = {
+      total: notifications.length,
       byType: {} as Record<string, number>,
       paymentErrors: 0,
       persistent: 0
     };
 
-    errorNotifications.subscribe(notifications => {
-      stats.total = notifications.length;
-      stats.byType = {};
-      stats.paymentErrors = 0;
-      stats.persistent = 0;
-
-      notifications.forEach(notification => {
-        stats.byType[notification.type] = (stats.byType[notification.type] || 0) + 1;
-        
-        if ('paymentInfo' in notification) {
-          stats.paymentErrors++;
-        }
-        
-        if (notification.persistent) {
-          stats.persistent++;
-        }
-      });
-    })();
+    notifications.forEach(notification => {
+      stats.byType[notification.type] = (stats.byType[notification.type] || 0) + 1;
+      
+      if ('paymentInfo' in notification) {
+        stats.paymentErrors++;
+      }
+      
+      if (notification.persistent) {
+        stats.persistent++;
+      }
+    });
 
     return stats;
   }
