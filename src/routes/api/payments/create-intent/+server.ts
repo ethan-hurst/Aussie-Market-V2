@@ -46,13 +46,44 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 
 		// Verify user is the buyer
 		if (order.buyer_id !== user.id) {
-			return json({ error: 'Unauthorized' }, { status: 403 });
+			return json({ error: 'Unauthorized access to order' }, { status: 403 });
 		}
 
 		// Check if order is in unpaid state (support both legacy 'pending' and 'pending_payment')
 		const isUnpaid = order.state === 'pending' || order.state === 'pending_payment';
 		if (!isUnpaid) {
-			return json({ error: 'Order cannot be paid for' }, { status: 400 });
+			return json({ error: `Order cannot be paid for in current state: ${order.state}` }, { status: 400 });
+		}
+
+		// Validate payment amount matches order amount
+		if (amount !== order.amount_cents) {
+			return json({ error: 'Payment amount does not match order amount' }, { status: 400 });
+		}
+
+		// Check if payment intent already exists for this order (idempotency)
+		if (order.stripe_payment_intent_id) {
+			// Verify existing payment intent with Stripe
+			try {
+				const existingIntent = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id);
+				
+				if (existingIntent.status === 'succeeded') {
+					return json({ error: 'Order has already been paid' }, { status: 400 });
+				}
+				
+				if (existingIntent.status === 'canceled') {
+					// Can create new intent for canceled ones
+					console.log('Previous payment intent was canceled, creating new one');
+				} else if (existingIntent.amount === amount) {
+					// Return existing intent if amount matches
+					return json({
+						clientSecret: existingIntent.client_secret,
+						paymentIntentId: existingIntent.id
+					});
+				}
+			} catch (stripeError) {
+				// If we can't retrieve the intent, continue to create a new one
+				console.log('Could not retrieve existing payment intent, creating new one');
+			}
 		}
 
 		// Create Stripe Payment Intent

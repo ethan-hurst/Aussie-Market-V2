@@ -49,7 +49,20 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 		
 		if (paymentIntent.status !== 'succeeded') {
-			return json({ error: 'Payment not completed' }, { status: 400 });
+			console.log(`Payment intent ${paymentIntentId} has status: ${paymentIntent.status}`);
+			return json({ 
+				error: `Payment not completed - status: ${paymentIntent.status}`,
+				paymentStatus: paymentIntent.status 
+			}, { status: 400 });
+		}
+
+		// Additional security validations
+		if (paymentIntent.metadata.order_id !== orderId) {
+			return json({ error: 'Payment intent does not match order' }, { status: 400 });
+		}
+
+		if (paymentIntent.amount !== order.amount_cents) {
+			return json({ error: 'Payment amount does not match order' }, { status: 400 });
 		}
 
 		// Use database transaction for atomic payment confirmation
@@ -73,12 +86,22 @@ export const POST: RequestHandler = async ({ request, locals, url }) => {
 		}
 
 		// Send notifications
-		await notifyOrderPaid(orderId, order.buyer_id, order.seller_id);
+		try {
+			await notifyOrderPaid(orderId, order.buyer_id, order.seller_id);
+		} catch (notificationError) {
+			console.error('Failed to send payment notifications:', notificationError);
+			// Don't fail the payment confirmation for notification errors
+		}
+
+		// Log successful payment for audit trail
+		console.log(`Payment confirmed successfully: Order ${orderId}, Payment Intent ${paymentIntentId}, User ${user.id}, Amount ${order.amount_cents}`);
 
 		return json({ 
 			success: true, 
 			message: 'Payment confirmed successfully',
-			orderState: 'paid'
+			orderState: 'paid',
+			paymentIntentId: paymentIntentId,
+			timestamp: new Date().toISOString()
 		});
 	} catch (error) {
 		// Handle authentication errors gracefully

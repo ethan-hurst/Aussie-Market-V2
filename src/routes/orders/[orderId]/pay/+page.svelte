@@ -120,6 +120,11 @@
 			pollOrderStatus(order.id, {
 				onStatusUpdate: (updatedOrder) => {
 					console.log('Order status updated:', updatedOrder.state);
+					// Update local order state if needed
+					if (updatedOrder.state === 'paid') {
+						order = { ...order, ...updatedOrder };
+						toastSuccess('Order fulfillment has started!');
+					}
 				},
 				onError: (pollingError) => {
 					console.error('Polling error:', pollingError);
@@ -129,15 +134,24 @@
 				},
 				onComplete: (finalOrder) => {
 					console.log('Order polling completed:', finalOrder.state);
+					// Ensure we have the final order state
+					if (finalOrder.state === 'paid') {
+						order = { ...order, ...finalOrder };
+					}
 				}
 			});
 			
-			// Redirect to order details after a short delay
+			// Show success message with next steps
+			setTimeout(() => {
+				toastSuccess('The seller has been notified to prepare your item for shipping.');
+			}, 1500);
+			
+			// Redirect to order details after a longer delay to show messages
 			setTimeout(() => {
 				if (order) {
-					goto(`/orders/${order.id}`);
+					goto(`/orders/${order.id}?payment=success`);
 				}
-			}, 2000);
+			}, 3500);
 			
 		} catch (err) {
 			error = mapApiErrorToMessage(err);
@@ -269,6 +283,68 @@
 				}
 			}}
 		/>
+		
+		{#if paymentStatus === 'succeeded' && order}
+			<!-- Success Summary Card -->
+			<div class="mt-6 bg-green-50 border border-green-200 rounded-lg p-6">
+				<div class="flex items-center">
+					<svg class="h-8 w-8 text-green-600 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+					</svg>
+					<div class="flex-1">
+						<h3 class="text-lg font-semibold text-green-800">Payment Successful!</h3>
+						<p class="text-green-700 mt-1">Your payment of {formatPrice(order.amount_cents)} has been processed.</p>
+					</div>
+				</div>
+				
+				<!-- Next Steps -->
+				<div class="mt-6 border-t border-green-200 pt-4">
+					<h4 class="text-md font-medium text-green-800 mb-3">What happens next?</h4>
+					<ul class="space-y-2 text-green-700 text-sm">
+						<li class="flex items-center">
+							<svg class="h-4 w-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+							</svg>
+							The seller has been notified of your payment
+						</li>
+						<li class="flex items-center">
+							<svg class="h-4 w-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+							</svg>
+							Your item will be prepared for shipping
+						</li>
+						<li class="flex items-center">
+							<svg class="h-4 w-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+							</svg>
+							You'll receive tracking information once shipped
+						</li>
+						<li class="flex items-center">
+							<svg class="h-4 w-4 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+							</svg>
+							Funds will be released to the seller after delivery
+						</li>
+					</ul>
+				</div>
+				
+				<!-- Action Buttons -->
+				<div class="mt-6 flex flex-col sm:flex-row gap-3">
+					<button
+						class="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200"
+						on:click={() => goto(`/orders/${order.id}`)}
+					>
+						View Order Details
+					</button>
+					<button
+						class="flex-1 bg-white hover:bg-gray-50 text-green-700 border border-green-300 font-medium py-2 px-4 rounded-lg transition duration-200"
+						on:click={() => goto('/orders')}
+					>
+						View All Orders
+					</button>
+				</div>
+			</div>
+		{/if}
 	{:else if order}
 		<div class="bg-white shadow-lg rounded-lg overflow-hidden">
 			<!-- Header -->
@@ -303,14 +379,73 @@
 					</div>
 				</div>
 
+				<!-- Payment Method Selection -->
+				<div class="space-y-4 mb-6">
+					<h3 class="text-lg font-semibold text-gray-900">Payment Method</h3>
+					<div class="grid grid-cols-1 gap-4">
+						<!-- Credit/Debit Card -->
+						<div class="relative">
+							<input 
+								type="radio" 
+								id="payment-card" 
+								name="payment-method" 
+								value="card" 
+								checked 
+								class="sr-only peer"
+							/>
+							<label 
+								for="payment-card" 
+								class="flex items-center p-4 bg-white border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 peer-checked:border-blue-600 peer-checked:bg-blue-50"
+							>
+								<div class="flex items-center">
+									<svg class="w-6 h-6 text-gray-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+									</svg>
+									<div>
+										<p class="font-medium text-gray-900">Credit or Debit Card</p>
+										<p class="text-sm text-gray-500">Visa, Mastercard, American Express</p>
+									</div>
+								</div>
+							</label>
+						</div>
+						
+						<!-- Bank Transfer (Coming Soon) -->
+						<div class="relative opacity-60">
+							<input 
+								type="radio" 
+								id="payment-bank" 
+								name="payment-method" 
+								value="bank" 
+								disabled 
+								class="sr-only peer"
+							/>
+							<label 
+								for="payment-bank" 
+								class="flex items-center p-4 bg-white border-2 border-gray-200 rounded-lg cursor-not-allowed"
+							>
+								<div class="flex items-center">
+									<svg class="w-6 h-6 text-gray-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+									</svg>
+									<div>
+										<p class="font-medium text-gray-600">Bank Transfer</p>
+										<p class="text-sm text-gray-400">Coming Soon - Direct bank transfer</p>
+									</div>
+								</div>
+								<span class="ml-auto bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded">Soon</span>
+							</label>
+						</div>
+					</div>
+				</div>
+
 				<!-- Payment Form -->
 				<form on:submit|preventDefault={handlePayment} class="space-y-6">
 					<!-- Card Details -->
-					<div>
+					<div id="card-payment-section">
 						<label for="card-element" class="block text-sm font-medium text-gray-700 mb-2">
 							Card Information
 						</label>
-						<div id="card-element" class="border border-gray-300 rounded-md p-3 bg-white"></div>
+						<div id="card-element" class="border border-gray-300 rounded-md p-3 bg-white transition-colors focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500"></div>
 						<p class="mt-2 text-sm text-gray-500">
 							Your payment information is secure and encrypted
 						</p>

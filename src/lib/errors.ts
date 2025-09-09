@@ -55,13 +55,15 @@ function normalize(message: string): string {
   
   // Network and connectivity errors
   if (m.includes('network') || m.includes('fetch') || m.includes('connection')) return 'Network error. Check your connection and try again.';
-  if (m.includes('timeout')) return 'Request timed out. Please try again.';
+  if (m.includes('timeout') || m.includes('timed out')) return 'Connection timed out. Please try again.';
   if (m.includes('offline') || m.includes('no internet')) return 'You appear to be offline. Please check your internet connection.';
+  if (m.includes('dns resolution')) return 'Network connection failed. Please check your internet connection.';
   
   // Rate limiting
   if (m.includes('rate limit') || m.includes('too many requests')) return 'Too many requests. Please wait a moment and try again.';
   
   // Generic webhook and processing errors
+  if (m.includes('webhook timeout') || (m.includes('webhook') && m.includes('timeout'))) return 'Payment processing timed out. Please check your order status.';
   if (m.includes('webhook') || m.includes('processing')) return 'Payment processing is taking longer than expected. Please check your order status.';
   
   return capitalize(message);
@@ -163,16 +165,50 @@ export function categorizePaymentError(error: ApiErrorInput): PaymentErrorInfo {
   const checkMessage = (msg: string) => 
     originalMessage.includes(msg) || errorMessage.includes(msg) || mappedMessage.includes(msg);
   
-  // Stripe-specific errors (enhanced detection)
+  // Stripe-specific errors (enhanced detection with more patterns)
   if (checkMessage('your card was declined') || checkMessage('card_declined') || 
       checkMessage('insufficient_funds') || checkMessage('card declined') ||
       checkMessage('expired_card') || checkMessage('invalid_card_number') ||
-      checkMessage('incorrect_cvc') || checkMessage('card_error')) {
+      checkMessage('incorrect_cvc') || checkMessage('card_error') ||
+      checkMessage('expired card') || checkMessage('invalid card') ||
+      checkMessage('cvc check failed') || checkMessage('card has expired') ||
+      checkMessage('authentication_required') || checkMessage('3d_secure') ||
+      checkMessage('payment_intent_authentication_failure') ||
+      checkMessage('card security code') || checkMessage('security code is incorrect') ||
+      checkMessage('authentication_failure') || checkMessage('3d secure authentication') ||
+      checkMessage('authentication failed')) {
     return {
       type: 'card_error',
       userMessage: mapApiErrorToMessage(error),
       canRetry: false,
       requiresNewPayment: true,
+      shouldContactSupport: false
+    };
+  }
+  
+  // Payment authentication timeout - specific processing error  
+  if (checkMessage('payment authentication timed out') || 
+      (checkMessage('authentication') && checkMessage('timed out') && !checkMessage('network'))) {
+    return {
+      type: 'processing_error',
+      userMessage: mapApiErrorToMessage(error),
+      canRetry: true,
+      requiresNewPayment: false,
+      shouldContactSupport: true
+    };
+  }
+  
+  // Network and connectivity errors (enhanced) - Check before webhook errors
+  if (checkMessage('network') || checkMessage('connection') || checkMessage('timeout') ||
+      checkMessage('fetch') || checkMessage('cors') || checkMessage('offline') ||
+      checkMessage('net::') || checkMessage('failed to fetch') ||
+      checkMessage('connection timeout') || checkMessage('network error') ||
+      (checkMessage('timed out') && !checkMessage('payment'))) {
+    return {
+      type: 'network_error',
+      userMessage: mapApiErrorToMessage(error),
+      canRetry: true,
+      requiresNewPayment: false,
       shouldContactSupport: false
     };
   }
@@ -185,19 +221,6 @@ export function categorizePaymentError(error: ApiErrorInput): PaymentErrorInfo {
       canRetry: true,
       requiresNewPayment: false,
       shouldContactSupport: true
-    };
-  }
-  
-  // Network and connectivity errors (enhanced)
-  if (checkMessage('network') || checkMessage('connection') || checkMessage('timeout') ||
-      checkMessage('fetch') || checkMessage('cors') || checkMessage('offline') ||
-      checkMessage('net::') || checkMessage('failed to fetch')) {
-    return {
-      type: 'network_error',
-      userMessage: mapApiErrorToMessage(error),
-      canRetry: true,
-      requiresNewPayment: false,
-      shouldContactSupport: false
     };
   }
   
